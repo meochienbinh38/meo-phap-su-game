@@ -22,17 +22,24 @@
             --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px);
             --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px);
         }
-        html { width: 100%; height: 100%; background: #0f172a; }
+        html { width: 100%; height: 100%; background: #05070d; }
         body {
             margin: 0; padding: 0; position: fixed; inset: 0; width: 100%; height: 100%;
-            background: var(--bg); color: #f8fafc; font-family: 'Nunito', sans-serif;
+            background: radial-gradient(circle at center, #0b1220 0%, #05070d 75%); color: #f8fafc; font-family: 'Nunito', sans-serif;
             overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: none;
             overscroll-behavior: none; -webkit-tap-highlight-color: transparent;
         }
         .tf { font-family: 'Oswald', sans-serif; }
 
         /* dùng 100% (body đã fixed inset:0) + dvh fallback để full màn hình trên di động */
-        #wrap { width: 100%; height: 100%; height: 100dvh; position: relative; display: flex; }
+        /* ===== KHUNG GAME: #screen = vùng an toàn, #stage = khung thiết kế cố định scale vừa khít ===== */
+        #screen { position: absolute; top: var(--st); left: var(--sl); right: var(--sr); bottom: var(--sb); overflow: hidden; }
+        #stage {
+            position: absolute; left: 50%; top: 50%; width: 900px; height: 410px;
+            transform: translate(-50%, -50%) scale(1); transform-origin: center center;
+            box-shadow: 0 0 40px rgba(0,0,0,0.6); border-radius: 4px; overflow: hidden;
+        }
+        #wrap { width: 100%; height: 100%; position: relative; display: flex; }
 
         /* Rotate hint: shown only when phone is held in portrait (keeps pointer mapping correct) */
         #rot { position: fixed; inset: 0; z-index: 9999; background: #030712; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
@@ -42,12 +49,11 @@
         }
 
         #side {
-            width: 86px; height: 100%; background: var(--panel); border-right: 2px solid var(--bord);
-            display: flex; flex-direction: column; z-index: 10; padding-left: var(--sl); padding-top: var(--st);
-            box-sizing: border-box; box-shadow: 2px 0 20px rgba(0,0,0,0.9);
+            width: 84px; height: 100%; background: var(--panel); border-right: 2px solid var(--bord);
+            display: flex; flex-direction: column; z-index: 10; box-sizing: border-box; box-shadow: 2px 0 20px rgba(0,0,0,0.9);
         }
 
-        #main { flex: 1; display: flex; flex-direction: column; position: relative; height: 100%; padding-right: var(--sr); padding-top: var(--st); box-sizing: border-box; }
+        #main { flex: 1; display: flex; flex-direction: column; position: relative; height: 100%; box-sizing: border-box; min-width: 0; }
 
         #hud {
             height: 50px; background: rgba(3, 7, 18, 0.95); border-bottom: 2px solid var(--bord);
@@ -86,11 +92,11 @@
         #umod {
             background: rgba(15,23,42,0.97); border: 1px solid #475569; backdrop-filter: blur(5px);
             box-shadow: 0 10px 30px rgba(0,0,0,0.9); border-radius: 12px;
-            left: 50%; transform: translateX(-50%); bottom: calc(12px + var(--sb));
+            left: 50%; transform: translateX(-50%); bottom: 10px;
         }
 
         #ult {
-            position: absolute; bottom: calc(15px + var(--sb)); right: 15px; width: 58px; height: 58px; border-radius: 50%;
+            position: absolute; bottom: 14px; right: 14px; width: 56px; height: 56px; border-radius: 50%;
             background: radial-gradient(circle, #ef4444 0%, #991b1b 100%); border: 2px solid #fca5a5;
             box-shadow: 0 0 15px rgba(239,68,68,0.5); display: flex; flex-direction: column;
             align-items: center; justify-content: center; z-index: 20; cursor: pointer; transition: transform 0.1s;
@@ -100,7 +106,7 @@
         .ult-msk { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.7); transition: height 0.1s linear; border-radius: 50%; }
 
         /* Floating control cluster (pause / speed / sound / fullscreen) */
-        #ctrls { position: absolute; top: max(8px, var(--st)); right: max(8px, var(--sr)); z-index: 22; display: flex; flex-direction: column; gap: 6px; }
+        #ctrls { position: absolute; top: 8px; right: 8px; z-index: 22; display: flex; flex-direction: column; gap: 6px; }
         .c-btn {
             width: 34px; height: 34px; border-radius: 9px; background: rgba(2,6,23,0.85);
             border: 1px solid #334155; color: #e2e8f0; font-size: 15px; display: flex; align-items: center; justify-content: center;
@@ -118,7 +124,7 @@
         ::-webkit-scrollbar { display: none; }
 
         /* Pause / overlay panels */
-        .overlay { position: fixed; inset: 0; z-index: 60; background: rgba(2,6,23,0.85); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 16px; }
+        .overlay { position: absolute; inset: 0; z-index: 60; background: rgba(2,6,23,0.85); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 16px; }
         .overlay.show { display: flex; }
         .ov-card { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 20px; width: 100%; max-width: 360px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
         .ov-btn { width: 100%; padding: 12px; border-radius: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; transition: transform 0.1s; }
@@ -132,12 +138,9 @@
         @keyframes floatIn { from { opacity: 0; transform: translateY(10px) scale(0.96); } to { opacity: 1; transform: none; } }
         .pop { animation: floatIn 0.25s ease-out; }
 
-        /* Menu: safe-area + 'safe center' để không bị cắt mất phần trên khi nội dung cao hơn màn hình */
-        #start {
-            padding: max(10px, var(--st)) max(10px, var(--sr)) max(10px, var(--sb)) max(10px, var(--sl));
-            align-items: safe center;
-        }
-        #tmod { padding-left: max(8px, var(--sl)); padding-right: max(8px, var(--sr)); align-items: safe center; }
+        /* Menu nằm trong khung -> chỉ cần padding cố định, không lo bị cắt */
+        #start { padding: 10px; align-items: safe center; }
+        #tmod { padding: 8px; align-items: safe center; }
     </style>
 </head>
 <body>
@@ -149,8 +152,11 @@
     <p class="text-slate-400 text-sm">Game chơi ở chế độ nằm ngang để có trải nghiệm tốt nhất</p>
 </div>
 
+<!-- KHUNG GAME: vùng an toàn + sân khấu thiết kế cố định -->
+<div id="screen"><div id="stage">
+
 <!-- Start screen -->
-<div id="start" class="fixed inset-0 bg-slate-900/95 z-[100] flex flex-col items-center justify-start p-4 overflow-y-auto">
+<div id="start" class="absolute inset-0 bg-slate-900/95 z-[100] flex flex-col items-center justify-start p-4 overflow-y-auto">
     <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden my-auto" id="s-card">
         <div class="p-3 sm:p-4 text-center bg-slate-900 border-b border-slate-700 relative overflow-hidden">
             <h1 class="tf text-2xl sm:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-500 drop-shadow-md uppercase font-black relative z-10">
@@ -260,7 +266,7 @@
 </div>
 
 <!-- Talents modal -->
-<div id="tmod" class="hidden fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-2">
+<div id="tmod" class="hidden absolute inset-0 bg-black/95 z-50 flex items-center justify-center p-2">
     <div class="bg-slate-800 w-full max-w-lg rounded-xl border border-indigo-500/50 p-4 flex flex-col max-h-[90vh] shadow-[0_0_30px_rgba(79,70,229,0.3)]">
         <div class="flex justify-between items-center mb-3"><h2 class="tf text-2xl text-indigo-400 tracking-widest uppercase font-black">Nội Tại Vĩnh Viễn</h2><button id="b-cls-t" class="text-2xl text-slate-400 hover:text-white">✕</button></div>
         <div class="bg-slate-900 rounded-lg p-2 mb-3 flex justify-between items-center border border-slate-700"><span class="text-xs text-slate-400">Điểm Nâng Cấp (SP):</span><span class="tf text-2xl font-black text-yellow-400" id="tp-d">0</span></div>
@@ -279,6 +285,8 @@
         <button id="b-quit" class="ov-btn bg-slate-700 text-slate-200 border border-slate-600 mt-2">Về Menu</button>
     </div>
 </div>
+
+</div></div><!-- /#stage /#screen -->
 
 <script>
 /**
@@ -984,7 +992,7 @@ class ProjLin {
     }
     update(dt) {
         this.x += this.db.pSpeed * dt;
-        if (this.x > window.innerWidth + 100) { this.a = false; return; }
+        if (this.x > (State.designW || 1000) + 100) { this.a = false; return; }
 
         if (this.p) Engine.spawnParticles(this.x, this.y, '#34d399', 1, 10, 2);
 
@@ -1081,26 +1089,51 @@ const Engine = {
         this.resize(); window.addEventListener('resize', () => this.resize());
         window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 200));
         this.inputs();
-        setTimeout(() => {
-            try { let r = document.getElementById('ui-g-c').getBoundingClientRect(); if (r && r.left > 0) { State.ui.goldUiX = r.left + 20; State.ui.goldUiY = r.top + 20; } } catch (e) {}
-        }, 500);
+        setTimeout(() => this.updateGoldUi(), 500);
     },
 
     // alias kept for any legacy call sites
     spawnParts(x, y, c, n, spd, sz) { this.spawnParticles(x, y, c, n, spd, sz); },
 
-    resize() {
-        const cont = document.getElementById('canv-cont'); const dpr = window.devicePixelRatio || 1; const rect = cont.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) return;
-        this.canvas.width = rect.width * dpr; this.canvas.height = rect.height * dpr;
-        this.ctx.setTransform(1, 0, 0, 1, 0, 0); this.ctx.scale(dpr, dpr);
-        this.canvas.style.width = `${rect.width}px`; this.canvas.style.height = `${rect.height}px`;
+    DW: 900, DH: 410,   // độ phân giải thiết kế của khung game
 
-        let sh = rect.height / CFG.rows, sw = rect.width / CFG.cols;
-        State.grid.size = Math.min(sh, sw); if (State.grid.size > 200) State.grid.size = 200;   // bỏ trần thấp để bàn cờ lấp đầy chiều cao (hết dải đen trên/dưới)
-        State.grid.cols = Math.floor(rect.width / State.grid.size);
-        State.grid.offsetX = (rect.width - (State.grid.cols * State.grid.size)) / 2;
-        State.grid.offsetY = (rect.height - (CFG.rows * State.grid.size)) / 2;
+    resize() {
+        // 1) Scale khung game vừa khít vùng an toàn của màn hình (giữ nguyên tỉ lệ)
+        const screen = document.getElementById('screen');
+        const sw0 = screen.clientWidth || window.innerWidth, sh0 = screen.clientHeight || window.innerHeight;
+        const s = Math.max(0.1, Math.min(sw0 / this.DW, sh0 / this.DH));
+        const stage = document.getElementById('stage');
+        if (stage) stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+        State.stageScale = s;
+
+        // 2) Canvas vẽ theo TOẠ ĐỘ THIẾT KẾ (cố định) -> bố cục đồng nhất mọi máy; backing = thiết kế × dpr × s để nét
+        const cont = document.getElementById('canv-cont'); const dpr = window.devicePixelRatio || 1;
+        const cw = cont.clientWidth, ch = cont.clientHeight;     // px thiết kế (không bị transform ảnh hưởng)
+        if (cw === 0 || ch === 0) return;
+        this.canvas.width = Math.round(cw * dpr * s); this.canvas.height = Math.round(ch * dpr * s);
+        this.ctx.setTransform(dpr * s, 0, 0, dpr * s, 0, 0);     // toạ độ vẽ = px thiết kế (0..cw, 0..ch)
+
+        let shc = ch / CFG.rows, swc = cw / CFG.cols;
+        State.grid.size = Math.min(shc, swc);
+        State.grid.cols = Math.floor(cw / State.grid.size);
+        State.grid.offsetX = (cw - (State.grid.cols * State.grid.size)) / 2;
+        State.grid.offsetY = (ch - (CFG.rows * State.grid.size)) / 2;
+        State.designW = cw; State.designH = ch;
+
+        this.updateGoldUi();
+    },
+
+    // Mục tiêu vàng bay: quy về toạ độ thiết kế của canvas
+    updateGoldUi() {
+        try {
+            const cr = this.canvas.getBoundingClientRect();
+            const gr = document.getElementById('ui-g-c').getBoundingClientRect();
+            if (cr.width > 0 && gr.width > 0) {
+                const fx = this.canvas.clientWidth / cr.width, fy = this.canvas.clientHeight / cr.height;
+                State.ui.goldUiX = (gr.left + gr.width / 2 - cr.left) * fx;
+                State.ui.goldUiY = (gr.top + gr.height / 2 - cr.top) * fy;
+            }
+        } catch (e) {}
     },
 
     spawnText(x, y, t, c, cr) { State.floatTexts.push({ x, y, vx: (Math.random() - 0.5) * 40, vy: -40 - Math.random() * 30, t: cr ? t + "!" : t, c: cr ? '#f87171' : c, s: cr ? 18 : 12, l: 1, ml: 1 }); },
@@ -1147,7 +1180,7 @@ const Engine = {
                 if (State.ultCd <= 0) { document.getElementById('ult').classList.remove('cd'); document.getElementById('u-msk').style.height = '0%'; }
             }
 
-            let w = window.innerWidth, h = window.innerHeight;
+            let w = State.designW || 900, h = State.designH || 360;
             State.weather.forEach(f => {
                 if (MAPS[State.mapId].weather === 'rain') { f.y += f.vy * dt; if (f.y > h) { f.y = -20; f.x = Math.random() * w; } }
                 if (MAPS[State.mapId].weather === 'embers') { f.y += f.vy * dt; f.x += f.vx * dt; f.l -= dt * 0.2; if (f.l <= 0) { f.y = h + 20; f.x = Math.random() * w; f.l = 1.0; } }
@@ -1204,7 +1237,8 @@ const Engine = {
 
     draw() {
         let ctx = this.ctx; if (!ctx) return; let t = performance.now();
-        let w = this.canvas.width / (window.devicePixelRatio || 1); let h = this.canvas.height / (window.devicePixelRatio || 1);
+        let w = State.designW || (this.canvas.width / ((window.devicePixelRatio || 1) * (State.stageScale || 1)));
+        let h = State.designH || (this.canvas.height / ((window.devicePixelRatio || 1) * (State.stageScale || 1)));
         ctx.clearRect(0, 0, w, h);
 
         ctx.save(); if (State.shake > 0) ctx.translate((Math.random() - 0.5) * State.shake, (Math.random() - 0.5) * State.shake);
@@ -1299,7 +1333,9 @@ const Engine = {
             if (!State.running || State.paused) return;
             e.preventDefault();
             Sound.resume();
-            let rect = this.canvas.getBoundingClientRect(); let x = e.clientX - rect.left; let y = e.clientY - rect.top;
+            let rect = this.canvas.getBoundingClientRect();
+            let fx = this.canvas.clientWidth / rect.width, fy = this.canvas.clientHeight / rect.height;   // bù scale của khung
+            let x = (e.clientX - rect.left) * fx; let y = (e.clientY - rect.top) * fy;
             let c = Math.floor((x - State.grid.offsetX) / State.grid.size); let ro = Math.floor((y - State.grid.offsetY) / State.grid.size);
 
             if (c >= 0 && c < State.grid.cols && ro >= 0 && ro < CFG.rows) {
