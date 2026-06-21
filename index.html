@@ -138,6 +138,17 @@
         @keyframes floatIn { from { opacity: 0; transform: translateY(10px) scale(0.96); } to { opacity: 1; transform: none; } }
         .pop { animation: floatIn 0.25s ease-out; }
 
+        /* Thanh thông báo cập nhật (ngoài khung, luôn nổi trên cùng) */
+        #updbar {
+            position: fixed; top: calc(8px + var(--st)); left: 50%; transform: translateX(-50%); z-index: 10000;
+            display: none; align-items: center; gap: 10px; padding: 8px 12px;
+            background: linear-gradient(180deg, #1e293b, #0f172a); border: 1px solid #3b82f6; border-radius: 10px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.7); font-size: 13px; font-weight: 700; color: #e2e8f0; max-width: 92vw;
+        }
+        #updbar.show { display: flex; }
+        #updbar button { background: linear-gradient(180deg,#3b82f6,#2563eb); color:#fff; border:none; border-radius:7px; padding:5px 12px; font-weight:900; }
+        #updbar .x { color:#94a3b8; padding:0 4px; }
+
         /* Menu nằm trong khung -> chỉ cần padding cố định, không lo bị cắt */
         #start { padding: 10px; align-items: safe center; }
         #tmod { padding: 8px; align-items: safe center; }
@@ -150,6 +161,13 @@
     <div class="text-6xl mb-4 animate-pulse">📱 ➡️ 🖥️</div>
     <h2 class="tf text-3xl text-blue-400 uppercase tracking-widest mb-2">Xoay ngang thiết bị</h2>
     <p class="text-slate-400 text-sm">Game chơi ở chế độ nằm ngang để có trải nghiệm tốt nhất</p>
+</div>
+
+<!-- Thanh thông báo có bản mới -->
+<div id="updbar">
+    <span>✨ Đã có bản mới (v<span id="upd-ver">?</span>)</span>
+    <button id="b-do-update">Cập nhật</button>
+    <span class="x" id="upd-x">✕</span>
 </div>
 
 <!-- KHUNG GAME: vùng an toàn + sân khấu thiết kế cố định -->
@@ -187,6 +205,7 @@
                 </button>
                 <button id="b-install" class="hidden w-full bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl font-bold text-sm border border-slate-500 active:scale-95 transition">📥 Cài đặt vào màn hình chính</button>
                 <p class="text-[10px] text-slate-500 text-center leading-tight">Mẹo: Nâng <b class="text-indigo-300">Nội Tại</b> để mạnh hơn ở lần chơi sau — tiến trình được lưu tự động.</p>
+                <button id="b-update-2" class="text-[11px] text-slate-400 underline decoration-dotted active:text-white">🔄 Phiên bản <span id="ver-num-2">—</span> · Kiểm tra cập nhật</button>
             </div>
         </div>
     </div>
@@ -283,6 +302,8 @@
         <div class="toggle"><span class="text-sm font-bold">🎵 Nhạc nền</span><div class="sw" id="t-music"></div></div>
         <button id="b-resume" class="ov-btn bg-gradient-to-br from-teal-600 to-blue-700 text-white border border-teal-400 mt-2">Tiếp tục</button>
         <button id="b-quit" class="ov-btn bg-slate-700 text-slate-200 border border-slate-600 mt-2">Về Menu</button>
+        <button id="b-update" class="ov-btn bg-slate-800 text-slate-300 border border-slate-700 mt-2" style="font-size:13px;">🔄 Kiểm tra cập nhật</button>
+        <div class="text-center text-[11px] text-slate-500 mt-2">Phiên bản <span id="ver-num">—</span></div>
     </div>
 </div>
 
@@ -1547,6 +1568,57 @@ if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js').catch(() => {});
     });
 }
+
+// ============ PHIÊN BẢN & TỰ CẬP NHẬT ============
+const GAME_VERSION = '1.1.0';
+let _updChecking = false;
+
+function setVerLabels() {
+    const a = document.getElementById('ver-num'); if (a) a.innerText = GAME_VERSION;
+    const b = document.getElementById('ver-num-2'); if (b) b.innerText = GAME_VERSION;
+}
+
+function toast(msg) {
+    // dùng lại thông báo trong game nếu đang chơi, ngược lại alert nhẹ
+    try { if (State.running) { UI.showMessage(msg); return; } } catch (e) {}
+    const bar = document.getElementById('updbar');
+    bar.querySelector('span').innerHTML = msg;
+    bar.querySelector('#b-do-update').style.display = 'none';
+    bar.classList.add('show');
+    setTimeout(() => { bar.classList.remove('show'); bar.querySelector('#b-do-update').style.display = ''; bar.querySelector('span').innerHTML = '✨ Đã có bản mới (v<span id="upd-ver">?</span>)'; }, 2600);
+}
+
+async function checkUpdate(manual) {
+    if (_updChecking) return; _updChecking = true;
+    try {
+        const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+        const data = await res.json();
+        if (data && data.version && data.version !== GAME_VERSION) {
+            // có bản mới -> nhắc cập nhật bằng 1 nút
+            if ('serviceWorker' in navigator) { try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) await reg.update(); } catch (e) {} }
+            const bar = document.getElementById('updbar');
+            const v = document.getElementById('upd-ver'); if (v) v.innerText = data.version;
+            bar.classList.add('show');
+        } else if (manual) {
+            toast('Bạn đang dùng bản mới nhất ✓ (v' + GAME_VERSION + ')');
+        }
+    } catch (e) {
+        if (manual) toast('Không kiểm tra được — cần kết nối mạng.');
+    } finally { _updChecking = false; }
+}
+
+function doUpdate() {
+    // tải lại để nhận bản mới (điều hướng lấy mạng trước nên index.html luôn mới)
+    location.reload();
+}
+
+setVerLabels();
+['b-update', 'b-update-2'].forEach(id => { const el = document.getElementById(id); if (el) el.onclick = () => { Sound && Sound.play && Sound.play('click'); checkUpdate(true); }; });
+document.getElementById('b-do-update').onclick = doUpdate;
+document.getElementById('upd-x').onclick = () => document.getElementById('updbar').classList.remove('show');
+// Tự kiểm tra: khi mở app, và mỗi lần quay lại app (đem từ nền lên)
+window.addEventListener('load', () => setTimeout(() => checkUpdate(false), 1500));
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(false); });
 
 // ============ BOOT ============
 Storage.load();

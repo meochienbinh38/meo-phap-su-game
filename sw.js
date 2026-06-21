@@ -1,5 +1,5 @@
 /* Service Worker - Kỷ Nguyên Thủ Thành PWA */
-const CACHE = 'kntt-v17-5';
+const CACHE = 'kntt-v17-6';
 
 const CORE = [
   './',
@@ -42,6 +42,12 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
+
+  // version.json: luôn lấy từ mạng (không cache) để kiểm tra cập nhật chính xác.
+  if (req.url.includes('version.json')) {
+    e.respondWith(fetch(req).catch(() => new Response('{}', { headers: { 'Content-Type': 'application/json' } })));
+    return;
+  }
 
   // Navigation requests -> serve cached app shell when offline.
   if (req.mode === 'navigate') {
