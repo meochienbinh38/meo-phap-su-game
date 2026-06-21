@@ -22,15 +22,17 @@
             --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px);
             --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px);
         }
-        body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%;
+        html { width: 100%; height: 100%; }
+        body {
+            margin: 0; padding: 0; position: fixed; inset: 0; width: 100%; height: 100%;
             background: var(--bg); color: #f8fafc; font-family: 'Nunito', sans-serif;
             overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: none;
             overscroll-behavior: none; -webkit-tap-highlight-color: transparent;
         }
         .tf { font-family: 'Oswald', sans-serif; }
 
-        #wrap { width: 100vw; height: 100vh; position: relative; display: flex; }
+        /* dùng 100% (body đã fixed inset:0) + dvh fallback để full màn hình trên di động */
+        #wrap { width: 100%; height: 100%; height: 100dvh; position: relative; display: flex; }
 
         /* Rotate hint: shown only when phone is held in portrait (keeps pointer mapping correct) */
         #rot { position: fixed; inset: 0; z-index: 9999; background: #030712; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
@@ -41,10 +43,11 @@
 
         #side {
             width: 86px; height: 100%; background: var(--panel); border-right: 2px solid var(--bord);
-            display: flex; flex-direction: column; z-index: 10; padding-left: var(--sl); box-shadow: 2px 0 20px rgba(0,0,0,0.9);
+            display: flex; flex-direction: column; z-index: 10; padding-left: var(--sl); padding-top: var(--st);
+            box-sizing: border-box; box-shadow: 2px 0 20px rgba(0,0,0,0.9);
         }
 
-        #main { flex: 1; display: flex; flex-direction: column; position: relative; height: 100%; padding-right: var(--sr); }
+        #main { flex: 1; display: flex; flex-direction: column; position: relative; height: 100%; padding-right: var(--sr); padding-top: var(--st); box-sizing: border-box; }
 
         #hud {
             height: 50px; background: rgba(3, 7, 18, 0.95); border-bottom: 2px solid var(--bord);
@@ -81,8 +84,9 @@
         #call:active { transform: scale(0.95); }
 
         #umod {
-            background: rgba(15,23,42,0.95); border: 1px solid #475569; backdrop-filter: blur(5px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.9); border-radius: 10px;
+            background: rgba(15,23,42,0.97); border: 1px solid #475569; backdrop-filter: blur(5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.9); border-radius: 12px;
+            left: 50%; transform: translateX(-50%); bottom: calc(12px + var(--sb));
         }
 
         #ult {
@@ -127,6 +131,13 @@
 
         @keyframes floatIn { from { opacity: 0; transform: translateY(10px) scale(0.96); } to { opacity: 1; transform: none; } }
         .pop { animation: floatIn 0.25s ease-out; }
+
+        /* Menu: safe-area + 'safe center' để không bị cắt mất phần trên khi nội dung cao hơn màn hình */
+        #start {
+            padding: max(10px, var(--st)) max(10px, var(--sr)) max(10px, var(--sb)) max(10px, var(--sl));
+            align-items: safe center;
+        }
+        #tmod { padding-left: max(8px, var(--sl)); padding-right: max(8px, var(--sr)); align-items: safe center; }
     </style>
 </head>
 <body>
@@ -228,7 +239,7 @@
                 <span class="text-[6px] font-black tf text-white uppercase relative z-10 mt-0.5">Thiên Thạch</span>
             </div>
 
-            <div id="umod" class="hidden absolute z-30 transform -translate-x-1/2 -translate-y-full mt-[-8px] w-52 p-2">
+            <div id="umod" class="hidden fixed z-30 w-56 p-2">
                 <div class="flex justify-between items-center border-b border-slate-600 pb-1 mb-1.5">
                     <div class="font-black text-white text-[11px] tf flex items-center gap-1"><span id="um-ic"></span> <span id="um-n">Tên</span></div>
                     <div class="text-[9px] font-bold text-green-400 bg-green-900/40 px-1 py-0.5 rounded border border-green-800">Lv.<span id="um-lv">1</span></div>
@@ -1285,6 +1296,7 @@ const Engine = {
     inputs() {
         this.canvas.addEventListener('pointerdown', e => {
             if (!State.running || State.paused) return;
+            e.preventDefault();
             Sound.resume();
             let rect = this.canvas.getBoundingClientRect(); let x = e.clientX - rect.left; let y = e.clientY - rect.top;
             let c = Math.floor((x - State.grid.offsetX) / State.grid.size); let ro = Math.floor((y - State.grid.offsetY) / State.grid.size);
@@ -1316,8 +1328,8 @@ const UI = {
 
         document.querySelectorAll('.m-card').forEach(card => { card.onclick = () => { Sound.play('click'); document.querySelectorAll('.m-card').forEach(x => x.classList.remove('sel')); card.classList.add('sel'); State.mapId = parseInt(card.dataset.m); }; });
         document.getElementById('call').onclick = () => { if (State.spawn.isPrep && State.spawn.timer > 0) { let bonus = Math.floor(State.spawn.timer * 4); State.gold += bonus; State.spawn.timer = 0; Sound.play('coin'); Engine.spawnText(State.ui.goldUiX, State.ui.goldUiY + 30, `+${bonus} Nóng!`, '#fde047', true); } };
-        document.getElementById('b-up').onclick = () => { let u = State.ui.selUnit; if (!u) return; let c = Math.floor(u.db.cost * Math.pow(1.5, u.level)); if (State.gold >= c && u.level < 3) { State.gold -= c; u.level++; u.hp = u.getStats().hp; Sound.play('upgrade'); vibe(20); Engine.spawnText(u.x, u.y - 20, 'LÊN CẤP', '#fbbf24', true); Engine.spawnParticles(u.x, u.y, '#fbbf24', 20, 70, 4); this.closeUnitModal(); this.updateDisplay(); } };
-        document.getElementById('b-sell').onclick = () => { let u = State.ui.selUnit; if (!u) return; let val = Math.floor(u.db.cost * Math.pow(1.5, u.level - 1) * 0.5); State.gold += val; State.units = State.units.filter(i => i !== u); Sound.play('click'); Engine.spawnText(u.x, u.y, `+${val}`, '#fde047', false); Engine.spawnParticles(u.x, u.y, '#94a3b8', 10, 40); this.closeUnitModal(); this.updateDisplay(); };
+        document.getElementById('b-up').onclick = () => { if (performance.now() - (State.ui.modalAt || 0) < 300) return; let u = State.ui.selUnit; if (!u) return; let c = Math.floor(u.db.cost * Math.pow(1.5, u.level)); if (State.gold >= c && u.level < 3) { State.gold -= c; u.level++; u.hp = u.getStats().hp; Sound.play('upgrade'); vibe(20); Engine.spawnText(u.x, u.y - 20, 'LÊN CẤP', '#fbbf24', true); Engine.spawnParticles(u.x, u.y, '#fbbf24', 20, 70, 4); this.closeUnitModal(); this.updateDisplay(); } };
+        document.getElementById('b-sell').onclick = () => { if (performance.now() - (State.ui.modalAt || 0) < 300) return; let u = State.ui.selUnit; if (!u) return; let val = Math.floor(u.db.cost * Math.pow(1.5, u.level - 1) * 0.5); State.gold += val; State.units = State.units.filter(i => i !== u); Sound.play('click'); Engine.spawnText(u.x, u.y, `+${val}`, '#fde047', false); Engine.spawnParticles(u.x, u.y, '#94a3b8', 10, 40); this.closeUnitModal(); this.updateDisplay(); };
 
         // Controls cluster
         document.getElementById('b-pause').onclick = () => Control.togglePause();
@@ -1369,7 +1381,8 @@ const UI = {
         if (u.level >= 3) btnUp.style.display = 'none';
         else { btnUp.style.display = 'flex'; let cost = Math.floor(u.db.cost * Math.pow(1.5, u.level)); document.getElementById('um-c').innerText = `🪙 ${cost}`; btnUp.className = State.gold >= cost ? 'flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm' : 'flex-1 bg-slate-700 rounded py-1 flex flex-col items-center opacity-50 cursor-not-allowed'; }
         document.getElementById('um-s').innerText = `🪙 ${Math.floor(u.db.cost * Math.pow(1.5, u.level - 1) * 0.5)}`;
-        modal.style.left = `${Math.max(110, Math.min(window.innerWidth - 110, x))}px`; modal.style.top = `${Math.max(120, y)}px`; modal.classList.remove('hidden');
+        State.ui.modalAt = performance.now();      // chống "ghost click" ngay sau khi mở
+        modal.classList.remove('hidden');
     },
     closeUnitModal() { State.ui.selUnit = null; document.getElementById('umod').classList.add('hidden'); },
     openTalents() {
@@ -1404,8 +1417,19 @@ function Audio2Toggle(which) {
 // 7. CONTROL
 const Control = {
     loopId: null,
+    enterFullscreen() {
+        // Chỉ thử khi mở qua trình duyệt (PWA đã cài vốn đã full màn hình).
+        const inApp = (window.matchMedia && (matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: standalone)').matches)) || navigator.standalone;
+        if (inApp) { try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{}); } catch(e){} return; }
+        try {
+            const el = document.documentElement;
+            const req = el.requestFullscreen || el.webkitRequestFullscreen;
+            if (req && !document.fullscreenElement) req.call(el).then(() => { try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'); } catch(e){} }).catch(()=>{});
+        } catch (e) {}
+    },
     start() {
         Sound.init(); Sound.resume(); if (Sound.musicOn) Sound.startMusic();
+        this.enterFullscreen();
         document.getElementById('start').classList.add('hidden'); document.getElementById('call').style.display = 'block';
         State.running = true; State.paused = false; State.speed = 1; document.getElementById('b-speed').innerText = '1x'; document.getElementById('b-speed').classList.remove('on');
         State.gold = CFG.startGold; State.wave = 1; State.hp = CFG.baseHp; State.maxHp = CFG.baseHp + TALENTS_DB.h.effect(State.talents.h); State.hp = State.maxHp;
