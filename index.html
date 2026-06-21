@@ -100,7 +100,7 @@
         .ult-msk { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.7); transition: height 0.1s linear; border-radius: 50%; }
 
         /* Floating control cluster (pause / speed / sound / fullscreen) */
-        #ctrls { position: absolute; top: max(8px, var(--st)); right: max(10px, var(--sr)); z-index: 22; display: flex; gap: 6px; }
+        #ctrls { position: absolute; top: max(8px, var(--st)); right: max(8px, var(--sr)); z-index: 22; display: flex; flex-direction: column; gap: 6px; }
         .c-btn {
             width: 34px; height: 34px; border-radius: 9px; background: rgba(2,6,23,0.85);
             border: 1px solid #334155; color: #e2e8f0; font-size: 15px; display: flex; align-items: center; justify-content: center;
@@ -150,10 +150,10 @@
 </div>
 
 <!-- Start screen -->
-<div id="start" class="fixed inset-0 bg-slate-900/95 z-[100] flex items-center justify-center p-4 overflow-y-auto">
+<div id="start" class="fixed inset-0 bg-slate-900/95 z-[100] flex flex-col items-center justify-start p-4 overflow-y-auto">
     <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden my-auto" id="s-card">
-        <div class="p-4 text-center bg-slate-900 border-b border-slate-700 relative overflow-hidden">
-            <h1 class="tf text-4xl sm:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-500 drop-shadow-md uppercase font-black relative z-10">
+        <div class="p-3 sm:p-4 text-center bg-slate-900 border-b border-slate-700 relative overflow-hidden">
+            <h1 class="tf text-2xl sm:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-500 drop-shadow-md uppercase font-black relative z-10">
                 KỶ NGUYÊN THỦ THÀNH
             </h1>
             <p class="text-slate-400 text-xs sm:text-sm mt-1 relative z-10">Pháo thủ đạn nổ · Tháp độc · Giáp sĩ chắn đòn · Thần Sét gọi sấm. Chặn đứng mọi đợt tấn công!</p>
@@ -1097,7 +1097,7 @@ const Engine = {
         this.canvas.style.width = `${rect.width}px`; this.canvas.style.height = `${rect.height}px`;
 
         let sh = rect.height / CFG.rows, sw = rect.width / CFG.cols;
-        State.grid.size = Math.min(sh, sw); if (State.grid.size > 78) State.grid.size = 78;
+        State.grid.size = Math.min(sh, sw); if (State.grid.size > 200) State.grid.size = 200;   // bỏ trần thấp để bàn cờ lấp đầy chiều cao (hết dải đen trên/dưới)
         State.grid.cols = Math.floor(rect.width / State.grid.size);
         State.grid.offsetX = (rect.width - (State.grid.cols * State.grid.size)) / 2;
         State.grid.offsetY = (rect.height - (CFG.rows * State.grid.size)) / 2;
