@@ -439,6 +439,214 @@ const TALENTS_DB = {
     c: { name: 'Chí Mạng', desc: '+5% Bạo kích', max: 5, effect: (lvl) => lvl * 0.05, icon: '🎯' }
 };
 
+// ============ CHARACTER ART — nhân vật Mèo vẽ & animate bằng code (procedural) ============
+// Cấu hình nghệ thuật từng quân: lông, áo choàng, màu nhấn, mũ, vũ khí, kiểu tấn công.
+const UNIT_ART = {
+    miner:  { fur:'#ece5d4', robe:'#a16207', accent:'#fde047', hat:'cap',    weapon:'pick',   style:'work'  },
+    knight: { fur:'#f4ead6', robe:'#3b82f6', accent:'#bfdbfe', hat:'helm',   weapon:'sword',  style:'swing' },
+    archer: { fur:'#f4ead6', robe:'#22c55e', accent:'#bbf7d0', hat:'hood',   weapon:'bow',    style:'bow'   },
+    gunner: { fur:'#f4ead6', robe:'#f97316', accent:'#fed7aa', hat:'band',   weapon:'cannon', style:'launch'},
+    poison: { fur:'#ece4d6', robe:'#8b5cf6', accent:'#ddd6fe', hat:'wizard', weapon:'flask',  style:'flask' },
+    mage:   { fur:'#f4ead6', robe:'#0891a6', accent:'#a5f3fc', hat:'wizard', weapon:'staff',  style:'staff' },
+    ice:    { fur:'#f2f6fb', robe:'#3b82f6', accent:'#e0f2fe', hat:'wizard', weapon:'wand',   style:'wand'  },
+    priest: { fur:'#f6efe6', robe:'#f472b6', accent:'#fbcfe8', hat:'halo',   weapon:'cross',  style:'bless' }
+};
+
+const CharArt = {
+    _f: 0,                                   // mức flash (0..1) khi trúng đòn
+    hex(h){ return [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)]; },
+    mix(a, b, t){ const A=this.hex(a), B=this.hex(b); return `rgb(${A[0]+(B[0]-A[0])*t|0},${A[1]+(B[1]-A[1])*t|0},${A[2]+(B[2]-A[2])*t|0})`; },
+    col(h){ return this._f > 0 ? this.mix(h, '#fff6f0', 0.78*this._f) : h; },   // tô trắng-hồng khi trúng đòn
+    e(ctx,x,y,rx,ry,c){ ctx.fillStyle=c; ctx.beginPath(); ctx.ellipse(x,y,Math.abs(rx),Math.abs(ry),0,0,6.2832); ctx.fill(); },
+    tri(ctx,x1,y1,x2,y2,x3,y3,c){ ctx.fillStyle=c; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineTo(x3,y3); ctx.closePath(); ctx.fill(); },
+    limb(ctx,x1,y1,x2,y2,w,c){ ctx.strokeStyle=c; ctx.lineWidth=w; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); },
+    star(ctx,cx,cy,r,c){ ctx.fillStyle=c; ctx.beginPath(); for(let k=0;k<10;k++){ const a=-1.5708+k*0.6283, rr=k%2?r*0.45:r; ctx.lineTo(cx+Math.cos(a)*rr, cy+Math.sin(a)*rr);} ctx.closePath(); ctx.fill(); },
+
+    // Vẽ một quân tại gốc toạ độ hiện tại (caller đã translate tới tâm ô). S = grid.size.
+    drawUnit(ctx, u, t, S){
+        const cfg = UNIT_ART[u.typeId] || UNIT_ART.knight;
+        const k = S/64, ph = u.birth;
+        this._f = u.flash > 0 ? Math.min(1, u.flash/0.12) : 0;
+        const C = this;
+
+        // --- tham số animation ---
+        const breath = Math.sin(t/560 + ph);
+        const bob = breath*1.3;                              // nhún thở (đơn vị thiết kế)
+        const tail = Math.sin(t/300 + ph);                  // vẫy đuôi
+        const earTw = Math.sin(t/700 + ph)*0.06;
+        const blink = ((t + ph) % 3200) < 130;              // chớp mắt định kỳ
+        const p = Math.max(0, Math.min(1, u.anim));         // tiến trình tấn công (1 = vừa ra đòn)
+        const hit = this._f;                                 // đang trúng đòn
+        const low = (u.hp/u.maxHp) < 0.3;                    // bị thương nặng
+        const tremble = low ? (Math.random()-0.5)*1.2 : 0;  // run khi thương nặng
+        const recoil = hit*4;                                // giật lùi khi trúng đòn (lùi trái vì mặt hướng phải)
+        const ranged = (cfg.style==='bow'||cfg.style==='launch'||cfg.style==='staff'||cfg.style==='wand'||cfg.style==='flask');
+        const lunge = cfg.style==='swing' ? p*5 : (cfg.style==='work' ? 0 : (ranged ? -p*3 : 0));
+
+        ctx.save();
+        ctx.scale(k, k);
+        ctx.translate(lunge - recoil + tremble, 0);
+
+        // bóng đổ (co theo nhún)
+        C.e(ctx, 0, 25, 19 - bob*0.4, 5, 'rgba(0,0,0,0.45)');
+
+        const fur=cfg.fur, robe=cfg.robe, acc=cfg.accent, dark='#39394f', pink='#f4a9b8';
+        ctx.save();
+        ctx.translate(0, bob + recoil*0.3);
+
+        // đuôi (sau lưng, vẫy)
+        C.limb(ctx, 13, 12, 22+tail*3, 4+tail*4, 6, C.col(fur));
+        C.e(ctx, 22+tail*3, 3+tail*4, 5, 5, C.col(fur));
+
+        // tay sau
+        C.limb(ctx, -9, 8, -15, 16, 6, C.col(C.mix(fur,'#000',0.08)));
+
+        // thân (áo choàng)
+        C.e(ctx, 0, 9, 15, 14, C.col(robe));
+        C.e(ctx, 0, 12, 9, 9, C.col(C.mix(robe,'#fff',0.12)));     // bụng sáng
+        // chân
+        C.e(ctx, -7, 21, 5, 4, C.col(fur)); C.e(ctx, 7, 21, 5, 4, C.col(fur));
+
+        // ---- ĐẦU ----
+        ctx.save();
+        const headTilt = (cfg.style==='swing'? p*0.18 : 0) - hit*0.22 + breath*0.02;
+        ctx.translate(0, -8); ctx.rotate(headTilt);
+        // tai
+        C.tri(ctx, -14,-6, -12,-22, -3,-9, C.col(fur)); C.tri(ctx, 14,-6, 12,-22, 3,-9, C.col(fur));
+        C.tri(ctx, -11,-7, -10+earTw*10,-17, -5,-9, pink); C.tri(ctx, 11,-7, 10-earTw*10,-17, 5,-9, pink);
+        // mặt
+        C.e(ctx, 0, 0, 15, 14, C.col(fur));
+        C.e(ctx, -7, 6, 3.5, 2.5, pink); C.e(ctx, 7, 6, 3.5, 2.5, pink);   // má hồng
+        // mắt — đứng yên / chớp / trúng đòn (><)
+        if (hit > 0.4) {
+            C.limb(ctx,-9,-1,-3,3,1.6,dark); C.limb(ctx,-9,3,-3,-1,1.6,dark);   // mắt trái ><
+            C.limb(ctx, 3,-1, 9,3,1.6,dark); C.limb(ctx, 3,3, 9,-1,1.6,dark);   // mắt phải ><
+        } else if (blink) {
+            C.limb(ctx,-9,1,-3,1,1.6,dark); C.limb(ctx,3,1,9,1,1.6,dark);
+        } else {
+            C.e(ctx,-6,1,3.4,4.4,'#fff'); C.e(ctx,6,1,3.4,4.4,'#fff');
+            C.e(ctx,-5.4,1.6,2.4,3.2,dark); C.e(ctx,6.6,1.6,2.4,3.2,dark);
+            C.e(ctx,-4.6,0.2,1,1.2,'#fff'); C.e(ctx,7.4,0.2,1,1.2,'#fff');       // ánh mắt
+        }
+        // mũi + miệng
+        C.tri(ctx,-2,5,2,5,0,7.5,pink);
+        ctx.strokeStyle='rgba(90,70,75,0.8)'; ctx.lineWidth=1; ctx.beginPath();
+        if(low){ ctx.arc(0,11,3,3.3,6.1);} else { ctx.moveTo(0,7.5); ctx.lineTo(-3,10); ctx.moveTo(0,7.5); ctx.lineTo(3,10);} ctx.stroke();
+        // râu
+        ctx.strokeStyle=C.col(C.mix(fur,'#000',0.12)); ctx.lineWidth=0.9;
+        for(const dy of [-2,2,6]){ ctx.beginPath(); ctx.moveTo(-9,4+dy); ctx.lineTo(-19,2+dy); ctx.moveTo(9,4+dy); ctx.lineTo(19,2+dy); ctx.stroke(); }
+        // mũ / vương miện
+        C.drawHat(ctx, cfg, t, ph, acc, robe);
+        ctx.restore(); // head
+
+        // ---- TAY TRƯỚC + VŨ KHÍ (animate theo kiểu tấn công) ----
+        C.drawWeapon(ctx, cfg, t, ph, p, acc, fur, robe, u.level);
+
+        ctx.restore(); // body translate
+        // hiệu ứng đặc trưng nổi phía trên (glow kỹ năng) — không bị flash
+        this._f = 0;
+        C.drawSkillFx(ctx, cfg, t, ph, p, acc, u.level);
+        ctx.restore(); // scale
+
+        // giọt mồ hôi khi bị thương nặng
+        if (low) C.e(ctx, S*0.16, -S*0.18, S*0.03, S*0.045, 'rgba(125,211,252,0.9)');
+    },
+
+    drawHat(ctx, cfg, t, ph, acc, robe){
+        const C=this;
+        if (cfg.hat==='wizard'){
+            C.e(ctx,0,-14,15,3.5, C.col(C.mix(robe,'#000',0.25)));
+            C.tri(ctx,-12,-14, 13,-14, 9,-40, C.col(robe));
+            C.tri(ctx,9,-40, 13,-14, 9,-14, C.col(C.mix(robe,'#000',0.3)));
+            C.e(ctx,9,-40,3,3, C.col(acc));
+            C.star(ctx,-1,-24,5, C.col(acc));
+        } else if (cfg.hat==='helm'){
+            C.e(ctx,0,-9,15,13, C.col(C.mix(robe,'#cbd5e1',0.5)));            // mũ giáp
+            ctx.fillStyle=C.col('#1e293b'); ctx.fillRect(-12,-2,24,4);        // khe nhìn
+            C.tri(ctx,-2,-22, 2,-22, 0,-32, C.col(acc));                      // chỏm lông
+        } else if (cfg.hat==='hood'){
+            C.tri(ctx,-15,-4, 15,-4, 0,-30, C.col(C.mix(robe,'#000',0.15)));
+            C.e(ctx,0,-4,15,5, C.col(robe));
+        } else if (cfg.hat==='cap'){
+            C.e(ctx,0,-13,13,6, C.col(C.mix(robe,'#000',0.1))); ctx.fillStyle=C.col(C.mix(robe,'#000',0.1)); ctx.fillRect(-13,-13,26,5);
+            C.e(ctx,0,-15,4,3, C.col(acc));                                   // đèn mỏ
+        } else if (cfg.hat==='band'){
+            ctx.fillStyle=C.col(robe); ctx.fillRect(-15,-6,30,4);
+            C.limb(ctx,14,-5,22,-2,2,C.col(robe));
+        } else if (cfg.hat==='halo'){
+            ctx.strokeStyle=C.col(acc); ctx.lineWidth=2.2; ctx.beginPath(); ctx.ellipse(0,-22,9,3,0,0,6.2832); ctx.stroke();
+            ctx.globalAlpha=0.5+Math.sin(t/240+ph)*0.2; ctx.beginPath(); ctx.ellipse(0,-22,9,3,0,0,6.2832); ctx.stroke(); ctx.globalAlpha=1;
+        }
+    },
+
+    drawWeapon(ctx, cfg, t, ph, p, acc, fur, robe, lv){
+        const C=this, idleAng = Math.sin(t/560+ph)*0.05;
+        if (cfg.style==='swing'){                       // KIẾM — chém vòng cung
+            const a = -0.5 + idleAng - p*2.2;           // vung từ trên xuống
+            ctx.save(); ctx.translate(9,8); ctx.rotate(a);
+            C.limb(ctx,0,0,4,9,6,C.col(fur));           // tay
+            C.limb(ctx,2,-2,2,-26,3.5,C.col('#cbd5e1')); // lưỡi
+            C.limb(ctx,-3,-2,7,-2,3,C.col('#94a3b8'));  // chắn
+            ctx.restore();
+            if (p>0.5){ ctx.strokeStyle=`rgba(255,255,255,${(p-0.5)*1.6})`; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(14,2,18,-1.1,0.5); ctx.stroke(); }
+        } else if (cfg.style==='bow'){                  // CUNG — kéo & bắn
+            const pull = p*4;
+            C.limb(ctx,9,9,13-pull,6,5,C.col(fur));
+            ctx.strokeStyle=C.col('#92684a'); ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(15,4,13,-1.1,1.1); ctx.stroke();
+            ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(15+Math.cos(-1.1)*13,4+Math.sin(-1.1)*13); ctx.lineTo(13-pull,4); ctx.lineTo(15+Math.cos(1.1)*13,4+Math.sin(1.1)*13); ctx.stroke();
+            if (p<0.25) C.limb(ctx,16,4,30,4,1.5,C.col(acc)); // mũi tên vừa bắn
+        } else if (cfg.style==='launch'){               // PHÁO — nâng & giật
+            const rc=-p*2;
+            ctx.save(); ctx.translate(8,6+rc); ctx.rotate(-0.35);
+            C.limb(ctx,0,3,0,-14,9,C.col('#475569')); C.e(ctx,0,-15,6,5,C.col('#334155'));
+            ctx.restore();
+            C.limb(ctx,-2,9,8,8,5,C.col(fur));
+            if (p>0.6){ C.e(ctx,16,-9,5+ (p-0.6)*18,5,'rgba(148,163,184,0.5)'); }  // khói nòng
+        } else if (cfg.style==='staff'){                // GẬY SẤM
+            ctx.save(); ctx.translate(10,8); ctx.rotate(-0.2 - p*0.5);
+            C.limb(ctx,0,2,0,-22,3,C.col('#7c5b3a'));
+            ctx.restore(); C.limb(ctx,-2,9,9,8,5,C.col(fur));
+        } else if (cfg.style==='wand'){                 // ĐŨA BĂNG — vẩy lên
+            ctx.save(); ctx.translate(9,7); ctx.rotate(-0.6 - p*1.0);
+            C.limb(ctx,0,2,0,-15,2.5,C.col('#cbd5e1')); ctx.restore();
+            C.limb(ctx,-2,9,8,7,5,C.col(fur));
+        } else if (cfg.style==='flask'){                // BÌNH ĐỘC — nâng
+            ctx.save(); ctx.translate(9,6-p*3);
+            C.limb(ctx,-11,3,0,2,5,C.col(fur));
+            ctx.fillStyle=C.col('#cbd5e1'); ctx.beginPath(); ctx.moveTo(-3,-2); ctx.lineTo(3,-2); ctx.lineTo(5,6); ctx.lineTo(-5,6); ctx.closePath(); ctx.fill();
+            C.e(ctx,0,4,4,3,C.col(acc)); ctx.restore();
+        } else if (cfg.style==='bless'){                // GẬY THÁNH
+            ctx.save(); ctx.translate(10,8); ctx.rotate(-0.15+Math.sin(t/400+ph)*0.05);
+            C.limb(ctx,0,2,0,-20,3,C.col('#e2c08a')); C.star(ctx,0,-22,3.5,C.col(acc)); ctx.restore();
+            C.limb(ctx,-2,9,9,8,5,C.col(fur));
+        } else if (cfg.style==='work'){                 // CUỐC — bổ xuống
+            ctx.save(); ctx.translate(8,6); ctx.rotate(0.3 + p*0.9);
+            C.limb(ctx,0,0,0,-16,3,C.col('#8a5a33')); C.limb(ctx,-6,-15,6,-17,3.5,C.col('#94a3b8')); ctx.restore();
+            C.limb(ctx,-2,9,8,8,5,C.col(fur));
+        }
+    },
+
+    drawSkillFx(ctx, cfg, t, ph, p, acc, lv){
+        const C=this;
+        if (cfg.style==='staff'){                       // quả cầu sét trên gậy
+            const gx=10, gy=-14, fl=0.5+Math.sin(t/120+ph)*0.3+p*0.7;
+            ctx.globalAlpha=0.35*fl; C.e(ctx,gx,gy,8,8,acc); ctx.globalAlpha=1;
+            C.e(ctx,gx,gy,4,4,acc); C.e(ctx,gx,gy,2,2,'#fff');
+            if(lv>=3 && p>0.3){ ctx.strokeStyle=acc; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx+6,gy-4); ctx.lineTo(gx+2,gy-7); ctx.stroke(); }
+        } else if (cfg.style==='wand'){                 // bông tuyết quanh đũa
+            const fl=p*0.8+0.2; ctx.globalAlpha=0.6*fl;
+            for(let i=0;i<3;i++){ const a=t/300+ph+i*2.1; C.e(ctx, 9+Math.cos(a)*9, -8+Math.sin(a)*9, 1.6,1.6, acc); }
+            ctx.globalAlpha=1;
+        } else if (cfg.style==='flask'){                // bọt độc
+            ctx.globalAlpha=0.7; for(let i=0;i<3;i++){ const yy=2-((t/400+i*0.5+ph)%1.5)*10; C.e(ctx,9+Math.sin(yy+i)*2,yy,1.4,1.4,acc);} ctx.globalAlpha=1;
+        } else if (cfg.style==='bless'){                // hào quang ấm
+            ctx.globalAlpha=0.18+Math.sin(t/300+ph)*0.07; C.e(ctx,0,2,24,22,acc); ctx.globalAlpha=1;
+        } else if (cfg.style==='launch' && p>0.6){      // tia lửa đầu nòng
+            ctx.globalAlpha=(p-0.6)*2; C.star(ctx,18,-9,4,'#fde047'); ctx.globalAlpha=1;
+        }
+    }
+};
+
 // 3. GAME STATE
 const State = {
     running: false, paused: false, speed: 1,
@@ -918,13 +1126,8 @@ const Engine = {
         ents.forEach(e => {
             ctx.save(); ctx.translate(e.x, e.y);
             if (e instanceof Unit) {
-                let isAtk = e.anim > 0; let bounce = isAtk && e.db.type === 'econ' ? -10 * e.anim : Math.sin(t / 250 + e.birth) * 2;
-                let lunge = isAtk && e.db.type !== 'econ' && e.db.type !== 'pulse' ? (e.db.type === 'melee' ? e.anim * 10 : -e.anim * 5) : 0;
-
                 if (e.db.type === 'support' && e.level >= 3) { ctx.fillStyle = `rgba(244,114,182,${0.1 + Math.sin(t / 100) * 0.05})`; ctx.fillRect(-g.size * 1.5, -g.size * 0.5, g.size * 3, g.size); ctx.fillRect(-g.size * 0.5, -g.size * 1.5, g.size, g.size * 3); }
                 if (State.ui.selUnit === e) { ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.arc(0, 0, g.size * 0.4, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.arc(0, 0, e.getStats().rng, 0, Math.PI * 2); ctx.stroke(); }
-
-                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(0, g.size * 0.25 - bounce / 3, g.size * 0.25, g.size * 0.08, 0, 0, Math.PI * 2); ctx.fill();
 
                 State.particles.forEach(p => {
                     if (p.type === 'slash' && getDist(p.x, p.y, e.x, e.y) < 20) { ctx.beginPath(); ctx.arc(15, 0, 15, -Math.PI / 3, Math.PI / 3); ctx.strokeStyle = `rgba(255,255,255,${p.l * 2})`; ctx.lineWidth = 3; ctx.stroke(); }
@@ -932,9 +1135,9 @@ const Engine = {
                     if (p.type === 'pulse' && getDist(p.x, p.y, e.x, e.y) < 10) { ctx.beginPath(); ctx.arc(0, 0, p.r * (1 - p.l / 0.4), 0, Math.PI * 2); ctx.strokeStyle = `rgba(139,92,246,${p.l * 2})`; ctx.lineWidth = 4; ctx.stroke(); }
                 });
 
-                let icS = e.db.type === 'pulse' ? 0.4 : 0.6; ctx.font = `${g.size * icS}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                if (e.stun > 0) ctx.filter = 'grayscale(1)'; else if (e.flash > 0) ctx.filter = 'brightness(1.8) sepia(1) hue-rotate(-30deg) saturate(4)';
-                ctx.fillText(e.db.icon, lunge, bounce - g.size * (e.db.type === 'pulse' ? -0.1 : 0.05)); ctx.filter = 'none';
+                if (e.stun > 0) ctx.globalAlpha = 0.6;
+                CharArt.drawUnit(ctx, e, t, g.size);
+                ctx.globalAlpha = 1;
 
                 if (e.db.type !== 'pulse') {
                     this.bar(ctx, 0, g.size * 0.35, g.size * 0.5, 3, e.dHp / e.maxHp, '#fff'); this.bar(ctx, 0, g.size * 0.35, g.size * 0.5, 3, e.hp / e.maxHp, '#4ade80', false);
