@@ -22,7 +22,7 @@
             --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px);
             --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px);
         }
-        html { width: 100%; height: 100%; }
+        html { width: 100%; height: 100%; background: #0f172a; }
         body {
             margin: 0; padding: 0; position: fixed; inset: 0; width: 100%; height: 100%;
             background: var(--bg); color: #f8fafc; font-family: 'Nunito', sans-serif;
@@ -100,7 +100,7 @@
         .ult-msk { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.7); transition: height 0.1s linear; border-radius: 50%; }
 
         /* Floating control cluster (pause / speed / sound / fullscreen) */
-        #ctrls { position: absolute; top: 8px; right: 10px; z-index: 22; display: flex; gap: 6px; }
+        #ctrls { position: absolute; top: max(8px, var(--st)); right: max(10px, var(--sr)); z-index: 22; display: flex; gap: 6px; }
         .c-btn {
             width: 34px; height: 34px; border-radius: 9px; background: rgba(2,6,23,0.85);
             border: 1px solid #334155; color: #e2e8f0; font-size: 15px; display: flex; align-items: center; justify-content: center;
@@ -1256,8 +1256,9 @@ const Engine = {
                 ctx.globalAlpha = 1;
 
                 if (e.db.type !== 'pulse') {
-                    this.bar(ctx, 0, g.size * 0.35, g.size * 0.5, 3, e.dHp / e.maxHp, '#fff'); this.bar(ctx, 0, g.size * 0.35, g.size * 0.5, 3, e.hp / e.maxHp, '#4ade80', false);
-                    ctx.fillStyle = '#fbbf24'; ctx.font = `${g.size * 0.15}px Arial`; ctx.fillText('★'.repeat(e.level), 0, -g.size * 0.35);
+                    this.bar(ctx, 0, g.size * 0.36, g.size * 0.5, 3, e.dHp / e.maxHp, '#fff'); this.bar(ctx, 0, g.size * 0.36, g.size * 0.5, 3, e.hp / e.maxHp, '#4ade80', false);
+                    ctx.fillStyle = '#fbbf24';
+                    for (let i = 0; i < e.level; i++) { ctx.beginPath(); ctx.arc((i - (e.level - 1) / 2) * g.size * 0.12, g.size * 0.44, g.size * 0.03, 0, Math.PI * 2); ctx.fill(); }
                 }
             } else {
                 CharArt.drawEnemy(ctx, e, t, g.size);
