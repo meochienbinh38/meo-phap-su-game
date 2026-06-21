@@ -28,5 +28,12 @@ Sau khi cài, game **chạy offline** và mở toàn màn hình như app native.
 - `manifest.json` — khai báo PWA.
 - `sw.js` — service worker (chạy offline, cache app shell).
 - `icon-192.png`, `icon-512.png`, `icon-maskable.png` — biểu tượng ứng dụng.
+- `docs/` — **tài liệu thiết kế game** (xem bên dưới).
+
+## 📐 Tài liệu thiết kế
+Game đã có bộ thiết kế hoàn chỉnh để phát triển tiếp:
+- **[docs/GAME_DESIGN.md](./docs/GAME_DESIGN.md)** — thiết kế tổng thể: nội dung, đồ hoạ, kinh tế, kiến trúc, lộ trình.
+- **[docs/PHYSICS.md](./docs/PHYSICS.md)** — đặc tả **logic vật lý & mô phỏng** (bước thời gian cố định, vật lý đạn, va chạm, hiệu ứng trạng thái…).
+- **[docs/BALANCE.md](./docs/BALANCE.md)** — công thức số & bảng cân bằng.
 
 > Lưu ý: PWA cần chạy qua **HTTPS** (hoặc `localhost`) để cài đặt và service worker hoạt động.
