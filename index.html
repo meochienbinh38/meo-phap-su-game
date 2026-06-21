@@ -30,6 +30,9 @@
             overscroll-behavior: none; -webkit-tap-highlight-color: transparent;
         }
         .tf { font-family: 'Oswald', sans-serif; }
+        /* Dấu thanh tiếng Việt nằm cao hơn chữ hoa — Oswald in hoa bị cắt dấu nếu line-height = 1 (Tailwind text-*xl). */
+        h1.tf, h2.tf, h3.tf, h4.tf { line-height: 1.3; }
+        #w-stat, #call { line-height: 1.3; }
 
         /* dùng 100% (body đã fixed inset:0) + dvh fallback để full màn hình trên di động */
         /* ===== KHUNG GAME: #screen = vùng an toàn, #stage = khung thiết kế cố định scale vừa khít ===== */
@@ -37,7 +40,7 @@
         #stage {
             position: absolute; left: 50%; top: 50%; width: 900px; height: 410px;
             transform: translate(-50%, -50%) scale(1); transform-origin: center center;
-            box-shadow: 0 0 40px rgba(0,0,0,0.6); border-radius: 4px; overflow: hidden;
+            border-radius: 0; overflow: hidden;
         }
         #wrap { width: 100%; height: 100%; position: relative; display: flex; }
 
@@ -1119,12 +1122,15 @@ const Engine = {
     DW: 900, DH: 410,   // độ phân giải thiết kế của khung game
 
     resize() {
-        // 1) Scale khung game vừa khít vùng an toàn của màn hình (giữ nguyên tỉ lệ)
+        // 1) Khung game LẤP ĐẦY màn hình (hết dải đen letterbox):
+        //    cố định chiều cao thiết kế (DH) -> scale theo chiều cao, còn chiều rộng co giãn để phủ kín.
+        //    Canvas & lưới đã tự thích ứng theo kích thước container nên bố cục vẫn đồng nhất.
         const screen = document.getElementById('screen');
         const sw0 = screen.clientWidth || window.innerWidth, sh0 = screen.clientHeight || window.innerHeight;
-        const s = Math.max(0.1, Math.min(sw0 / this.DW, sh0 / this.DH));
+        const s = Math.max(0.1, sh0 / this.DH);
+        const stageW = Math.max(this.DW * 0.6, Math.round(sw0 / s));   // chiều rộng thiết kế = lấp đầy chiều rộng màn hình
         const stage = document.getElementById('stage');
-        if (stage) stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+        if (stage) { stage.style.width = stageW + 'px'; stage.style.transform = `translate(-50%, -50%) scale(${s})`; }
         State.stageScale = s;
 
         // 2) Canvas vẽ theo TOẠ ĐỘ THIẾT KẾ (cố định) -> bố cục đồng nhất mọi máy; backing = thiết kế × dpr × s để nét
@@ -1570,7 +1576,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============ PHIÊN BẢN & TỰ CẬP NHẬT ============
-const GAME_VERSION = '1.1.0';
+const GAME_VERSION = '1.1.1';
 let _updChecking = false;
 
 function setVerLabels() {
