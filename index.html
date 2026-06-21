@@ -1,15 +1,1202 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <title>Mèo Pháp Sư</title>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Kỷ Nguyên Thủ Thành</title>
+    <meta name="description" content="Game thủ thành chiến thuật: xây quân, nâng cấp, chặn đứng các đợt tấn công của quái vật.">
+    <meta name="theme-color" content="#030712">
+    <link rel="manifest" href="manifest.json">
+    <!-- iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Thủ Thành">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Oswald:wght@500;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #030712; --panel: #0f172a; --bord: #1e293b;
+            --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px);
+            --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px);
+        }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background: var(--bg); color: #f8fafc; font-family: 'Nunito', sans-serif;
+            overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: none;
+            overscroll-behavior: none; -webkit-tap-highlight-color: transparent;
+        }
+        .tf { font-family: 'Oswald', sans-serif; }
+
+        #wrap { width: 100vw; height: 100vh; position: relative; display: flex; }
+
+        /* Rotate hint: shown only when phone is held in portrait (keeps pointer mapping correct) */
+        #rot { position: fixed; inset: 0; z-index: 9999; background: #030712; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+        @media screen and (orientation: portrait) and (max-width: 920px) {
+            #rot { display: flex; }
+            #wrap, #ult, #ctrls { pointer-events: none; }
+        }
+
+        #side {
+            width: 86px; height: 100%; background: var(--panel); border-right: 2px solid var(--bord);
+            display: flex; flex-direction: column; z-index: 10; padding-left: var(--sl); box-shadow: 2px 0 20px rgba(0,0,0,0.9);
+        }
+
+        #main { flex: 1; display: flex; flex-direction: column; position: relative; height: 100%; padding-right: var(--sr); }
+
+        #hud {
+            height: 50px; background: rgba(3, 7, 18, 0.95); border-bottom: 2px solid var(--bord);
+            display: flex; align-items: center; justify-content: space-between; padding: 0 12px; z-index: 5; box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+        }
+
+        #canv-cont { flex: 1; position: relative; overflow: hidden; transition: background 1s; }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        .s-btn {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 4px 2px; margin: 3px 6px; background: #020617; border: 2px solid #1e293b; border-radius: 8px;
+            cursor: pointer; transition: all 0.15s; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+        .s-btn:active { transform: scale(0.95); }
+        .s-btn.sel { border-color: #3b82f6; background: #1e3a8a; transform: scale(1.05); box-shadow: 0 0 12px rgba(59,130,246,0.8); }
+        .s-btn.lck { filter: grayscale(100%) opacity(40%); cursor: not-allowed; box-shadow: none; }
+        .s-btn .lim {
+            position: absolute; top: -5px; right: -5px; background: #ef4444; font-size: 8px;
+            font-weight: bold; padding: 2px 4px; border-radius: 4px; border: 1px solid #7f1d1d; display: none;
+        }
+
+        .badge {
+            background: linear-gradient(180deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.9) 100%);
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 2px 8px;
+            display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        #call {
+            background: linear-gradient(to bottom, #22c55e, #16a34a); border: 1px solid #4ade80;
+            padding: 2px 10px; border-radius: 6px; font-weight: 900; color: white; cursor: pointer;
+            box-shadow: 0 0 10px rgba(34,197,94,0.4); display: none; transition: transform 0.1s;
+        }
+        #call:active { transform: scale(0.95); }
+
+        #umod {
+            background: rgba(15,23,42,0.95); border: 1px solid #475569; backdrop-filter: blur(5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.9); border-radius: 10px;
+        }
+
+        #ult {
+            position: absolute; bottom: calc(15px + var(--sb)); right: 15px; width: 58px; height: 58px; border-radius: 50%;
+            background: radial-gradient(circle, #ef4444 0%, #991b1b 100%); border: 2px solid #fca5a5;
+            box-shadow: 0 0 15px rgba(239,68,68,0.5); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 20; cursor: pointer; transition: transform 0.1s;
+        }
+        #ult:active:not(.cd) { transform: scale(0.9); }
+        #ult.cd { filter: grayscale(100%); pointer-events: none; border-color: #64748b; }
+        .ult-msk { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.7); transition: height 0.1s linear; border-radius: 50%; }
+
+        /* Floating control cluster (pause / speed / sound / fullscreen) */
+        #ctrls { position: absolute; top: 8px; right: 10px; z-index: 22; display: flex; gap: 6px; }
+        .c-btn {
+            width: 34px; height: 34px; border-radius: 9px; background: rgba(2,6,23,0.85);
+            border: 1px solid #334155; color: #e2e8f0; font-size: 15px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.6); transition: transform 0.1s, border-color 0.15s;
+        }
+        .c-btn:active { transform: scale(0.9); }
+        .c-btn.on { border-color: #3b82f6; color: #93c5fd; }
+
+        .m-card { cursor: pointer; transition: transform 0.2s; border: 2px solid transparent; position: relative; }
+        .m-card:hover { transform: scale(1.05); }
+        .m-card.sel { border-color: #3b82f6; box-shadow: 0 0 20px rgba(59,130,246,0.6); }
+        .m-best { font-size: 9px; margin-top: 3px; color: #fcd34d; font-weight: 700; }
+
+        #w-bar { height: 100%; background: #3b82f6; width: 0%; transition: width 0.3s linear; box-shadow: 0 0 8px #3b82f6; }
+        ::-webkit-scrollbar { display: none; }
+
+        /* Pause / overlay panels */
+        .overlay { position: fixed; inset: 0; z-index: 60; background: rgba(2,6,23,0.85); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 16px; }
+        .overlay.show { display: flex; }
+        .ov-card { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 20px; width: 100%; max-width: 360px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
+        .ov-btn { width: 100%; padding: 12px; border-radius: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; transition: transform 0.1s; }
+        .ov-btn:active { transform: scale(0.97); }
+        .toggle { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #020617; border: 1px solid #1e293b; border-radius: 10px; margin-bottom: 8px; }
+        .sw { width: 46px; height: 26px; border-radius: 14px; background: #334155; position: relative; transition: background 0.2s; cursor: pointer; flex-shrink: 0; }
+        .sw.on { background: #22c55e; }
+        .sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
+        .sw.on::after { transform: translateX(20px); }
+
+        @keyframes floatIn { from { opacity: 0; transform: translateY(10px) scale(0.96); } to { opacity: 1; transform: none; } }
+        .pop { animation: floatIn 0.25s ease-out; }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <h1>XỨ MÈO: HỒI SINH MA PHÁP</h1>
-    <button onclick="batDauGame()">Bắt đầu trò chơi</button>
-  </div>
-  <script src="main.js"></script>
+
+<!-- Rotate hint (shown in portrait) -->
+<div id="rot">
+    <div class="text-6xl mb-4 animate-pulse">📱 ➡️ 🖥️</div>
+    <h2 class="tf text-3xl text-blue-400 uppercase tracking-widest mb-2">Xoay ngang thiết bị</h2>
+    <p class="text-slate-400 text-sm">Game chơi ở chế độ nằm ngang để có trải nghiệm tốt nhất</p>
+</div>
+
+<!-- Start screen -->
+<div id="start" class="fixed inset-0 bg-slate-900/95 z-[100] flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden my-auto" id="s-card">
+        <div class="p-4 text-center bg-slate-900 border-b border-slate-700 relative overflow-hidden">
+            <h1 class="tf text-4xl sm:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-500 drop-shadow-md uppercase font-black relative z-10">
+                KỶ NGUYÊN THỦ THÀNH
+            </h1>
+            <p class="text-slate-400 text-xs sm:text-sm mt-1 relative z-10">Pháo thủ đạn nổ · Tháp độc · Giáp sĩ chắn đòn · Thần Sét gọi sấm. Chặn đứng mọi đợt tấn công!</p>
+        </div>
+        <div class="p-6 flex flex-col sm:flex-row gap-4 flex-1">
+            <div class="flex-1">
+                <h3 class="tf text-xl text-yellow-400 mb-3 uppercase tracking-widest border-b border-slate-700 pb-2">Chọn Chiến Dịch</h3>
+                <div class="grid grid-cols-3 gap-3" id="maps">
+                    <div class="m-card bg-green-900/40 rounded-lg p-3 text-center sel" data-m="0"><div class="text-3xl mb-1">🌲</div><div class="font-bold text-sm text-green-300">Rừng Mưa</div><div class="m-best" id="best-0"></div></div>
+                    <div class="m-card bg-orange-900/40 rounded-lg p-3 text-center" data-m="1"><div class="text-3xl mb-1">🌋</div><div class="font-bold text-sm text-orange-300">Núi Lửa</div><div class="m-best" id="best-1"></div></div>
+                    <div class="m-card bg-purple-900/40 rounded-lg p-3 text-center" data-m="2"><div class="text-3xl mb-1">🪦</div><div class="font-bold text-sm text-purple-300">Hầm Ngục</div><div class="m-best" id="best-2"></div></div>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    <button id="b-tal-2" class="flex-1 bg-gradient-to-b from-indigo-500 to-indigo-700 py-2.5 rounded-lg font-black tf text-sm tracking-widest border border-indigo-400 text-white active:scale-95 transition">⚙️ NỘI TẠI <span id="tp-d2" class="text-yellow-300"></span></button>
+                    <button id="b-set" class="w-12 bg-slate-700 rounded-lg border border-slate-600 text-lg active:scale-95 transition">🔊</button>
+                </div>
+            </div>
+            <div class="w-full sm:w-1/3 bg-slate-900 rounded-xl p-4 flex flex-col justify-center items-center border border-slate-700 gap-3">
+                <div id="g-stat" class="hidden text-center">
+                    <div class="text-xs text-red-400 uppercase font-bold mb-1">Phòng tuyến sụp đổ ở</div>
+                    <div class="tf text-4xl font-black text-red-500 leading-none">ĐỢT <span id="g-wav">1</span></div>
+                </div>
+                <button id="b-start" class="w-full bg-gradient-to-br from-teal-600 to-blue-700 hover:from-teal-500 text-white py-4 rounded-xl font-black tf text-2xl uppercase tracking-widest shadow-[0_0_20px_rgba(45,212,191,0.4)] active:scale-95 border border-teal-400 transition-all">
+                    XUẤT QUÂN
+                </button>
+                <button id="b-install" class="hidden w-full bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl font-bold text-sm border border-slate-500 active:scale-95 transition">📥 Cài đặt vào màn hình chính</button>
+                <p class="text-[10px] text-slate-500 text-center leading-tight">Mẹo: Nâng <b class="text-indigo-300">Nội Tại</b> để mạnh hơn ở lần chơi sau — tiến trình được lưu tự động.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="wrap">
+    <div id="side">
+        <div class="h-8 flex items-center justify-center border-b border-slate-700 bg-slate-900 font-black tf text-sm text-slate-300 tracking-widest">QUÂN</div>
+        <div id="shop" class="flex-1 overflow-y-auto py-1"></div>
+        <div class="border-t border-slate-700 p-2 bg-slate-900 relative">
+            <button id="b-tal" class="w-full bg-gradient-to-b from-indigo-500 to-indigo-700 py-2 rounded font-black tf text-[10px] tracking-widest border border-indigo-400 text-white">NỘI TẠI</button>
+            <span id="tp-bdg" class="hidden absolute top-0 right-0 bg-red-500 text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full border border-slate-900 animate-bounce">1</span>
+        </div>
+    </div>
+
+    <div id="main">
+        <div class="w-full h-1 bg-slate-800 absolute top-0 left-0 z-10"><div id="w-bar"></div></div>
+
+        <div id="hud">
+            <div class="flex gap-2 sm:gap-3 w-1/3">
+                <div class="badge text-red-400 text-xs sm:text-sm">❤️ <span class="font-black tf" id="ui-hp">100</span></div>
+                <div class="badge text-yellow-400 text-xs sm:text-sm relative" id="ui-g-c">🪙 <span class="font-black tf" id="ui-g">250</span></div>
+            </div>
+            <div class="flex flex-col items-center justify-center w-1/3 text-center pt-1">
+                <div class="flex items-center gap-2">
+                    <span class="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-[0.1em]" id="w-stat">ĐỢT TẤN CÔNG</span>
+                    <button id="call" class="tf text-[10px]">⏩ GỌI SỚM</button>
+                </div>
+                <div class="tf font-black text-2xl sm:text-3xl text-white drop-shadow-md leading-none" id="ui-w">1</div>
+            </div>
+            <div class="flex flex-col items-end justify-center w-1/3">
+                <div class="text-[9px] sm:text-[10px] text-green-400 font-black tf tracking-widest">CẤP <span id="ui-lv" class="text-white">1</span></div>
+                <div class="w-20 sm:w-28 h-1.5 bg-slate-900 rounded-full mt-0.5 overflow-hidden border border-slate-600">
+                    <div id="ui-xp" class="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all" style="width: 0%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="canv-cont">
+            <canvas id="cvs"></canvas>
+
+            <div id="ctrls">
+                <div class="c-btn" id="b-speed">1x</div>
+                <div class="c-btn" id="b-pause">⏸</div>
+                <div class="c-btn" id="b-sound">🔊</div>
+                <div class="c-btn" id="b-full">⛶</div>
+            </div>
+
+            <div id="msg" class="absolute top-[25%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-0 transition-all duration-300 z-20 text-center w-full scale-50">
+                <h2 id="msg-t" class="tf text-3xl md:text-4xl text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-amber-500 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] uppercase tracking-widest font-black"></h2>
+            </div>
+
+            <div id="ult">
+                <div class="ult-msk" id="u-msk" style="height: 0%;"></div>
+                <span class="text-xl drop-shadow-md relative z-10">☄️</span>
+                <span class="text-[6px] font-black tf text-white uppercase relative z-10 mt-0.5">Thiên Thạch</span>
+            </div>
+
+            <div id="umod" class="hidden absolute z-30 transform -translate-x-1/2 -translate-y-full mt-[-8px] w-52 p-2">
+                <div class="flex justify-between items-center border-b border-slate-600 pb-1 mb-1.5">
+                    <div class="font-black text-white text-[11px] tf flex items-center gap-1"><span id="um-ic"></span> <span id="um-n">Tên</span></div>
+                    <div class="text-[9px] font-bold text-green-400 bg-green-900/40 px-1 py-0.5 rounded border border-green-800">Lv.<span id="um-lv">1</span></div>
+                </div>
+                <div id="um-desc" class="text-[9px] text-slate-300 mb-1.5 leading-tight italic hidden bg-indigo-900/40 p-1.5 rounded border border-indigo-500/30"></div>
+                <div class="flex gap-1.5">
+                    <button id="b-up" class="flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm">
+                        <span class="text-[9px] font-black text-white tf uppercase">Nâng Cấp</span><span class="text-[10px] font-black tf text-yellow-300" id="um-c">🪙 100</span>
+                    </button>
+                    <button id="b-sell" class="flex-1 bg-gradient-to-b from-red-500 to-red-700 hover:from-red-400 rounded py-1 flex flex-col items-center border border-red-400 shadow-sm">
+                        <span class="text-[9px] font-black text-white tf uppercase">Bán</span><span class="text-[10px] font-black tf text-yellow-300" id="um-s">🪙 50</span>
+                    </button>
+                </div>
+                <button id="b-cls-u" class="absolute -top-2 -right-2 w-5 h-5 bg-slate-700 rounded-full border border-slate-400 flex items-center justify-center text-[10px] font-bold text-white shadow-md">✕</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Talents modal -->
+<div id="tmod" class="hidden fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-2">
+    <div class="bg-slate-800 w-full max-w-lg rounded-xl border border-indigo-500/50 p-4 flex flex-col max-h-[90vh] shadow-[0_0_30px_rgba(79,70,229,0.3)]">
+        <div class="flex justify-between items-center mb-3"><h2 class="tf text-2xl text-indigo-400 tracking-widest uppercase font-black">Nội Tại Vĩnh Viễn</h2><button id="b-cls-t" class="text-2xl text-slate-400 hover:text-white">✕</button></div>
+        <div class="bg-slate-900 rounded-lg p-2 mb-3 flex justify-between items-center border border-slate-700"><span class="text-xs text-slate-400">Điểm Nâng Cấp (SP):</span><span class="tf text-2xl font-black text-yellow-400" id="tp-d">0</span></div>
+        <div class="overflow-y-auto flex-1 space-y-2 pr-1" id="t-cont"></div>
+        <p class="text-[10px] text-slate-500 mt-2 text-center">Nội tại được lưu lại và áp dụng cho mọi trận đấu.</p>
+    </div>
+</div>
+
+<!-- Pause / settings overlay -->
+<div id="pmod" class="overlay">
+    <div class="ov-card pop">
+        <h2 class="tf text-2xl text-blue-400 uppercase tracking-widest font-black text-center mb-4">Tạm Dừng</h2>
+        <div class="toggle"><span class="text-sm font-bold">🔊 Hiệu ứng âm thanh</span><div class="sw" id="t-sfx"></div></div>
+        <div class="toggle"><span class="text-sm font-bold">🎵 Nhạc nền</span><div class="sw" id="t-music"></div></div>
+        <button id="b-resume" class="ov-btn bg-gradient-to-br from-teal-600 to-blue-700 text-white border border-teal-400 mt-2">Tiếp tục</button>
+        <button id="b-quit" class="ov-btn bg-slate-700 text-slate-200 border border-slate-600 mt-2">Về Menu</button>
+    </div>
+</div>
+
+<script>
+/**
+ * KỶ NGUYÊN THỦ THÀNH — V17
+ * Tower defense + PWA (cài được trên điện thoại), âm thanh, lưu tiến trình,
+ * tạm dừng / tăng tốc, và các bản vá lỗi từ V16.
+ */
+
+// ============ AUDIO (Web Audio API — âm thanh tổng hợp, không cần file) ============
+const Sound = {
+    ctx: null, master: null, sfxGain: null, musicGain: null,
+    sfxOn: true, musicOn: false, last: {}, musicTimer: null, idx: 0,
+    seq: [0, 3, 5, 7, 10, 7, 5, 3, 0, -2, 0, 3],
+
+    init() {
+        if (this.ctx) return;
+        try {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AC();
+            this.master = this.ctx.createGain(); this.master.gain.value = 0.85; this.master.connect(this.ctx.destination);
+            this.sfxGain = this.ctx.createGain(); this.sfxGain.gain.value = 0.55; this.sfxGain.connect(this.master);
+            this.musicGain = this.ctx.createGain(); this.musicGain.gain.value = 0.22; this.musicGain.connect(this.master);
+        } catch (e) { this.ctx = null; }
+    },
+    resume() { try { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); } catch (e) {} },
+
+    tone(freq, dur, type = 'sine', vol = 0.5, slideTo = null, delay = 0) {
+        if (!this.sfxOn || !this.ctx) return;
+        const t = this.ctx.currentTime + delay;
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = type; o.frequency.setValueAtTime(freq, t);
+        if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo), t + dur);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g); g.connect(this.sfxGain); o.start(t); o.stop(t + dur + 0.03);
+    },
+    noise(dur, vol = 0.4, filterFreq = 1000, delay = 0) {
+        if (!this.sfxOn || !this.ctx) return;
+        const t = this.ctx.currentTime + delay;
+        const len = Math.floor(this.ctx.sampleRate * dur);
+        const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+        const n = this.ctx.createBufferSource(); n.buffer = buf;
+        const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = filterFreq;
+        const g = this.ctx.createGain(); g.gain.value = vol;
+        n.connect(f); f.connect(g); g.connect(this.sfxGain); n.start(t);
+    },
+    play(name) {
+        if (!this.sfxOn || !this.ctx) return;
+        const now = performance.now();
+        const gap = { shoot: 70, hit: 55, zap: 80, coin: 45, enemyDie: 55, pulse: 120 }[name] || 0;
+        if (gap) { if (this.last[name] && now - this.last[name] < gap) return; this.last[name] = now; }
+        switch (name) {
+            case 'shoot': this.tone(720, 0.08, 'square', 0.16, 320); break;
+            case 'hit': this.noise(0.06, 0.22, 2200); break;
+            case 'zap': this.tone(1300, 0.12, 'sawtooth', 0.16, 220); break;
+            case 'pulse': this.tone(220, 0.18, 'sine', 0.18, 90); break;
+            case 'boom': this.noise(0.4, 0.55, 700); this.tone(110, 0.4, 'sine', 0.4, 40); break;
+            case 'coin': this.tone(940, 0.07, 'triangle', 0.22, 1400); this.tone(1500, 0.08, 'triangle', 0.16, 1900, 0.04); break;
+            case 'build': this.tone(300, 0.12, 'square', 0.28, 520); this.tone(520, 0.12, 'square', 0.22, 820, 0.06); break;
+            case 'upgrade': this.tone(520, 0.1, 'square', 0.26, 820); this.tone(820, 0.12, 'square', 0.26, 1240, 0.08); this.tone(1240, 0.14, 'square', 0.22, 1640, 0.16); break;
+            case 'heal': this.tone(660, 0.12, 'sine', 0.18, 990); break;
+            case 'enemyDie': this.tone(420, 0.12, 'sawtooth', 0.16, 90); break;
+            case 'wave': this.tone(300, 0.2, 'sawtooth', 0.28, 280); this.tone(460, 0.3, 'sawtooth', 0.24, 420, 0.1); break;
+            case 'boss': this.tone(90, 0.7, 'sawtooth', 0.5, 60); this.noise(0.5, 0.4, 500, 0.1); break;
+            case 'lose': this.tone(420, 0.5, 'sawtooth', 0.4, 80); this.tone(300, 0.6, 'sawtooth', 0.34, 60, 0.2); this.tone(200, 0.8, 'sawtooth', 0.3, 50, 0.4); break;
+            case 'cleared': this.tone(523, 0.12, 'triangle', 0.3); this.tone(659, 0.12, 'triangle', 0.3, null, 0.1); this.tone(784, 0.2, 'triangle', 0.3, null, 0.2); break;
+            case 'alarm': this.tone(900, 0.1, 'square', 0.3, 440); break;
+            case 'click': this.tone(620, 0.05, 'square', 0.18); break;
+            case 'ult': this.noise(0.6, 0.65, 600); this.tone(70, 0.6, 'sine', 0.5, 200); break;
+        }
+    },
+    startMusic() {
+        if (this.musicTimer || !this.ctx) return;
+        this.musicTimer = setInterval(() => {
+            if (!this.musicOn || !this.ctx) return;
+            const semis = this.seq[this.idx % this.seq.length]; this.idx++;
+            const base = 196; // G3
+            const f = base * Math.pow(2, semis / 12);
+            this.pad(f, 0.085);
+            if (this.idx % 2 === 0) this.pad(f * 1.5, 0.05);
+        }, 430);
+    },
+    pad(freq, vol) {
+        const t = this.ctx.currentTime;
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = 'triangle'; o.frequency.value = freq;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(vol, t + 0.1);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+        o.connect(g); g.connect(this.musicGain); o.start(t); o.stop(t + 0.6);
+    }
+};
+
+function vibe(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+
+// ============ STORAGE (lưu nội tại / điểm / kỷ lục) ============
+const Storage = {
+    key: 'kntt_v17',
+    data: { talents: { d: 0, s: 0, h: 0, c: 0 }, tp: 0, best: [0, 0, 0], sfx: true, music: false },
+    load() {
+        try {
+            const s = localStorage.getItem(this.key);
+            if (s) {
+                const p = JSON.parse(s);
+                this.data.talents = Object.assign({ d: 0, s: 0, h: 0, c: 0 }, p.talents || {});
+                this.data.tp = p.tp || 0;
+                this.data.best = Array.isArray(p.best) ? p.best : [0, 0, 0];
+                this.data.sfx = p.sfx !== false;
+                this.data.music = !!p.music;
+            }
+        } catch (e) {}
+        return this.data;
+    },
+    sync() {
+        this.data.talents = { ...State.talents };
+        this.data.tp = State.tp;
+        this.data.sfx = Sound.sfxOn;
+        this.data.music = Sound.musicOn;
+        try { localStorage.setItem(this.key, JSON.stringify(this.data)); } catch (e) {}
+    }
+};
+
+// 1. GAME CONFIGURATION
+const CFG = {
+    rows: 6, cols: 11, baseHp: 100, startGold: 250, xpBase: 100, maxMiners: 5,
+    colors: {
+        econ: '#eab308', melee: '#3b82f6', ranged: '#22c55e',
+        gunner: '#f97316', laser: '#06b6d4', ice: '#60a5fa',
+        poison: '#8b5cf6', support: '#f472b6', enemy: '#ef4444',
+        grid: '#0b1220', grid2: '#0d1526', baseArea: 'rgba(59,130,246,0.06)', baseLine: '#3b82f6'
+    }
+};
+
+const MAPS = [
+    { id: 0, bg: '#022c22', icon: '🌲', obsCount: 4, weather: 'rain' },
+    { id: 1, bg: '#2a0404', icon: '🌋', obsCount: 8, weather: 'embers' },
+    { id: 2, bg: '#170836', icon: '🪦', obsCount: 12, weather: 'dungeon' }
+];
+
+// 2. DATABASE: UNITS & ENEMIES
+const UNITS_DB = {
+    miner:   { icon: '⛺', type: 'econ', cost: 50, hp: 300, income: 15, cd: 4.0, color: CFG.colors.econ, name: "Mỏ Vàng", lv3Desc: "Năng suất đào Vàng x2." },
+    knight:  { icon: '🛡️', type: 'melee', cost: 60, hp: 700, dmg: 15, range: 1.1, aspd: 1.2, color: CFG.colors.melee, name: "Giáp Sĩ", lv3Desc: "Phản lại 30% sát thương." },
+    archer:  { icon: '🏹', type: 'linear', pSpeed: 700, cost: 80, hp: 150, dmg: 30, range: 6.0, aspd: 0.8, color: CFG.colors.ranged, name: "Xạ Thủ", lv3Desc: "Đạn Năng lượng xanh: Xuyên thấu mọi địch." },
+    gunner:  { icon: '💣', type: 'gunner', pSpeed: 600, cost: 130, hp: 200, dmg: 60, range: 5.0, aspd: 1.8, color: CFG.colors.gunner, name: "Pháo Thủ", lv3Desc: "Đạn Nổ Chùm: Nổ sát thương diện rộng khi chạm đích." },
+    poison:  { icon: '☠️', type: 'pulse', cost: 120, hp: 250, dmg: 10, range: 2.0, aspd: 1.5, color: CFG.colors.poison, name: "Tháp Độc", lv3Desc: "Tỏa Mộc Độc: Vòng độc rộng hơn và làm chậm địch." },
+    mage:    { icon: '⚡', type: 'laser', cost: 180, hp: 120, dmg: 40, range: 4.5, aspd: 1.5, color: CFG.colors.laser, name: "Thần Sét", lv3Desc: "Sét Tím: Nảy chuỗi sang 2 mục tiêu lân cận." },
+    ice:     { icon: '❄️', type: 'lob', pSpeed: 350, splash: 1.2, cost: 160, hp: 120, dmg: 35, range: 5.0, aspd: 2.0, color: CFG.colors.ice, name: "Băng Thần", lv3Desc: "Bão Tuyết: Nổ rộng gấp đôi, gần như đóng băng địch." },
+    priest:  { icon: '🕊️', type: 'support', cost: 150, hp: 250, dmg: 30, range: 2.5, aspd: 2.0, color: CFG.colors.support, name: "Thánh Sứ", lv3Desc: "Hào quang: Buff +15% Dmg & Tốc độ đánh cho lính kề bên." }
+};
+
+const ENEMIES_DB = [
+    { icon: '👺', hp: 80, spd: 26, dmg: 5, aspd: 1.0, gold: 10, xp: 15, size: 0.6 },
+    { icon: '👹', hp: 350, spd: 18, dmg: 18, aspd: 1.5, gold: 20, xp: 30, size: 0.85 },
+    { icon: '🐺', hp: 50, spd: 70, dmg: 8, aspd: 0.8, gold: 8, xp: 20, size: 0.55 },
+    { icon: '💀', hp: 150, spd: 15, dmg: 20, aspd: 1.5, gold: 30, xp: 40, size: 0.8, shieldHits: 3 },
+    { icon: '🧙', hp: 120, spd: 16, dmg: 5, aspd: 2.0, gold: 25, xp: 35, size: 0.7, summons: true },
+    { icon: '🥷', hp: 100, spd: 55, dmg: 25, aspd: 1.0, gold: 25, xp: 35, size: 0.6, isJumping: true, evade: 0.4 },
+    { icon: '👿', hp: 4500, spd: 11, dmg: 70, aspd: 2.0, gold: 300, xp: 600, size: 1.5, isBoss: true }
+];
+
+const TALENTS_DB = {
+    d: { name: 'Vũ Khí', desc: '+10% Sát thương', max: 10, effect: (lvl) => lvl * 0.1, icon: '⚔️' },
+    s: { name: 'Cuồng Nộ', desc: '+5% Tốc đánh', max: 10, effect: (lvl) => lvl * 0.05, icon: '🔥' },
+    h: { name: 'Gia Cố', desc: '+100 Máu nhà', max: 5, effect: (lvl) => lvl * 100, icon: '🧱' },
+    c: { name: 'Chí Mạng', desc: '+5% Bạo kích', max: 5, effect: (lvl) => lvl * 0.05, icon: '🎯' }
+};
+
+// 3. GAME STATE
+const State = {
+    running: false, paused: false, speed: 1,
+    gold: 0, hp: 0, maxHp: 0, wave: 1, level: 1, xp: 0, maxXp: 0, tp: 0, mapId: 0,
+    talents: { d: 0, s: 0, h: 0, c: 0 },
+    grid: { size: 0, cols: 0, offsetX: 0, offsetY: 0 },
+
+    units: [], enemies: [], projs: [], eProjs: [], particles: [], floatTexts: [], beams: [], flyingCoins: [], obstacles: [], weather: [],
+
+    ui: { shopId: null, selUnit: null, goldUiX: 150, goldUiY: 30 },
+    spawn: { active: false, queue: [], timer: 8, isPrep: true, total: 0 },
+
+    shake: 0, ultCd: 0, ultMax: 25
+};
+
+const getDist = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
+
+// 4. ENTITY CLASSES
+class Unit {
+    constructor(col, row, typeId, db) {
+        this.col = col; this.row = row; this.typeId = typeId; this.db = db; this.level = 1;
+        this.x = State.grid.offsetX + col * State.grid.size + State.grid.size / 2;
+        this.y = State.grid.offsetY + row * State.grid.size + State.grid.size / 2;
+        this.maxHp = this.db.hp; this.hp = this.maxHp; this.dHp = this.hp;
+        this.atkCd = 1.0; this.anim = 0; this.birth = performance.now();
+        this.stun = 0; this.auraDmg = 0; this.auraSpd = 0; this.flash = 0;
+    }
+
+    getStats() {
+        let lvM = Math.pow(1.4, this.level - 1);
+        let dmgM = 1 + TALENTS_DB.d.effect(State.talents.d) + this.auraDmg;
+        let spdM = 1 + TALENTS_DB.s.effect(State.talents.s) + this.auraSpd;
+
+        if (this.db.type === 'econ') return { hp: this.db.hp * lvM, inc: Math.floor(this.db.income * (this.level >= 3 ? 2 : lvM)), cd: this.db.cd };
+        if (this.db.type === 'pulse') return { hp: this.db.hp * lvM, dmg: this.db.dmg * lvM * dmgM, rng: this.db.range * State.grid.size * (this.level >= 3 ? 1.3 : 1), aspd: this.db.aspd / spdM };
+        return { hp: this.db.hp * lvM, dmg: this.db.dmg * lvM * dmgM, rng: this.db.range * State.grid.size, aspd: this.db.aspd / spdM };
+    }
+
+    takeDamage(amt) {
+        this.hp -= amt; this.flash = 0.12;
+        if (this.hp < 0) this.hp = 0;
+    }
+
+    update(dt) {
+        if (this.dHp > this.hp) this.dHp -= (this.dHp - this.hp) * 10 * dt;
+        if (this.flash > 0) this.flash -= dt;
+        if (this.stun > 0) { this.stun -= dt; return; }
+        if (this.anim > 0) this.anim -= dt * 5; else this.anim = 0;
+        if (this.atkCd > 0) this.atkCd -= dt;
+
+        this.auraDmg = 0; this.auraSpd = 0;
+        let s = this.getStats(); this.maxHp = s.hp;
+
+        if (this.atkCd <= 0) {
+            if (this.db.type === 'econ') {
+                Engine.spawnFlyingCoin(this.x, this.y, s.inc);
+                Engine.spawnParticles(this.x, this.y, '#fde047', 5, 30, 2);
+                this.atkCd = s.cd; this.anim = 1.0;
+            }
+            else if (this.db.type === 'pulse') {
+                this.atkCd = s.aspd; this.anim = 1.0;
+                Engine.spawnParticles(this.x, this.y, this.db.color, 15, 60, 3);
+                State.particles.push({ x: this.x, y: this.y, type: 'pulse', c: this.level >= 3 ? '#c084fc' : this.db.color, r: s.rng, l: 0.4 });
+                let hitAny = false;
+                State.enemies.forEach(e => {
+                    if (getDist(this.x, this.y, e.x, e.y) <= s.rng) {
+                        e.takeDmg(s.dmg); Engine.spawnText(e.x, e.y - 20, Math.floor(s.dmg), this.db.color, false); hitAny = true;
+                        if (this.level >= 3) { e.slowTimer = 2.0; e.slowAmt = 0.5; }
+                    }
+                });
+                if (hitAny) Sound.play('pulse');
+            }
+            else if (this.db.type === 'support') {
+                if (this.level >= 3) {
+                    State.units.forEach(u => { if (u !== this && Math.abs(u.col - this.col) + Math.abs(u.row - this.row) === 1) { u.auraDmg = 0.15; u.auraSpd = 0.15; } });
+                }
+                let tAlly = null, minHpP = 1.0;
+                for (let u of State.units) {
+                    if (u === this) continue;
+                    if (getDist(this.x, this.y, u.x, u.y) <= s.rng) { let p = u.hp / u.maxHp; if (p < minHpP) { minHpP = p; tAlly = u; } }
+                }
+                if (tAlly && tAlly.hp < tAlly.maxHp) {
+                    this.atkCd = s.aspd; this.anim = 1.0;
+                    tAlly.hp = Math.min(tAlly.maxHp, tAlly.hp + s.dmg);
+                    Engine.spawnText(tAlly.x, tAlly.y - 20, `+${Math.floor(s.dmg)}`, '#4ade80', false);
+                    State.beams.push({ x1: this.x, y1: this.y, x2: tAlly.x, y2: tAlly.y, c: '#f472b6', l: 0.2 });
+                    Engine.spawnParticles(tAlly.x, tAlly.y, '#f472b6', 5, 20, 2);
+                    Sound.play('heal');
+                }
+            }
+            else if (State.enemies.length > 0) {
+                let t = null, md = s.rng;
+                for (let e of State.enemies) {
+                    if (e.row !== this.row && this.db.type !== 'laser') continue;
+                    let d = getDist(this.x, this.y, e.x, e.y);
+                    if (d <= md && (e.x - this.x) > -State.grid.size * 0.5) { md = d; t = e; }
+                }
+
+                if (t) {
+                    this.atkCd = s.aspd; this.anim = 1.0;
+                    let isCrit = Math.random() < (0.1 + TALENTS_DB.c.effect(State.talents.c));
+                    let fd = isCrit ? s.dmg * 2 : s.dmg;
+
+                    if (this.db.type === 'melee') {
+                        t.takeDmg(fd);
+                        Engine.spawnText(t.x, t.y - 20, Math.floor(fd), '#fff', isCrit);
+                        Sound.play('hit');
+                        if (this.level >= 3) {
+                            t.takeDmg(fd * 0.3);
+                            Engine.spawnParticles(this.x + 20, this.y, '#93c5fd', 10, 50, 3);
+                        } else {
+                            Engine.spawnParticles(t.x - 10, t.y, '#fff', 5, 40, 2);
+                        }
+                        State.particles.push({ x: this.x + 15, y: this.y, type: 'slash', l: 0.2 });
+                    }
+                    else if (this.db.type === 'laser') {
+                        let c = this.level >= 3 ? '#c084fc' : this.db.color;
+                        t.takeDmg(fd); Engine.spawnText(t.x, t.y - 20, Math.floor(fd), c, isCrit);
+                        State.beams.push({ x1: this.x, y1: this.y, x2: t.x, y2: t.y, c: c, l: 0.15 });
+                        State.particles.push({ x: t.x, y: t.y + 10, type: 'magic', c: c, l: 0.3 });
+                        Sound.play('zap');
+
+                        if (this.level >= 3) {
+                            let chains = 2, curT = t, hitL = [t];
+                            while (chains > 0) {
+                                let nT = null, nD = 150;
+                                for (let e of State.enemies) { if (!hitL.includes(e) && getDist(curT.x, curT.y, e.x, e.y) < nD) { nD = getDist(curT.x, curT.y, e.x, e.y); nT = e; } }
+                                if (nT) {
+                                    nT.takeDmg(fd * 0.7); Engine.spawnText(nT.x, nT.y - 20, Math.floor(fd * 0.7), c, false);
+                                    State.beams.push({ x1: curT.x, y1: curT.y, x2: nT.x, y2: nT.y, c: c, l: 0.15 });
+                                    State.particles.push({ x: nT.x, y: nT.y + 10, type: 'magic', c: c, l: 0.3 });
+                                    curT = nT; hitL.push(nT); chains--;
+                                } else break;
+                            }
+                        }
+                    }
+                    else if (this.db.type === 'lob') {
+                        State.projs.push(new ProjLob(this.x, this.y, t.x, t.y, fd, this.typeId, this.db, this.level, isCrit));
+                        Sound.play('shoot');
+                    }
+                    else {
+                        State.projs.push(new ProjLin(this.x, this.y, t.y, fd, this.typeId, this.db, this.level, isCrit));
+                        Sound.play('shoot');
+                    }
+                }
+            }
+        }
+    }
+}
+
+class Enemy {
+    constructor(r, hpM, db) {
+        this.row = r; this.db = db;
+        this.maxHp = this.db.hp * hpM; this.hp = this.maxHp; this.dHp = this.hp;
+        this.x = State.grid.offsetX + State.grid.cols * State.grid.size + State.grid.size;
+        this.y = State.grid.offsetY + r * State.grid.size + State.grid.size / 2;
+        this.atkCd = 0; this.flash = 0; this.kb = 0; this.birth = performance.now();
+        this.shield = this.db.shieldHits || 0;
+        this.summonTimer = 4.0; this.slowTimer = 0; this.slowAmt = 0; this.jp = false;
+    }
+    update(dt) {
+        if (this.dHp > this.hp) this.dHp -= (this.dHp - this.hp) * 10 * dt;
+        if (this.flash > 0) this.flash -= dt;
+        if (this.slowTimer > 0) this.slowTimer -= dt;
+
+        if (this.kb > 0 && !this.db.isHeavy) { this.x += this.kb * dt; this.kb -= dt * 120; if (this.kb < 0) this.kb = 0; return; }
+        if (this.atkCd > 0) this.atkCd -= dt;
+
+        if (this.db.summons) {
+            this.summonTimer -= dt;
+            if (this.summonTimer <= 0) {
+                this.summonTimer = 5.0;
+                let imp = new Enemy(this.row, 1, ENEMIES_DB[0]);
+                imp.x = this.x - State.grid.size;
+                State.enemies.push(imp);
+                Engine.spawnParticles(imp.x, imp.y, '#a855f7', 15, 50, 3);
+            }
+        }
+
+        let blk = null;
+        for (let u of State.units) {
+            if (u.row === this.row && u.db.type !== 'pulse') {
+                let d = this.x - u.x;
+                if (d > 0 && d < State.grid.size * 0.6) { blk = u; break; }
+            }
+        }
+
+        if (blk) {
+            if (this.db.isJumping && !this.jp) {
+                this.x -= State.grid.size * 1.2; this.jp = true;
+                Engine.spawnText(this.x, this.y, "NHẢY XUYÊN!", '#cbd5e1', true);
+                Engine.spawnParticles(this.x, this.y, '#cbd5e1', 10, 50, 2);
+            }
+            else if (this.atkCd <= 0) {
+                blk.takeDamage(this.db.dmg); this.atkCd = this.db.aspd;
+                Engine.spawnParticles(blk.x, blk.y, '#ef4444', 4, 30, 2);
+                if (!this.db.isHeavy) this.kb = 5;
+            }
+        } else {
+            let spd = this.db.spd * (this.slowTimer > 0 ? (1 - this.slowAmt) : 1);
+            this.x -= spd * dt;
+        }
+    }
+    takeDmg(amt) {
+        if (this.shield > 0) {
+            this.shield--; Engine.spawnText(this.x, this.y - 20, "KENG!", '#94a3b8', false);
+            Engine.spawnParticles(this.x, this.y, '#94a3b8', 5, 30, 2);
+            return;
+        }
+        this.hp -= amt; this.flash = 0.15;
+    }
+}
+
+class ProjLin {
+    constructor(x, y, ty, d, typeId, db, lv, cr) {
+        this.x = x; this.y = ty; this.d = d; this.typeId = typeId; this.db = db; this.lv = lv; this.cr = cr;
+        this.p = (this.typeId === 'archer' && lv >= 3);
+        this.hl = new Set(); this.a = true;
+    }
+    update(dt) {
+        this.x += this.db.pSpeed * dt;
+        if (this.x > window.innerWidth + 100) { this.a = false; return; }
+
+        if (this.p) Engine.spawnParticles(this.x, this.y, '#34d399', 1, 10, 2);
+
+        for (let e of State.enemies) {
+            if (!this.hl.has(e) && Math.abs(e.y - this.y) < 12 && e.x > this.x - 20 && e.x < this.x + 20) {
+                if (e.db.evade && Math.random() < e.db.evade) {
+                    Engine.spawnText(e.x, e.y - 20, "Né!", '#94a3b8', false);
+                } else {
+                    if (this.typeId === 'gunner' && this.lv >= 3) {
+                        Engine.spawnParticles(this.x, this.y, '#ef4444', 15, 60, 3);
+                        State.shake += 4; Sound.play('boom');
+                        State.enemies.forEach(en => { if (getDist(this.x, this.y, en.x, en.y) < State.grid.size * 1.5) en.takeDmg(this.d); });
+                    } else {
+                        e.takeDmg(this.d);
+                        Engine.spawnText(e.x, e.y - 20, Math.floor(this.d), '#fff', this.cr);
+                        Engine.spawnParticles(e.x, e.y, this.p ? '#34d399' : this.db.color, 4, 30, 2);
+                    }
+                }
+                if (this.p) this.hl.add(e); else { this.a = false; break; }
+            }
+        }
+    }
+    draw(ctx) {
+        let isExplosive = (this.typeId === 'gunner' && this.lv >= 3);
+        ctx.fillStyle = this.p ? '#34d399' : (isExplosive ? '#ef4444' : this.db.color);
+        ctx.fillRect(this.p ? this.x - 20 : this.x - 10, this.y - 2, this.p ? 30 : 20, 4);
+    }
+}
+
+class ProjLob {
+    constructor(x, y, dx, dy, d, typeId, db, lv, cr) {
+        this.x = x; this.y = y; this.dx = dx; this.dy = dy; this.d = d; this.typeId = typeId; this.db = db; this.lv = lv; this.cr = cr;
+        this.td = Math.hypot(dx - x, dy - y); this.ar = 0; this.a = true;
+    }
+    update(dt) {
+        let dx = this.dx - this.x, dy = this.dy - this.y, dl = Math.hypot(dx, dy);
+
+        if (this.typeId === 'ice' && this.lv >= 3) Engine.spawnParticles(this.x, this.y - this.ar, '#e0f2fe', 1, 15, 2);
+
+        if (dl < 10) {
+            let isMaxIce = (this.typeId === 'ice' && this.lv >= 3);
+            let rd = this.db.splash * State.grid.size * (isMaxIce ? 2.0 : 1);
+            let pCol = isMaxIce ? '#e0f2fe' : this.db.color;
+
+            Engine.spawnParticles(this.x, this.y, pCol, 25, 100, 4);
+            State.shake += isMaxIce ? 10 : 5; Sound.play('boom');
+
+            State.enemies.forEach(e => {
+                if (getDist(this.x, this.y, e.x, e.y) <= rd) {
+                    if (e.db.evade && Math.random() < e.db.evade) Engine.spawnText(e.x, e.y - 20, "Né!", '#94a3b8', false);
+                    else {
+                        e.takeDmg(this.d); Engine.spawnText(e.x, e.y - 20, Math.floor(this.d), pCol, this.cr);
+                        if (this.typeId === 'ice') { e.slowTimer = isMaxIce ? 3.5 : 1.5; e.slowAmt = isMaxIce ? 0.8 : 0.4; }
+                    }
+                }
+            });
+            this.a = false; return;
+        }
+        this.x += (dx / dl) * this.db.pSpeed * dt; this.y += (dy / dl) * this.db.pSpeed * dt;
+        this.ar = Math.sin((this.td - dl) / this.td * Math.PI) * 100;
+    }
+    draw(ctx) {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(this.x, this.y, 10, 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = (this.typeId === 'ice' && this.lv >= 3) ? '#e0f2fe' : this.db.color;
+        ctx.beginPath(); ctx.arc(this.x, this.y - this.ar, 8 + this.ar / 20, 0, Math.PI * 2); ctx.fill();
+    }
+}
+
+class FCoin {
+    constructor(x, y, v) { this.x = x; this.y = y; this.v = v; this.tx = State.ui.goldUiX; this.ty = State.ui.goldUiY; }
+    update(dt) {
+        let dx = this.tx - this.x, dy = this.ty - this.y;
+        this.x += dx * 5 * dt; this.y += dy * 5 * dt;
+        if (Math.hypot(dx, dy) < 25) {
+            State.gold += this.v; UI.updateDisplay(); Sound.play('coin');
+            let gEl = document.getElementById('ui-g'); gEl.style.transform = 'scale(1.5)';
+            setTimeout(() => gEl.style.transform = 'scale(1)', 150);
+            return false;
+        }
+        return true;
+    }
+    draw(ctx) {
+        ctx.font = '20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#000'; ctx.shadowBlur = 5; ctx.fillText('🪙', this.x, this.y); ctx.shadowBlur = 0;
+    }
+}
+
+// 5. ENGINE
+const Engine = {
+    canvas: document.getElementById('cvs'), ctx: null, lastTime: 0,
+
+    init() {
+        this.ctx = this.canvas.getContext('2d');
+        this.resize(); window.addEventListener('resize', () => this.resize());
+        window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 200));
+        this.inputs();
+        setTimeout(() => {
+            try { let r = document.getElementById('ui-g-c').getBoundingClientRect(); if (r && r.left > 0) { State.ui.goldUiX = r.left + 20; State.ui.goldUiY = r.top + 20; } } catch (e) {}
+        }, 500);
+    },
+
+    // alias kept for any legacy call sites
+    spawnParts(x, y, c, n, spd, sz) { this.spawnParticles(x, y, c, n, spd, sz); },
+
+    resize() {
+        const cont = document.getElementById('canv-cont'); const dpr = window.devicePixelRatio || 1; const rect = cont.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+        this.canvas.width = rect.width * dpr; this.canvas.height = rect.height * dpr;
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0); this.ctx.scale(dpr, dpr);
+        this.canvas.style.width = `${rect.width}px`; this.canvas.style.height = `${rect.height}px`;
+
+        let sh = rect.height / CFG.rows, sw = rect.width / CFG.cols;
+        State.grid.size = Math.min(sh, sw); if (State.grid.size > 78) State.grid.size = 78;
+        State.grid.cols = Math.floor(rect.width / State.grid.size);
+        State.grid.offsetX = (rect.width - (State.grid.cols * State.grid.size)) / 2;
+        State.grid.offsetY = (rect.height - (CFG.rows * State.grid.size)) / 2;
+    },
+
+    spawnText(x, y, t, c, cr) { State.floatTexts.push({ x, y, vx: (Math.random() - 0.5) * 40, vy: -40 - Math.random() * 30, t: cr ? t + "!" : t, c: cr ? '#f87171' : c, s: cr ? 18 : 12, l: 1, ml: 1 }); },
+    spawnParticles(x, y, c, n, spd, sz = 3) { for (let i = 0; i < n; i++) { let a = Math.random() * Math.PI * 2, v = Math.random() * spd; State.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, l: 1, c, s: Math.random() * sz + 1 }); } },
+    spawnFlyingCoin(x, y, v) { State.flyingCoins.push(new FCoin(x, y, v)); },
+
+    gainXp(a) {
+        State.xp += a; let u = false;
+        while (State.xp >= State.maxXp) { State.xp -= State.maxXp; State.level++; State.tp++; State.maxXp = Math.floor(CFG.xpBase * Math.pow(1.5, State.level - 1)); u = true; }
+        if (u) { UI.showMessage(`CẤP ${State.level}! +1 SP`); UI.updateDisplay(); Storage.sync(); }
+    },
+
+    initMap() {
+        State.obstacles = []; let map = MAPS[State.mapId];
+        let c = map.obsCount;
+        while (c > 0) {
+            let cl = Math.floor(Math.random() * (State.grid.cols - 3)) + 2, r = Math.floor(Math.random() * CFG.rows);
+            if (!State.obstacles.find(o => o.col === cl && o.row === r)) { State.obstacles.push({ col: cl, row: r, icon: map.icon }); c--; }
+        }
+        document.getElementById('canv-cont').style.background = map.bg;
+        State.weather = [];
+        if (map.weather === 'rain') for (let i = 0; i < 50; i++) State.weather.push({ x: Math.random() * 2000, y: Math.random() * 1000, vy: 500 + Math.random() * 200, l: Math.random() });
+        if (map.weather === 'embers') for (let i = 0; i < 30; i++) State.weather.push({ x: Math.random() * 2000, y: Math.random() * 1000, vy: -50 - Math.random() * 50, vx: (Math.random() - 0.5) * 50, l: Math.random() });
+    },
+
+    buildWave() {
+        State.spawn.queue = []; let w = State.wave, hm = Math.pow(1.22, w - 1), count = 10 + w * 2; State.spawn.total = count;
+        for (let i = 0; i < count; i++) {
+            let r = Math.random(), tid = 0;
+            if (w < 3) tid = r < 0.2 ? 1 : 0;
+            else if (w < 6) { if (r < 0.2) tid = 2; else if (r < 0.4) tid = 1; else if (r < 0.6) tid = 3; }
+            else { if (r < 0.1) tid = 2; else if (r < 0.2) tid = 1; else if (r < 0.3) tid = 4; else if (r < 0.45) tid = 3; else if (r < 0.6) tid = 5; }
+            if (i === count - 1 && w % 5 === 0) tid = 6;
+            State.spawn.queue.push({ d: i * (1.5 - Math.min(0.8, w * 0.04)), db: ENEMIES_DB[tid], m: hm });
+        }
+    },
+
+    update(dt) {
+        if (!State.running) return;
+        try {
+            if (State.shake > 0) State.shake -= dt * 40; else State.shake = 0;
+            if (State.ultCd > 0) {
+                State.ultCd -= dt; document.getElementById('u-msk').style.height = `${(State.ultCd / State.ultMax) * 100}%`;
+                if (State.ultCd <= 0) { document.getElementById('ult').classList.remove('cd'); document.getElementById('u-msk').style.height = '0%'; }
+            }
+
+            let w = window.innerWidth, h = window.innerHeight;
+            State.weather.forEach(f => {
+                if (MAPS[State.mapId].weather === 'rain') { f.y += f.vy * dt; if (f.y > h) { f.y = -20; f.x = Math.random() * w; } }
+                if (MAPS[State.mapId].weather === 'embers') { f.y += f.vy * dt; f.x += f.vx * dt; f.l -= dt * 0.2; if (f.l <= 0) { f.y = h + 20; f.x = Math.random() * w; f.l = 1.0; } }
+            });
+
+            if (State.spawn.isPrep) {
+                State.spawn.timer -= dt; document.getElementById('w-stat').innerText = `CHUẨN BỊ: ${Math.ceil(State.spawn.timer)}s`; document.getElementById('w-bar').style.width = '0%';
+                if (State.spawn.timer <= 0) {
+                    State.spawn.isPrep = false; document.getElementById('w-stat').innerText = "ĐANG PHÒNG THỦ";
+                    document.getElementById('call').style.display = 'none'; UI.showMessage(`ĐỢT ${State.wave} BẮT ĐẦU!`); Sound.play('wave'); this.buildWave();
+                }
+            } else {
+                let prg = State.spawn.total > 0 ? 1 - ((State.spawn.queue.length + State.enemies.length) / State.spawn.total) : 0;
+                document.getElementById('w-bar').style.width = `${Math.max(0, Math.min(100, prg * 100))}%`;
+
+                if (State.spawn.queue.length > 0) {
+                    for (let i = State.spawn.queue.length - 1; i >= 0; i--) {
+                        let q = State.spawn.queue[i]; q.d -= dt;
+                        if (q.d <= 0) {
+                            let en = new Enemy(Math.floor(Math.random() * CFG.rows), q.m, q.db);
+                            State.enemies.push(en); State.spawn.queue.splice(i, 1);
+                            if (q.db.isBoss) { UI.showMessage("⚠️ TRÙM XUẤT HIỆN!", true); Sound.play('boss'); vibe([0, 80, 40, 80]); State.shake = 25; }
+                        }
+                    }
+                } else if (State.enemies.length === 0) {
+                    State.spawn.isPrep = true; State.spawn.timer = 10; State.wave++; UI.updateDisplay();
+                    document.getElementById('call').style.display = 'block'; let b = 50 + State.wave * 20; State.gold += b; UI.showMessage(`DỌN SẠCH! +${b}🪙`); Sound.play('cleared');
+                }
+            }
+
+            State.units.forEach(u => u.update(dt));
+            State.units = State.units.filter(u => { if (u.hp <= 0) { this.spawnParticles(u.x, u.y, '#64748b', 20, 80, 4); Sound.play('enemyDie'); if (State.ui.selUnit === u) UI.closeUnitModal(); return false; } return true; });
+
+            State.enemies.forEach(e => e.update(dt));
+            State.enemies = State.enemies.filter(e => {
+                if (e.x < State.grid.offsetX) { State.hp -= e.db.dmg; State.shake = 20; UI.showMessage("THÀNH TRÌ BỊ TẤN CÔNG!", true); Sound.play('alarm'); vibe(60); UI.updateDisplay(); if (State.hp <= 0) Control.gameOver(); return false; }
+                if (e.hp <= 0) {
+                    let g = Math.floor(e.db.gold * (1 + TALENTS_DB.d.effect(State.talents.d))); this.gainXp(e.db.xp);
+                    this.spawnText(e.x, e.y, `+${g}`, '#fde047', false); this.spawnFlyingCoin(e.x, e.y, g); this.spawnParticles(e.x, e.y, '#71717a', 15, 60, 3);
+                    Sound.play('enemyDie'); if (e.db.isBoss) { vibe(120); State.shake = 20; }
+                    return false;
+                } return true;
+            });
+
+            State.projs.forEach(p => p.update(dt)); State.projs = State.projs.filter(p => p.a);
+            State.eProjs.forEach(p => p.update(dt)); State.eProjs = State.eProjs.filter(p => p.active);
+            State.flyingCoins = State.flyingCoins.filter(c => c.update(dt));
+
+            State.particles.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.l -= dt * 1.5; }); State.particles = State.particles.filter(p => p.l > 0);
+            State.floatTexts.forEach(t => { t.x += t.vx * dt; t.y += t.vy * dt; t.vy += 80 * dt; t.l -= dt * 0.8; }); State.floatTexts = State.floatTexts.filter(t => t.l > 0);
+            State.beams.forEach(b => b.l -= dt); State.beams = State.beams.filter(b => b.l > 0);
+        } catch (e) { console.error("Update error:", e); }
+    },
+
+    draw() {
+        let ctx = this.ctx; if (!ctx) return; let t = performance.now();
+        let w = this.canvas.width / (window.devicePixelRatio || 1); let h = this.canvas.height / (window.devicePixelRatio || 1);
+        ctx.clearRect(0, 0, w, h);
+
+        ctx.save(); if (State.shake > 0) ctx.translate((Math.random() - 0.5) * State.shake, (Math.random() - 0.5) * State.shake);
+
+        let g = State.grid;
+        ctx.fillStyle = CFG.colors.baseArea; ctx.fillRect(0, g.offsetY, g.offsetX, CFG.rows * g.size);
+        ctx.strokeStyle = CFG.colors.baseLine; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(g.offsetX, g.offsetY); ctx.lineTo(g.offsetX, g.offsetY + CFG.rows * g.size); ctx.stroke();
+
+        ctx.lineWidth = 1;
+        for (let r = 0; r < CFG.rows; r++) {
+            for (let c = 0; c < g.cols; c++) {
+                let x = g.offsetX + c * g.size; let y = g.offsetY + r * g.size;
+                ctx.fillStyle = (r + c) % 2 === 0 ? CFG.colors.grid : CFG.colors.grid2; ctx.fillRect(x, y, g.size, g.size);
+                ctx.strokeStyle = 'rgba(255,255,255,0.02)'; ctx.strokeRect(x, y, g.size, g.size);
+            }
+        }
+
+        // Build placement highlight (when a shop unit is selected)
+        if (State.ui.shopId) {
+            for (let r = 0; r < CFG.rows; r++) {
+                for (let c = 0; c < g.cols; c++) {
+                    let occupied = State.obstacles.find(o => o.col === c && o.row === r) || State.units.find(u => u.col === c && u.row === r);
+                    if (!occupied) { let x = g.offsetX + c * g.size, y = g.offsetY + r * g.size; ctx.fillStyle = 'rgba(59,130,246,0.08)'; ctx.fillRect(x + 1, y + 1, g.size - 2, g.size - 2); }
+                }
+            }
+        }
+
+        State.obstacles.forEach(o => {
+            let x = g.offsetX + o.col * g.size + g.size / 2; let y = g.offsetY + o.row * g.size + g.size / 2;
+            ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(x, y + g.size * 0.25, g.size * 0.3, g.size * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.font = `${g.size * 0.6}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(o.icon, x, y - g.size * 0.05);
+        });
+
+        let ents = [...State.units, ...State.enemies].sort((a, b) => a.y - b.y);
+        ents.forEach(e => {
+            ctx.save(); ctx.translate(e.x, e.y);
+            if (e instanceof Unit) {
+                let isAtk = e.anim > 0; let bounce = isAtk && e.db.type === 'econ' ? -10 * e.anim : Math.sin(t / 250 + e.birth) * 2;
+                let lunge = isAtk && e.db.type !== 'econ' && e.db.type !== 'pulse' ? (e.db.type === 'melee' ? e.anim * 10 : -e.anim * 5) : 0;
+
+                if (e.db.type === 'support' && e.level >= 3) { ctx.fillStyle = `rgba(244,114,182,${0.1 + Math.sin(t / 100) * 0.05})`; ctx.fillRect(-g.size * 1.5, -g.size * 0.5, g.size * 3, g.size); ctx.fillRect(-g.size * 0.5, -g.size * 1.5, g.size, g.size * 3); }
+                if (State.ui.selUnit === e) { ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.arc(0, 0, g.size * 0.4, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.arc(0, 0, e.getStats().rng, 0, Math.PI * 2); ctx.stroke(); }
+
+                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(0, g.size * 0.25 - bounce / 3, g.size * 0.25, g.size * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+
+                State.particles.forEach(p => {
+                    if (p.type === 'slash' && getDist(p.x, p.y, e.x, e.y) < 20) { ctx.beginPath(); ctx.arc(15, 0, 15, -Math.PI / 3, Math.PI / 3); ctx.strokeStyle = `rgba(255,255,255,${p.l * 2})`; ctx.lineWidth = 3; ctx.stroke(); }
+                    if (p.type === 'magic' && getDist(p.x, p.y, e.x, e.y + 10) < 10) { ctx.beginPath(); ctx.ellipse(0, 10, 20 * (1 - p.l), 10 * (1 - p.l), 0, 0, Math.PI * 2); ctx.strokeStyle = p.c; ctx.lineWidth = 2; ctx.stroke(); }
+                    if (p.type === 'pulse' && getDist(p.x, p.y, e.x, e.y) < 10) { ctx.beginPath(); ctx.arc(0, 0, p.r * (1 - p.l / 0.4), 0, Math.PI * 2); ctx.strokeStyle = `rgba(139,92,246,${p.l * 2})`; ctx.lineWidth = 4; ctx.stroke(); }
+                });
+
+                let icS = e.db.type === 'pulse' ? 0.4 : 0.6; ctx.font = `${g.size * icS}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                if (e.stun > 0) ctx.filter = 'grayscale(1)'; else if (e.flash > 0) ctx.filter = 'brightness(1.8) sepia(1) hue-rotate(-30deg) saturate(4)';
+                ctx.fillText(e.db.icon, lunge, bounce - g.size * (e.db.type === 'pulse' ? -0.1 : 0.05)); ctx.filter = 'none';
+
+                if (e.db.type !== 'pulse') {
+                    this.bar(ctx, 0, g.size * 0.35, g.size * 0.5, 3, e.dHp / e.maxHp, '#fff'); this.bar(ctx, 0, g.size * 0.35, g.size * 0.5, 3, e.hp / e.maxHp, '#4ade80', false);
+                    ctx.fillStyle = '#fbbf24'; ctx.font = `${g.size * 0.15}px Arial`; ctx.fillText('★'.repeat(e.level), 0, -g.size * 0.35);
+                }
+            } else {
+                let bob = e.db.isHeavy ? Math.abs(Math.sin(t / 300 + e.birth)) * 3 : (e.db.evade ? Math.sin(t / 100 + e.birth) * 10 : Math.abs(Math.sin(t / 150 + e.birth)) * 6);
+                let tilt = e.db.isHeavy ? 0 : Math.sin(t / 200 + e.birth) * 0.1;
+
+                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(0, g.size * 0.25, g.size * 0.25 - bob / 5, g.size * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+
+                if (e.shield > 0) { ctx.fillStyle = 'rgba(148, 163, 184, 0.5)'; ctx.beginPath(); ctx.arc(-10, -bob, 15, 0, Math.PI * 2); ctx.fill(); }
+
+                if (e.flash > 0) ctx.filter = 'brightness(2.5) sepia(1) hue-rotate(-50deg)'; else if (e.slowTimer > 0) ctx.filter = 'hue-rotate(180deg)';
+                if (e.db.isJumping && e.jp) ctx.globalAlpha = 0.5;
+
+                this.bar(ctx, 0, -g.size * 0.35 * e.db.size, g.size * 0.5, 3, e.dHp / e.maxHp, '#fff'); this.bar(ctx, 0, -g.size * 0.35 * e.db.size, g.size * 0.5, 3, e.hp / e.maxHp, '#ef4444', false);
+                ctx.scale(-1, 1); ctx.rotate(tilt); ctx.font = `${g.size * 0.55 * e.db.size}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(e.db.icon, 0, -bob - g.size * 0.05); ctx.globalAlpha = 1.0; ctx.filter = 'none';
+            }
+            ctx.restore();
+        });
+
+        State.beams.forEach(b => {
+            ctx.strokeStyle = b.c; ctx.lineWidth = 2 + Math.random() * 2; ctx.beginPath(); ctx.moveTo(b.x1, b.y1);
+            let d = getDist(b.x1, b.y1, b.x2, b.y2), steps = Math.floor(d / 15);
+            for (let i = 1; i < steps; i++) { ctx.lineTo(b.x1 + (b.x2 - b.x1) * (i / steps) + (Math.random() - 0.5) * 15, b.y1 + (b.y2 - b.y1) * (i / steps) + (Math.random() - 0.5) * 15); }
+            ctx.lineTo(b.x2, b.y2); ctx.stroke();
+        });
+
+        State.projs.forEach(p => p.draw(ctx)); State.eProjs.forEach(p => p.draw(ctx)); State.flyingCoins.forEach(c => c.draw(ctx));
+        State.particles.forEach(p => { if (!p.type) { ctx.fillStyle = p.c; ctx.globalAlpha = p.l; ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI * 2); ctx.fill(); } }); ctx.globalAlpha = 1;
+        State.floatTexts.forEach(t2 => { ctx.fillStyle = t2.c; ctx.globalAlpha = t2.l / t2.ml; ctx.font = `900 ${t2.s}px Nunito`; ctx.textAlign = 'center'; ctx.shadowColor = '#000'; ctx.shadowBlur = 3; ctx.fillText(t2.t, t2.x, t2.y); ctx.shadowBlur = 0; }); ctx.globalAlpha = 1;
+
+        if (MAPS[State.mapId].weather === 'dungeon') { let gr = ctx.createRadialGradient(w / 2, h / 2, h / 3, w / 2, h / 2, w); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.8)'); ctx.fillStyle = gr; ctx.fillRect(0, 0, w, h); }
+        else {
+            ctx.fillStyle = MAPS[State.mapId].weather === 'rain' ? '#94a3b8' : '#f97316';
+            State.weather.forEach(f => { ctx.globalAlpha = f.l; ctx.beginPath(); if (MAPS[State.mapId].weather === 'rain') ctx.fillRect(f.x, f.y, 1, 10); else { ctx.arc(f.x, f.y, 2, 0, Math.PI * 2); ctx.fill(); } }); ctx.globalAlpha = 1;
+        }
+
+        if (State.running && State.hp < State.maxHp * 0.3) { ctx.fillStyle = `rgba(239,68,68,${Math.abs(Math.sin(t / 200)) * 0.15})`; ctx.fillRect(0, 0, w, h); }
+        ctx.restore();
+    },
+
+    bar(ctx, x, y, w, h, p, c, drawBg = true) { p = Math.max(0, Math.min(1, p)); if (drawBg) { ctx.fillStyle = '#0f172a'; ctx.fillRect(x - w / 2, y, w, h); } ctx.fillStyle = c; ctx.fillRect(x - w / 2, y, w * p, h); },
+
+    inputs() {
+        this.canvas.addEventListener('pointerdown', e => {
+            if (!State.running || State.paused) return;
+            Sound.resume();
+            let rect = this.canvas.getBoundingClientRect(); let x = e.clientX - rect.left; let y = e.clientY - rect.top;
+            let c = Math.floor((x - State.grid.offsetX) / State.grid.size); let ro = Math.floor((y - State.grid.offsetY) / State.grid.size);
+
+            if (c >= 0 && c < State.grid.cols && ro >= 0 && ro < CFG.rows) {
+                if (State.obstacles.find(o => o.col === c && o.row === ro)) { UI.closeUnitModal(); UI.deselectShop(); return; }
+
+                let u = State.units.find(i => i.col === c && i.row === ro);
+                if (u) { UI.deselectShop(); UI.openUnitModal(u, e.clientX, e.clientY); }
+                else if (State.ui.shopId) {
+                    let db = UNITS_DB[State.ui.shopId];
+                    if (db.type === 'econ' && State.units.filter(un => un.db.type === 'econ').length >= CFG.maxMiners) { UI.showMessage("ĐẠT GIỚI HẠN MỎ VÀNG!", true); UI.deselectShop(); return; }
+                    if (State.gold >= db.cost) { State.gold -= db.cost; State.units.push(new Unit(c, ro, State.ui.shopId, db)); this.spawnParticles(x, y, db.color, 15, 60, 4); Sound.play('build'); vibe(15); UI.deselectShop(); UI.updateDisplay(); }
+                } else UI.closeUnitModal();
+            } else UI.closeUnitModal();
+        });
+    }
+};
+
+// 6. UI MANAGEMENT
+const UI = {
+    init() {
+        this.buildShop();
+        document.getElementById('b-tal').onclick = () => { Sound.play('click'); this.openTalents(); };
+        document.getElementById('b-tal-2').onclick = () => { Sound.play('click'); this.openTalents(); };
+        document.getElementById('b-cls-t').onclick = () => { Sound.play('click'); document.getElementById('tmod').classList.add('hidden'); };
+        document.getElementById('b-cls-u').onclick = () => this.closeUnitModal();
+        document.getElementById('ult').onclick = () => Control.castUlt();
+
+        document.querySelectorAll('.m-card').forEach(card => { card.onclick = () => { Sound.play('click'); document.querySelectorAll('.m-card').forEach(x => x.classList.remove('sel')); card.classList.add('sel'); State.mapId = parseInt(card.dataset.m); }; });
+        document.getElementById('call').onclick = () => { if (State.spawn.isPrep && State.spawn.timer > 0) { let bonus = Math.floor(State.spawn.timer * 4); State.gold += bonus; State.spawn.timer = 0; Sound.play('coin'); Engine.spawnText(State.ui.goldUiX, State.ui.goldUiY + 30, `+${bonus} Nóng!`, '#fde047', true); } };
+        document.getElementById('b-up').onclick = () => { let u = State.ui.selUnit; if (!u) return; let c = Math.floor(u.db.cost * Math.pow(1.5, u.level)); if (State.gold >= c && u.level < 3) { State.gold -= c; u.level++; u.hp = u.getStats().hp; Sound.play('upgrade'); vibe(20); Engine.spawnText(u.x, u.y - 20, 'LÊN CẤP', '#fbbf24', true); Engine.spawnParticles(u.x, u.y, '#fbbf24', 20, 70, 4); this.closeUnitModal(); this.updateDisplay(); } };
+        document.getElementById('b-sell').onclick = () => { let u = State.ui.selUnit; if (!u) return; let val = Math.floor(u.db.cost * Math.pow(1.5, u.level - 1) * 0.5); State.gold += val; State.units = State.units.filter(i => i !== u); Sound.play('click'); Engine.spawnText(u.x, u.y, `+${val}`, '#fde047', false); Engine.spawnParticles(u.x, u.y, '#94a3b8', 10, 40); this.closeUnitModal(); this.updateDisplay(); };
+
+        // Controls cluster
+        document.getElementById('b-pause').onclick = () => Control.togglePause();
+        document.getElementById('b-resume').onclick = () => Control.togglePause();
+        document.getElementById('b-quit').onclick = () => Control.quitToMenu();
+        document.getElementById('b-speed').onclick = () => Control.toggleSpeed();
+        document.getElementById('b-sound').onclick = () => { Audio2Toggle('sfx'); };
+        document.getElementById('b-full').onclick = () => Control.toggleFullscreen();
+        document.getElementById('b-set').onclick = () => { Sound.init(); Sound.resume(); Control.togglePause(true); };
+
+        document.getElementById('t-sfx').onclick = () => Audio2Toggle('sfx');
+        document.getElementById('t-music').onclick = () => Audio2Toggle('music');
+
+        this.refreshStart();
+        this.syncAudioUI();
+    },
+    refreshStart() {
+        for (let i = 0; i < 3; i++) {
+            let el = document.getElementById(`best-${i}`); if (el) el.innerText = Storage.data.best[i] > 0 ? `🏆 Đợt ${Storage.data.best[i]}` : 'Chưa chơi';
+        }
+        let tp2 = document.getElementById('tp-d2'); if (tp2) tp2.innerText = State.tp > 0 ? `(${State.tp} SP)` : '';
+    },
+    buildShop() {
+        let container = document.getElementById('shop'); container.innerHTML = '';
+        Object.keys(UNITS_DB).forEach(k => {
+            let u = UNITS_DB[k]; let div = document.createElement('div'); div.id = `s-${k}`; div.className = 's-btn';
+            div.innerHTML = `<div class="lim" id="l-${k}">${CFG.maxMiners}</div><div class="text-2xl drop-shadow-md mt-1">${u.icon}</div><div class="text-[8px] font-bold mt-0.5 text-center leading-tight" style="color:${u.color}">${u.name}</div><div class="tf font-black text-[10px] text-yellow-400 mb-0.5">${u.cost}</div>`;
+            div.onclick = () => { Sound.resume(); if (State.gold < u.cost) { Sound.play('click'); return; } if (State.ui.shopId === k) this.deselectShop(); else { this.deselectShop(); this.closeUnitModal(); State.ui.shopId = k; div.classList.add('sel'); Sound.play('click'); } }; container.appendChild(div);
+        });
+    },
+    updateDisplay() {
+        document.getElementById('ui-g').innerText = Math.floor(State.gold); State.maxHp = CFG.baseHp + TALENTS_DB.h.effect(State.talents.h); if (State.hp > State.maxHp) State.hp = State.maxHp;
+        document.getElementById('ui-hp').innerText = Math.floor(State.hp); document.getElementById('ui-w').innerText = State.wave; document.getElementById('ui-lv').innerText = State.level; document.getElementById('ui-xp').style.width = `${(State.xp / State.maxXp) * 100}%`;
+        let minerCount = State.units.filter(u => u.db.type === 'econ').length;
+        Object.keys(UNITS_DB).forEach(k => {
+            let el = document.getElementById(`s-${k}`), limEl = document.getElementById(`l-${k}`);
+            if (k === 'miner') { limEl.style.display = 'block'; limEl.innerText = `${minerCount}/${CFG.maxMiners}`; if (minerCount >= CFG.maxMiners) { el.classList.add('lck'); if (State.ui.shopId === k) this.deselectShop(); return; } }
+            if (State.gold >= UNITS_DB[k].cost) el.classList.remove('lck'); else { el.classList.add('lck'); if (State.ui.shopId === k) this.deselectShop(); }
+        });
+        let badge = document.getElementById('tp-bdg'); if (State.tp > 0) { badge.classList.remove('hidden'); badge.innerText = State.tp; } else badge.classList.add('hidden');
+    },
+    deselectShop() { State.ui.shopId = null; document.querySelectorAll('.s-btn').forEach(e => e.classList.remove('sel')); },
+    openUnitModal(u, x, y) {
+        State.ui.selUnit = u; let modal = document.getElementById('umod');
+        document.getElementById('um-ic').innerText = u.db.icon; document.getElementById('um-n').innerText = u.db.name; document.getElementById('um-lv').innerText = u.level;
+        let sDesc = document.getElementById('um-desc'); sDesc.innerText = u.db.lv3Desc;
+        if (u.level >= 3) { sDesc.classList.remove('hidden'); } else if (u.level === 2) { sDesc.classList.remove('hidden'); } else sDesc.classList.add('hidden');
+        let btnUp = document.getElementById('b-up');
+        if (u.level >= 3) btnUp.style.display = 'none';
+        else { btnUp.style.display = 'flex'; let cost = Math.floor(u.db.cost * Math.pow(1.5, u.level)); document.getElementById('um-c').innerText = `🪙 ${cost}`; btnUp.className = State.gold >= cost ? 'flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm' : 'flex-1 bg-slate-700 rounded py-1 flex flex-col items-center opacity-50 cursor-not-allowed'; }
+        document.getElementById('um-s').innerText = `🪙 ${Math.floor(u.db.cost * Math.pow(1.5, u.level - 1) * 0.5)}`;
+        modal.style.left = `${Math.max(110, Math.min(window.innerWidth - 110, x))}px`; modal.style.top = `${Math.max(120, y)}px`; modal.classList.remove('hidden');
+    },
+    closeUnitModal() { State.ui.selUnit = null; document.getElementById('umod').classList.add('hidden'); },
+    openTalents() {
+        let modal = document.getElementById('tmod'), container = document.getElementById('t-cont'); container.innerHTML = ''; document.getElementById('tp-d').innerText = State.tp;
+        Object.keys(TALENTS_DB).forEach(k => {
+            let t = TALENTS_DB[k], lv = State.talents[k], canUp = State.tp > 0 && lv < t.max;
+            let d = document.createElement('div'); d.className = 'bg-slate-900/90 p-2 sm:p-3 rounded-lg flex justify-between items-center border border-slate-700 shadow-sm';
+            d.innerHTML = `<div class="flex items-center gap-3"><div class="text-2xl sm:text-3xl drop-shadow-md">${t.icon}</div><div><div class="text-xs sm:text-sm font-bold text-slate-100">${t.name} <span class="text-[10px] text-indigo-400 ml-1">Lv.${lv}/${t.max}</span></div><div class="text-[9px] sm:text-[10px] text-slate-400 mt-0.5">${t.desc}</div></div></div><button class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg font-black text-xl flex items-center justify-center transition-all ${canUp ? 'bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-md active:scale-95' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}">+</button>`;
+            if (canUp) { d.querySelector('button').onclick = () => { State.tp--; State.talents[k]++; if (k === 'h') State.hp += 100; Sound.play('upgrade'); Storage.sync(); this.updateDisplay(); this.refreshStart(); this.openTalents(); }; } container.appendChild(d);
+        }); modal.classList.remove('hidden');
+    },
+    showMessage(text, isDanger = false) {
+        let el = document.getElementById('msg'), txt = document.getElementById('msg-t'); txt.innerText = text;
+        txt.className = isDanger ? "tf text-2xl md:text-3xl text-transparent bg-clip-text bg-gradient-to-b from-red-400 to-red-600 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] uppercase tracking-widest font-black" : "tf text-2xl md:text-3xl text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-amber-500 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] uppercase tracking-widest font-black";
+        el.classList.remove('opacity-0', 'scale-50'); clearTimeout(this._msgT); this._msgT = setTimeout(() => { el.classList.add('opacity-0', 'scale-50'); }, 1500);
+    },
+    syncAudioUI() {
+        document.getElementById('t-sfx').classList.toggle('on', Sound.sfxOn);
+        document.getElementById('t-music').classList.toggle('on', Sound.musicOn);
+        let bs = document.getElementById('b-sound'); bs.innerText = Sound.sfxOn ? '🔊' : '🔇'; bs.classList.toggle('on', Sound.sfxOn);
+        let bset = document.getElementById('b-set'); if (bset) bset.innerText = Sound.sfxOn ? '🔊' : '🔇';
+    }
+};
+
+function Audio2Toggle(which) {
+    Sound.init(); Sound.resume();
+    if (which === 'sfx') { Sound.sfxOn = !Sound.sfxOn; if (Sound.sfxOn) Sound.play('click'); }
+    else { Sound.musicOn = !Sound.musicOn; if (Sound.musicOn) Sound.startMusic(); }
+    Storage.sync(); UI.syncAudioUI();
+}
+
+// 7. CONTROL
+const Control = {
+    loopId: null,
+    start() {
+        Sound.init(); Sound.resume(); if (Sound.musicOn) Sound.startMusic();
+        document.getElementById('start').classList.add('hidden'); document.getElementById('call').style.display = 'block';
+        State.running = true; State.paused = false; State.speed = 1; document.getElementById('b-speed').innerText = '1x'; document.getElementById('b-speed').classList.remove('on');
+        State.gold = CFG.startGold; State.wave = 1; State.hp = CFG.baseHp; State.maxHp = CFG.baseHp + TALENTS_DB.h.effect(State.talents.h); State.hp = State.maxHp;
+        State.level = 1; State.xp = 0; State.maxXp = CFG.xpBase;
+        // NOTE: talents & tp persist across runs (meta-progression) — not reset here.
+        State.units = []; State.enemies = []; State.projs = []; State.eProjs = []; State.particles = []; State.floatTexts = []; State.beams = []; State.flyingCoins = [];
+        State.ui.shopId = null; State.ui.selUnit = null;
+        Engine.resize(); Engine.initMap(); State.spawn.isPrep = true; State.spawn.timer = 8; State.spawn.queue = []; State.ultCd = 0; document.getElementById('ult').classList.remove('cd'); document.getElementById('u-msk').style.height = '0%';
+        UI.deselectShop(); UI.closeUnitModal(); UI.updateDisplay();
+        Engine.lastTime = performance.now(); if (!this.loopId) this.loopId = requestAnimationFrame(t => this.loop(t));
+    },
+    gameOver() {
+        State.running = false;
+        if (State.wave > Storage.data.best[State.mapId]) Storage.data.best[State.mapId] = State.wave;
+        Storage.sync(); UI.refreshStart();
+        Sound.play('lose'); vibe([0, 100, 50, 100, 50, 200]);
+        document.getElementById('start').classList.remove('hidden'); document.getElementById('g-stat').classList.remove('hidden');
+        document.getElementById('g-wav').innerText = State.wave; document.getElementById('b-start').innerText = 'TÁI CHIẾN';
+        document.getElementById('pmod').classList.remove('show');
+    },
+    quitToMenu() {
+        Sound.play('click'); State.running = false; State.paused = false;
+        document.getElementById('pmod').classList.remove('show');
+        document.getElementById('start').classList.remove('hidden');
+        document.getElementById('g-stat').classList.add('hidden');
+        UI.refreshStart();
+    },
+    togglePause(forceOpen) {
+        if (!State.running && !forceOpen) return;
+        State.paused = forceOpen ? true : !State.paused;
+        document.getElementById('pmod').classList.toggle('show', State.paused);
+        document.getElementById('b-pause').innerText = State.paused ? '▶' : '⏸';
+        UI.syncAudioUI();
+    },
+    toggleSpeed() {
+        State.speed = State.speed === 1 ? 2 : 1; Sound.play('click');
+        let b = document.getElementById('b-speed'); b.innerText = State.speed + 'x'; b.classList.toggle('on', State.speed === 2);
+    },
+    toggleFullscreen() {
+        Sound.play('click');
+        try {
+            if (!document.fullscreenElement) {
+                (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen).call(document.documentElement);
+                if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
+            } else { document.exitFullscreen(); }
+        } catch (e) {}
+    },
+    castUlt() {
+        if (State.ultCd > 0 || !State.running || State.paused) return; State.ultCd = State.ultMax; document.getElementById('ult').classList.add('cd');
+        UI.showMessage("THIÊN THẠCH GIÁNG LÂM!", true); State.shake = 40; Sound.play('ult'); vibe([0, 60, 30, 120]);
+        State.enemies.forEach(e => { Engine.spawnParticles(e.x, e.y - 100, '#f97316', 20, 100, 5); setTimeout(() => { if (State.enemies.includes(e)) { e.takeDmg(500); Engine.spawnText(e.x, e.y - 30, "500", '#f97316', true); } }, 300); });
+    },
+    loop(t) {
+        let raw = Math.min((t - Engine.lastTime) / 1000, 0.05); Engine.lastTime = t;
+        if (State.running && !State.paused) { for (let i = 0; i < State.speed; i++) Engine.update(raw); }
+        Engine.draw();
+        this.loopId = requestAnimationFrame(x => this.loop(x));
+    }
+};
+
+// ============ PWA: install prompt + service worker ============
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault(); deferredPrompt = e;
+    const btn = document.getElementById('b-install'); if (btn) btn.classList.remove('hidden');
+});
+window.addEventListener('appinstalled', () => {
+    deferredPrompt = null; const btn = document.getElementById('b-install'); if (btn) btn.classList.add('hidden');
+});
+document.getElementById('b-install').onclick = async () => {
+    if (!deferredPrompt) { alert('Để cài đặt: mở menu trình duyệt và chọn "Thêm vào màn hình chính" / "Cài đặt ứng dụng".'); return; }
+    deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null;
+    document.getElementById('b-install').classList.add('hidden');
+};
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+}
+
+// ============ BOOT ============
+Storage.load();
+State.talents = { ...Storage.data.talents };
+State.tp = Storage.data.tp;
+Sound.sfxOn = Storage.data.sfx;
+Sound.musicOn = Storage.data.music;
+
+Engine.init(); UI.init(); Engine.draw();
+
+document.getElementById('b-start').onclick = () => { Sound.init(); Sound.resume(); Sound.play('click'); Control.start(); };
+// Resume audio context on first touch anywhere (mobile autoplay policy)
+document.addEventListener('pointerdown', () => Sound.resume(), { once: true });
+</script>
 </body>
 </html>
