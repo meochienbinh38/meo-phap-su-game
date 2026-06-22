@@ -474,7 +474,7 @@ const Storage = {
 
 // 1. GAME CONFIGURATION
 const CFG = {
-    rows: 6, cols: 11, baseHp: 100, startGold: 250, xpBase: 100, maxMiners: 5,
+    rows: 6, cols: 11, baseHp: 100, startGold: 250, xpBase: 100, maxMiners: 4,
     colors: {
         econ: '#eab308', melee: '#3b82f6', ranged: '#22c55e',
         gunner: '#f97316', laser: '#06b6d4', ice: '#60a5fa',
@@ -494,13 +494,14 @@ const MAPS = [
 ];
 
 // 2. DATABASE: UNITS & ENEMIES
-// VÙNG TẤN CÔNG theo đặc tính (lưới rộng 11 cột): cận chiến ~1 / quanh mình ~2-3 / tầm trung ~6 / toàn bản đồ 12-13
-// - Giáp Sĩ: cận chiến (đỡ đòn)   - Tháp Độc/Thánh Sứ: quầng quanh mình   - Pháo/Băng: tầm trung theo hàng
-// - Xạ Thủ: BẮN TOÀN HÀNG ngang map (sniper)   - Thần Sét: BẮN TOÀN BẢN ĐỒ mọi hàng (pháp sư tầm xa)
+// VÙNG TẤN CÔNG theo đặc tính (cân bằng v2 — không còn unit rẻ phủ cả map):
+// - Giáp Sĩ: cận chiến ~1 (đỡ đòn)   - Tháp Độc/Thánh Sứ: quầng quanh mình ~2.6-3
+// - Pháo/Băng: tầm trung theo hàng ~6   - Xạ Thủ: tầm xa nhất theo hàng ~7 (sniper 1 lane)
+// - Thần Sét: DUY NHẤT bắn TOÀN BẢN ĐỒ & MỌI hàng (đắt 180 -> không spam được)
 const UNITS_DB = {
-    miner:   { icon: '⛺', type: 'econ', cost: 50, hp: 300, income: 15, cd: 4.0, color: CFG.colors.econ, name: "Mỏ Vàng", lv3Desc: "Năng suất đào Vàng x2." },
+    miner:   { icon: '⛺', type: 'econ', cost: 50, hp: 300, income: 12, cd: 4.0, color: CFG.colors.econ, name: "Mỏ Vàng", lv3Desc: "Năng suất đào Vàng x2." },
     knight:  { icon: '🛡️', type: 'melee', cost: 60, hp: 700, dmg: 15, range: 1.2, aspd: 1.2, color: CFG.colors.melee, name: "Giáp Sĩ", lv3Desc: "Phản lại 30% sát thương." },
-    archer:  { icon: '🏹', type: 'linear', pSpeed: 760, cost: 80, hp: 150, dmg: 32, range: 13.0, aspd: 1.0, color: CFG.colors.ranged, name: "Xạ Thủ", lv3Desc: "Đạn Năng lượng xanh: Xuyên thấu mọi địch." },
+    archer:  { icon: '🏹', type: 'linear', pSpeed: 760, cost: 90, hp: 150, dmg: 32, range: 7.0, aspd: 1.0, color: CFG.colors.ranged, name: "Xạ Thủ", lv3Desc: "Đạn Năng lượng xanh: Xuyên thấu mọi địch." },
     gunner:  { icon: '💣', type: 'gunner', pSpeed: 600, cost: 130, hp: 200, dmg: 60, range: 6.5, aspd: 1.8, color: CFG.colors.gunner, name: "Pháo Thủ", lv3Desc: "Đạn Nổ Chùm: Nổ sát thương diện rộng khi chạm đích." },
     poison:  { icon: '☠️', type: 'pulse', cost: 120, hp: 250, dmg: 10, range: 2.6, aspd: 1.5, color: CFG.colors.poison, name: "Tháp Độc", lv3Desc: "Tỏa Mộc Độc: Vòng độc rộng hơn và làm chậm địch." },
     mage:    { icon: '⚡', type: 'laser', cost: 180, hp: 120, dmg: 40, range: 12.0, aspd: 1.6, color: CFG.colors.laser, name: "Thần Sét", lv3Desc: "Sét Tím: Nảy chuỗi sang 2 mục tiêu lân cận." },
@@ -1061,6 +1062,7 @@ class Enemy {
         this.atkCd = 0; this.flash = 0; this.kb = 0; this.birth = performance.now();
         this.shield = this.db.shieldHits || 0; this.atkAnim = 0;
         this.summonTimer = 4.0; this.slowTimer = 0; this.slowAmt = 0; this.jp = false;
+        this.spdMul = 1 + (State.wave - 1) * 0.05;   // quái nhanh dần theo đợt -> sức ép tăng từ từ
     }
     update(dt) {
         if (this.dHp > this.hp) this.dHp -= (this.dHp - this.hp) * 10 * dt;
@@ -1102,7 +1104,7 @@ class Enemy {
                 if (!this.db.isHeavy) this.kb = 5;
             }
         } else {
-            let spd = this.db.spd * (this.slowTimer > 0 ? (1 - this.slowAmt) : 1);
+            let spd = this.db.spd * this.spdMul * (this.slowTimer > 0 ? (1 - this.slowAmt) : 1);
             this.x -= spd * dt;
         }
     }
@@ -1307,7 +1309,7 @@ const Engine = {
     },
 
     buildWave() {
-        State.spawn.queue = []; let w = State.wave, hm = Math.pow(1.27, w - 1), count = 10 + Math.round(w * 2.3); State.spawn.total = count;
+        State.spawn.queue = []; let w = State.wave, hm = Math.pow(1.18, w - 1), count = 10 + Math.round(w * 2.5); State.spawn.total = count;
         for (let i = 0; i < count; i++) {
             let r = Math.random(), tid = 0;
             if (w < 3) tid = r < 0.2 ? 1 : 0;
@@ -1354,7 +1356,7 @@ const Engine = {
                     }
                 } else if (State.enemies.length === 0) {
                     State.spawn.isPrep = true; State.spawn.timer = 10; State.wave++; UI.updateDisplay();
-                    document.getElementById('call').style.display = 'block'; let b = 25 + State.wave * 9; State.gold += b; UI.showMessage(`DỌN SẠCH! +${b}🪙`); Sound.play('cleared');
+                    document.getElementById('call').style.display = 'block'; let b = 15 + State.wave * 6; State.gold += b; UI.showMessage(`DỌN SẠCH! +${b}🪙`); Sound.play('cleared');
                 }
             }
 
@@ -1363,9 +1365,9 @@ const Engine = {
 
             State.enemies.forEach(e => e.update(dt));
             State.enemies = State.enemies.filter(e => {
-                if (e.x < State.grid.offsetX) { let leak = e.db.dmg * (1 + (State.wave - 1) * 0.12); State.hp -= leak; State.shake = 20; UI.showMessage("THÀNH TRÌ BỊ TẤN CÔNG!", true); Sound.play('alarm'); vibe(60); UI.updateDisplay(); if (State.hp <= 0) Control.gameOver(); return false; }
+                if (e.x < State.grid.offsetX) { let leak = e.db.dmg * (1 + (State.wave - 1) * 0.09); State.hp -= leak; State.shake = 20; UI.showMessage("THÀNH TRÌ BỊ TẤN CÔNG!", true); Sound.play('alarm'); vibe(60); UI.updateDisplay(); if (State.hp <= 0) Control.gameOver(); return false; }
                 if (e.hp <= 0) {
-                    let g = Math.floor(e.db.gold * (1 + TALENTS_DB.d.effect(State.talents.d))); this.gainXp(e.db.xp);
+                    let g = e.db.gold; this.gainXp(e.db.xp);   // vàng rơi cố định (talent Vũ Khí chỉ tăng sát thương, không tăng vàng)
                     this.spawnText(e.x, e.y, `+${g}`, '#fde047', false); this.spawnFlyingCoin(e.x, e.y, g); this.spawnParticles(e.x, e.y, '#71717a', 15, 60, 3);
                     Sound.play('enemyDie'); if (e.db.isBoss) { vibe(120); State.shake = 20; }
                     return false;
@@ -1800,7 +1802,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============ PHIÊN BẢN & TỰ CẬP NHẬT ============
-const GAME_VERSION = '1.6.0';
+const GAME_VERSION = '1.7.0';
 let _updChecking = false;
 
 function setVerLabels() {

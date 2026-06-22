@@ -101,16 +101,40 @@ ngoài việc vung vũ khí — lao tới/nhảy/chúi người (kiếm), nhún 
 > Vàng rơi mỗi quái vẫn cố định → quái trâu hơn nghĩa là vàng/giây giảm tự nhiên, kinh tế chặt hơn.
 > ⚠️ **Cần playtest**: nếu đến đợt ~15-20 thấy quá khó (máu 1.27^w tăng nhanh) thì hạ về 1.25.
 
+### e) Cân bằng lại bằng MÔ PHỎNG (XONG 2026-06-22)
+Viết `tools/balance-sim.js` — "chơi" game tự động bằng đúng cơ chế (di chuyển/chặn/đánh, AoE,
+xuyên, chuỗi, làm chậm, đạn bay + overkill, kinh tế). Chạy: `node tools/balance-sim.js`.
+**Phát hiện**: đường cong cũ là "phẳng lì rồi vách đứng" — dễ tới ~đợt 14 (0 rò rỉ, ôm **12.000 vàng**
+thừa, quân max từ đợt 8) rồi chết ngay 1 đợt. Gốc rễ: kinh tế quá rộng + **Xạ Thủ rẻ bắn toàn map + xuyên**
+phủ mọi lane + sức mạnh người chơi có TRẦN trong khi máu quái tăng mũ 1.27^w.
+
+**Đã chỉnh (giá trị do sim tinh chỉnh):**
+| Thông số | Cũ | Mới |
+|----------|----|-----|
+| Máu quái/đợt | `1.27^w` | **`1.18^w`** (bỏ vách đứng) |
+| Tốc độ quái | cố định | **× `(1+(w-1)*0.05)`** (nhanh dần → rò rỉ tăng từ từ) |
+| Số quái/đợt | `10+round(2.3w)` | `10+round(2.5w)` |
+| ST vào thành | `×(1+(w-1)*0.12)` | `×(1+(w-1)*0.09)` |
+| Thưởng dọn đợt | `25+9w` | `15+6w` |
+| Mỏ vàng | 15/lần, trần 5 | **12/lần, trần 4** |
+| Vàng rơi | × talent Vũ Khí (lỗi) | **cố định** (đã sửa lỗi) |
+| **Xạ Thủ** | tầm 13 (toàn map), 80đ | **tầm 7, 90đ** (sniper 1 lane) |
+| Thần Sét | tầm 12 mọi hàng | giữ — **DUY NHẤT** bắn toàn map |
+> Kết quả sim (chơi tối ưu = cận trên): đầu game căng, vàng luôn < ~400 (mỗi mua là quyết định thật),
+> đuôi giảm dần, thua ~đợt 19. Người thật (không hoàn hảo) sẽ gặp thử thách sớm hơn ~đợt 12-16.
+> ⚠️ Sim **lạc quan** (đạn trúng tức thì, nhắm/xây hoàn hảo) → đừng chỉnh khó hơn nữa nếu chưa playtest thật.
+
 ## 5. PHIÊN BẢN / CACHE (nhớ bump khi sửa)
 Khi sửa code muốn người chơi nhận bản mới, **đổi 3 chỗ**:
 1. `sw.js` → `const CACHE = 'kntt-vXX-...'` (tăng số).
 2. `index.html` → `const GAME_VERSION = 'X.Y.Z'`.
 3. `version.json` → cùng version + ghi `notes`.
-- Hiện tại: **CACHE `kntt-v23-balance`**, **GAME_VERSION `1.6.0`**.
+- Hiện tại: **CACHE `kntt-v24-balance2`**, **GAME_VERSION `1.7.0`**.
 
 ## 6. 📋 VIỆC NÊN LÀM TIẾP (TODO)
-- [ ] Playtest độ khó mới (đợt 10-20): chỉnh `1.27` (máu quái) / `0.12` (sát thương thành) / giá nâng cấp nếu lệch.
-- [ ] Playtest cân bằng sau khi đổi tầm đánh (Xạ Thủ/Thần Sét giờ bắn rất xa — xem có quá mạnh không).
+- [ ] **Playtest thật** bản cân bằng v2: nếu vẫn dễ → tăng `speedScale` (0.05) hoặc `countPerWave`; nếu khó → giảm.
+      Chỉnh nhanh trong `tools/balance-sim.js` (TUNE/OVERRIDE) để dò số trước, rồi chép sang `index.html`.
+- [ ] Cân nhắc đa dạng hoá lối chơi (hiện vẫn dễ nghiêng về spam Xạ Thủ/DPS tầm xa).
 - [ ] Có thể hiện nhãn "tầm đánh" ngay trong cửa hàng để người chơi biết trước khi mua.
 - [ ] Playtest phần biến đổi tướng theo cấp trên mobile thật (cân chỉnh kích thước vương miện/giáp cho dễ nhìn).
 - [ ] Có thể thêm thay đổi **cách tấn công cảm nhận được ở cấp 2** (hiện gameplay chỉ đổi mạnh ở cấp 3).
