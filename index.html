@@ -56,6 +56,7 @@
         .btn--block { width: 100%; }
         .btn--pri { background: linear-gradient(135deg, #0ea5e9, #2563eb); border-color: #38bdf8; box-shadow: var(--glow); }
         .btn--indigo { background: linear-gradient(135deg, #6366f1, #4338ca); border-color: #818cf8; }
+        .btn--gold { background: linear-gradient(135deg, #f59e0b, #b45309); border-color: #fbbf24; color: #fff; }
         .btn--green { background: linear-gradient(135deg, #22c55e, #15803d); border-color: #4ade80; }
         .btn--danger { background: linear-gradient(135deg, #ef4444, #b91c1c); border-color: #fca5a5; }
         .btn--ghost { background: var(--elev); border-color: var(--line-2); color: var(--ink); box-shadow: none; }
@@ -219,21 +220,21 @@
         </div>
         <div class="s-body">
             <div class="s-col-main">
-                <h3 class="title title--gold s-sec-title">Chọn Chiến Dịch</h3>
-                <div class="s-maps" id="maps">
-                    <div class="m-card sel" data-m="0" style="--mc:#6ee7b7"><div class="m-ic">🌲</div><div class="m-nm">Rừng Mưa</div><div class="m-best" id="best-0"></div></div>
-                    <div class="m-card" data-m="1" style="--mc:#fdba74"><div class="m-ic">🌋</div><div class="m-nm">Núi Lửa</div><div class="m-best" id="best-1"></div></div>
-                    <div class="m-card" data-m="2" style="--mc:#c4b5fd"><div class="m-ic">🪦</div><div class="m-nm">Hầm Ngục</div><div class="m-best" id="best-2"></div></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                    <h3 class="title title--gold s-sec-title" style="margin:0;border:0;padding:0">Chọn Màn</h3>
+                    <span class="chip"><span style="font-size:14px">💎</span> <span id="gem-d" style="color:var(--gold)">0</span></span>
                 </div>
+                <div class="s-maps" id="maps" style="display:flex;flex-direction:column;gap:6px;max-height:230px;overflow-y:auto"></div>
                 <div class="s-actions">
+                    <button id="b-shop" class="btn btn--gold" style="flex:1">🛒 Cửa Hàng Tướng</button>
                     <button id="b-tal-2" class="btn btn--indigo" style="flex:1">⚙️ Nội Tại <span id="tp-d2" style="color:var(--gold)"></span></button>
                     <button id="b-set" class="ibtn" style="width:46px;height:auto;align-self:stretch;font-size:18px">🔊</button>
                 </div>
             </div>
             <div class="s-col-side panel">
                 <div id="g-stat" class="hidden" style="text-align:center">
-                    <div class="title" style="font-size:11px;color:var(--red);letter-spacing:.1em;margin-bottom:4px">Phòng tuyến sụp đổ ở</div>
-                    <div class="tf" style="font-size:32px;font-weight:900;color:var(--red)">ĐỢT <span id="g-wav">1</span></div>
+                    <div class="title" style="font-size:11px;color:var(--gold);letter-spacing:.1em;margin-bottom:4px">Kết quả</div>
+                    <div class="tf" id="g-wav" style="font-size:20px;font-weight:900;color:#fff">1</div>
                 </div>
                 <button id="b-start" class="btn btn--pri btn--block" style="font-size:21px;padding:15px">XUẤT QUÂN</button>
                 <button id="b-install" class="btn btn--ghost btn--block hidden" style="font-size:12px">📥 Cài đặt vào màn hình chính</button>
@@ -330,6 +331,22 @@
         </div>
         <div id="t-cont" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px;padding-right:4px"></div>
         <p class="muted" style="font-size:10px;margin-top:10px;text-align:center">Nội tại được lưu lại và áp dụng cho mọi trận đấu.</p>
+    </div>
+</div>
+
+<!-- Hero shop modal -->
+<div id="hmod" class="hidden">
+    <div class="ov-card pop" style="max-width:520px;max-height:90vh;display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <h2 class="title title--gold" style="font-size:22px;letter-spacing:.12em">Cửa Hàng Tướng</h2>
+            <button id="b-cls-h" class="ibtn" style="background:transparent;border-color:transparent;font-size:20px;color:var(--dim)">✕</button>
+        </div>
+        <div class="t-row" style="margin-bottom:14px">
+            <span class="sub" style="font-size:12px">💎 Tinh Thạch</span>
+            <span class="tf" id="hg-d" style="font-size:24px;font-weight:900;color:var(--gold)">0</span>
+        </div>
+        <div id="h-cont" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px;padding-right:4px"></div>
+        <p class="muted" style="font-size:10px;margin-top:10px;text-align:center">Mở khoá tướng để dùng trong trận. Tướng khắc tinh giúp qua màn khó.</p>
     </div>
 </div>
 
@@ -448,7 +465,7 @@ function vibe(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch 
 // ============ STORAGE (lưu nội tại / điểm / kỷ lục) ============
 const Storage = {
     key: 'kntt_v17',
-    data: { talents: { d: 0, s: 0, h: 0, c: 0 }, unitSkills: {}, tp: 0, best: [0, 0, 0], sfx: true, music: false },
+    data: { talents: { d: 0, s: 0, h: 0, c: 0 }, unitSkills: {}, tp: 0, best: [0, 0, 0], sfx: true, music: false, gems: 0, stageProg: 0, unlocked: [] },
     load() {
         try {
             const s = localStorage.getItem(this.key);
@@ -460,6 +477,9 @@ const Storage = {
                 this.data.best = Array.isArray(p.best) ? p.best : [0, 0, 0];
                 this.data.sfx = p.sfx !== false;
                 this.data.music = !!p.music;
+                this.data.gems = p.gems || 0;                                  // Tinh Thạch (tiền vĩnh viễn)
+                this.data.stageProg = p.stageProg || 0;                        // màn cao nhất đã qua
+                this.data.unlocked = Array.isArray(p.unlocked) ? p.unlocked : [];  // tướng đã mở khoá
             }
         } catch (e) {}
         return this.data;
@@ -506,6 +526,27 @@ const WAVE_THEMES = {
     boss:  { tag: 'TRÙM',      tids: [0,1,2,3],       hint: '⚠️ TRÙM: kháng mọi loại — phải KẾT HỢP nhiều tướng' },
 };
 function waveTheme(w){ if (w <= 3) return 'intro'; if (w % 5 === 0) return 'boss'; return ['swarm','armor','fast','mixed'][(w - 4) % 4]; }
+
+// ===== CAMPAIGN: ĐI MÀN =====
+// Giá MỞ KHOÁ tướng bằng Tinh Thạch (0 = mở sẵn từ đầu). Khắc tinh khoá sau cổng buộc người chơi cày & mua.
+const HERO_COST = { miner: 0, knight: 0, archer: 0, gunner: 40, ice: 55, poison: 70, mage: 90, priest: 75 };
+// Mỗi màn: waves = số đợt phải qua; mul = hệ số máu quái (ĐỘ KHÓ THEO MÀN, không theo kỹ năng);
+// themes = chủ đề từng đợt (lặp); rec = tướng khắc tinh nên có; reward = Tinh Thạch thưởng lần đầu.
+const STAGES = [
+    { n: 'Bìa Rừng',        map: 0, waves: 6,  mul: 1.0,  themes: ['intro'],                 reward: 30 },
+    { n: 'Rừng Rậm',        map: 0, waves: 7,  mul: 1.25, themes: ['intro', 'swarm'],        reward: 35 },
+    { n: 'Đầm Lầy',         map: 0, waves: 7,  mul: 1.5,  themes: ['swarm', 'fast'],         rec: 'ice',   reward: 40 },
+    { n: 'Hẻm Núi',         map: 1, waves: 8,  mul: 1.85, themes: ['fast', 'swarm'],         rec: 'ice',   reward: 45 },
+    { n: 'Lò Dung Nham',    map: 1, waves: 9,  mul: 2.2,  themes: ['armor', 'swarm'],        rec: 'mage',  reward: 55 },
+    { n: 'Đỉnh Lửa ⚔TRÙM',  map: 1, waves: 9,  mul: 2.6,  themes: ['mixed'], boss: true,     rec: 'mage',  reward: 80 },
+    { n: 'Cổng Ngục',       map: 2, waves: 10, mul: 3.1,  themes: ['armor', 'fast'],         rec: 'mage',  reward: 60 },
+    { n: 'Hành Lang Xương', map: 2, waves: 10, mul: 3.7,  themes: ['mixed', 'armor'],        rec: 'poison',reward: 65 },
+    { n: 'Hầm Sâu',         map: 2, waves: 11, mul: 4.4,  themes: ['fast', 'mixed'],         rec: 'poison',reward: 70 },
+    { n: 'Ngai Hắc Ám ⚔TRÙM',map: 2, waves: 11, mul: 5.2, themes: ['mixed'], boss: true,                  reward: 110 },
+    { n: 'Vực Thẳm I',      map: 2, waves: 12, mul: 6.2,  themes: ['mixed'],                              reward: 90 },
+    { n: 'Vực Thẳm II ⚔TRÙM',map: 1, waves: 12, mul: 7.6, themes: ['mixed'], boss: true,                  reward: 150 },
+];
+function isUnlocked(typeId) { return HERO_COST[typeId] === 0 || (Storage.data.unlocked && Storage.data.unlocked.includes(typeId)); }
 // SỨC MẠNH META từ Nội Tại -> quái mạnh lên TƯƠNG ỨNG. Max Nội Tại = đi XA hơn, KHÔNG phải dễ hơn.
 function metaPow(){ const t = State.talents; return 1 + 0.10 * t.d + 0.06 * t.s + 0.06 * t.c; }   // max ≈ ×2.9
 // Giá mua tướng KẾ TIẾP = base × buyRamp^(số con CÙNG LOẠI đang có). Bỏ cap, mỗi con thêm đắt hơn.
@@ -971,7 +1012,7 @@ const CharArt = {
 const State = {
     running: false, paused: false, speed: 1,
     gold: 0, hp: 0, maxHp: 0, wave: 1, level: 1, xp: 0, maxXp: 0, tp: 0, mapId: 0,
-    talents: { d: 0, s: 0, h: 0, c: 0 }, unitSkills: {},
+    talents: { d: 0, s: 0, h: 0, c: 0 }, unitSkills: {}, stageIdx: 0, stage: null,
     grid: { size: 0, cols: 0, offsetX: 0, offsetY: 0 },
 
     units: [], enemies: [], projs: [], eProjs: [], particles: [], floatTexts: [], beams: [], flyingCoins: [], obstacles: [], weather: [],
@@ -1412,12 +1453,15 @@ const Engine = {
     },
 
     buildWave() {
-        State.spawn.queue = []; let w = State.wave, mp = diffScale();
-        // NHỊP ĐỘ: màn đầu ÍT & ra CHẬM (thư thả) -> cuối BÙNG NỔ (đông & dồn dập)
-        let hm = Math.pow(1.16, w - 1) * mp;
-        let count = Math.round((4 + w * 1.4 + w * w * 0.13) * (1 + (mp - 1) * 0.25)); State.spawn.total = count;
-        let interval = Math.max(0.35, 1.9 - w * 0.08);
-        let theme = waveTheme(w), pool = WAVE_THEMES[theme].tids;
+        State.spawn.queue = []; let w = State.wave, st = State.stage;
+        // ĐỘ KHÓ THEO MÀN (không theo kỹ năng): máu quái = nhịp trong màn × hệ số màn
+        let hm = Math.pow(1.16, w - 1) * st.mul;
+        // NHỊP ĐỘ trong màn: đợt đầu ÍT & ra CHẬM (thư thả) -> đợt cuối màn ĐÔNG & dồn dập
+        let count = Math.round(4 + w * 1.5 + w * w * 0.12); State.spawn.total = count;
+        let interval = Math.max(0.45, 1.9 - w * 0.09);
+        // đợt cuối của màn boss = TRÙM; chủ đề lấy theo danh sách của màn (lặp)
+        let theme = (st.boss && w >= st.waves) ? 'boss' : st.themes[(w - 1) % st.themes.length];
+        let pool = WAVE_THEMES[theme].tids;
         for (let i = 0; i < count; i++) {
             let tid = pool[Math.floor(Math.random() * pool.length)];
             if (i === count - 1 && theme === 'boss') tid = 6;
@@ -1441,7 +1485,7 @@ const Engine = {
             });
 
             if (State.spawn.isPrep) {
-                State.spawn.timer -= dt; let _mp = diffScale(); document.getElementById('w-stat').innerText = `CHUẨN BỊ · ${WAVE_THEMES[waveTheme(State.wave)].tag}${_mp > 1.3 ? ' · ĐỘ KHÓ ×' + _mp.toFixed(1) : ''}: ${Math.ceil(State.spawn.timer)}s`; document.getElementById('w-bar').style.width = '0%';
+                State.spawn.timer -= dt; let _th = (State.stage.boss && State.wave >= State.stage.waves) ? 'boss' : State.stage.themes[(State.wave - 1) % State.stage.themes.length]; document.getElementById('w-stat').innerText = `CHUẨN BỊ · ${WAVE_THEMES[_th].tag} · Đợt ${State.wave}/${State.stage.waves}: ${Math.ceil(State.spawn.timer)}s`; document.getElementById('w-bar').style.width = '0%';
                 if (State.spawn.timer <= 0) {
                     State.spawn.isPrep = false; document.getElementById('w-stat').innerText = "ĐANG PHÒNG THỦ";
                     document.getElementById('call').style.display = 'none'; UI.showMessage(WAVE_THEMES[waveTheme(State.wave)].hint, waveTheme(State.wave) === 'boss'); Sound.play('wave'); this.buildWave();
@@ -1460,7 +1504,8 @@ const Engine = {
                         }
                     }
                 } else if (State.enemies.length === 0) {
-                    State.spawn.isPrep = true; State.spawn.timer = 10; State.wave++; UI.updateDisplay();
+                    if (State.wave >= State.stage.waves) { Control.stageWin(); return; }   // qua màn!
+                    State.spawn.isPrep = true; State.spawn.timer = 8; State.wave++; UI.updateDisplay();
                     document.getElementById('call').style.display = 'block'; let b = 20 + State.wave * 8; State.gold += b; UI.showMessage(`DỌN SẠCH! +${b}🪙`); Sound.play('cleared');
                 }
             }
@@ -1470,7 +1515,7 @@ const Engine = {
 
             State.enemies.forEach(e => e.update(dt));
             State.enemies = State.enemies.filter(e => {
-                if (e.x < State.grid.offsetX) { let leak = e.db.dmg * (1 + (State.wave - 1) * 0.09) * (1 + (diffScale() - 1) * 0.5); State.hp -= leak; State.shake = 20; UI.showMessage("THÀNH TRÌ BỊ TẤN CÔNG!", true); Sound.play('alarm'); vibe(60); UI.updateDisplay(); if (State.hp <= 0) Control.gameOver(); return false; }
+                if (e.x < State.grid.offsetX) { let leak = e.db.dmg * (1 + (State.wave - 1) * 0.09) * State.stage.mul; State.hp -= leak; State.shake = 20; UI.showMessage("THÀNH TRÌ BỊ TẤN CÔNG!", true); Sound.play('alarm'); vibe(60); UI.updateDisplay(); if (State.hp <= 0) Control.gameOver(); return false; }
                 if (e.hp <= 0) {
                     let g = e.db.gold; this.gainXp(e.db.xp);   // vàng rơi cố định (talent Vũ Khí chỉ tăng sát thương, không tăng vàng)
                     this.spawnText(e.x, e.y, `+${g}`, '#fde047', false); this.spawnFlyingCoin(e.x, e.y, g); this.spawnParticles(e.x, e.y, '#71717a', 15, 60, 3);
@@ -1720,7 +1765,8 @@ const UI = {
         document.getElementById('b-cls-u').onclick = () => this.closeUnitModal();
         document.getElementById('ult').onclick = () => Control.castUlt();
 
-        document.querySelectorAll('.m-card').forEach(card => { card.onclick = () => { Sound.play('click'); document.querySelectorAll('.m-card').forEach(x => x.classList.remove('sel')); card.classList.add('sel'); State.mapId = parseInt(card.dataset.m); }; });
+        document.getElementById('b-shop').onclick = () => { Sound.play('click'); this.openShop(); };
+        document.getElementById('b-cls-h').onclick = () => { Sound.play('click'); document.getElementById('hmod').classList.add('hidden'); };
         document.getElementById('call').onclick = () => { if (State.spawn.isPrep && State.spawn.timer > 0) { let bonus = Math.floor(State.spawn.timer * 4); State.gold += bonus; State.spawn.timer = 0; Sound.play('coin'); Engine.spawnText(State.ui.goldUiX, State.ui.goldUiY + 30, `+${bonus} Nóng!`, '#fde047', true); } };
         document.getElementById('b-up').onclick = () => { if (performance.now() - (State.ui.modalAt || 0) < 300) return; let u = State.ui.selUnit; if (!u) return; let c = Math.floor(u.db.cost * Math.pow(1.8, u.level)); if (State.gold >= c && u.level < 3) { State.gold -= c; u.level++; u.hp = u.getStats().hp; Sound.play('upgrade'); vibe(20); Engine.spawnText(u.x, u.y - 20, 'LÊN CẤP', '#fbbf24', true); Engine.spawnParticles(u.x, u.y, '#fbbf24', 20, 70, 4); this.closeUnitModal(); this.updateDisplay(); } };
         document.getElementById('b-sell').onclick = () => { if (performance.now() - (State.ui.modalAt || 0) < 300) return; let u = State.ui.selUnit; if (!u) return; let val = Math.floor(u.db.cost * Math.pow(1.5, u.level - 1) * 0.5); State.gold += val; State.units = State.units.filter(i => i !== u); Sound.play('click'); Engine.spawnText(u.x, u.y, `+${val}`, '#fde047', false); Engine.spawnParticles(u.x, u.y, '#94a3b8', 10, 40); this.closeUnitModal(); this.updateDisplay(); };
@@ -1741,14 +1787,43 @@ const UI = {
         this.syncAudioUI();
     },
     refreshStart() {
-        for (let i = 0; i < 3; i++) {
-            let el = document.getElementById(`best-${i}`); if (el) el.innerText = Storage.data.best[i] > 0 ? `🏆 Đợt ${Storage.data.best[i]}` : 'Chưa chơi';
-        }
         let tp2 = document.getElementById('tp-d2'); if (tp2) tp2.innerText = State.tp > 0 ? `(${State.tp} SP)` : '';
+        let gd = document.getElementById('gem-d'); if (gd) gd.innerText = Storage.data.gems;
+        this.buildShop();        // dựng lại shop trong trận để phản ánh tướng đã mở khoá
+        this.renderStages();
+    },
+    renderStages() {
+        let c = document.getElementById('maps'); if (!c) return; c.innerHTML = '';
+        if (this.selStage == null) this.selStage = Math.min(Storage.data.stageProg, STAGES.length - 1);
+        STAGES.forEach((st, i) => {
+            let unlocked = i <= Storage.data.stageProg, cleared = i < Storage.data.stageProg, recLock = st.rec && !isUnlocked(st.rec);
+            let div = document.createElement('div'); div.className = 'm-card' + (i === this.selStage ? ' sel' : '');
+            div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;text-align:left;cursor:pointer;' + (unlocked ? '' : 'opacity:.4;pointer-events:none;');
+            div.innerHTML = `<div style="font-size:17px;width:24px;text-align:center;flex:0 0 auto">${cleared ? '✅' : (unlocked ? (i + 1) : '🔒')}</div>
+                <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:800;color:#fff">Màn ${i + 1}: ${st.n}</div>
+                <div class="sub" style="font-size:9px;margin-top:1px">${st.waves} đợt · khó ×${st.mul}${st.rec ? ` · khắc tinh ${UNITS_DB[st.rec].name}${recLock ? ' 🔒' : ' ✓'}` : ''}</div></div>
+                <div style="font-size:10px;color:var(--gold);flex:0 0 auto">+${st.reward}💎</div>`;
+            if (unlocked) div.onclick = () => { Sound.play('click'); this.selStage = i; this.renderStages(); document.getElementById('b-start').innerText = `XUẤT QUÂN · Màn ${i + 1}`; };
+            c.appendChild(div);
+        });
+    },
+    openShop() {
+        let modal = document.getElementById('hmod'), c = document.getElementById('h-cont'); c.innerHTML = '';
+        document.getElementById('hg-d').innerText = Storage.data.gems;
+        Object.keys(UNITS_DB).forEach(k => {
+            let u = UNITS_DB[k], cost = HERO_COST[k], owned = isUnlocked(k), canBuy = !owned && Storage.data.gems >= cost;
+            let d = document.createElement('div'); d.className = 't-row';
+            let right = owned ? `<span style="color:#4ade80;font-weight:800;font-size:12px;flex:0 0 auto">✓ Đã có</span>`
+                : `<button class="btn ${canBuy ? 'btn--gold' : 'btn--ghost'}" style="min-width:66px;height:40px;flex:0 0 auto;padding:0 8px;font-weight:800;font-size:13px${canBuy ? '' : ';opacity:.5;pointer-events:none'}">${cost}💎</button>`;
+            d.innerHTML = `<div style="display:flex;align-items:center;gap:12px;min-width:0"><div style="font-size:26px;flex:0 0 auto">${u.icon}</div><div style="min-width:0"><div style="font-size:13px;font-weight:800;color:${u.color}">${u.name}</div><div class="sub" style="font-size:10px;margin-top:2px">${u.lv3Desc}</div></div></div>` + right;
+            if (!owned && canBuy) { d.querySelector('button').onclick = () => { Storage.data.gems -= cost; Storage.data.unlocked.push(k); Storage.sync(); Sound.play('upgrade'); vibe(20); this.refreshStart(); this.openShop(); }; }
+            c.appendChild(d);
+        });
+        modal.classList.remove('hidden');
     },
     buildShop() {
         let container = document.getElementById('shop'); container.innerHTML = '';
-        Object.keys(UNITS_DB).forEach(k => {
+        Object.keys(UNITS_DB).filter(k => isUnlocked(k)).forEach(k => {     // chỉ hiện tướng ĐÃ mở khoá
             let u = UNITS_DB[k]; let div = document.createElement('div'); div.id = `s-${k}`; div.className = 's-btn';
             div.innerHTML = `<div class="lim" id="l-${k}" style="display:none"></div><div class="text-2xl drop-shadow-md mt-1">${u.icon}</div><div class="text-[8px] font-bold mt-0.5 text-center leading-tight" style="color:${u.color}">${u.name}</div><div class="tf font-black text-[10px] text-yellow-400 mb-0.5" id="c-${k}">${u.cost}</div>`;
             div.onclick = () => { Sound.resume(); if (State.gold < unitCost(k)) { Sound.play('click'); return; } if (State.ui.shopId === k) this.deselectShop(); else { this.deselectShop(); this.closeUnitModal(); State.ui.shopId = k; div.classList.add('sel'); Sound.play('click'); } }; container.appendChild(div);
@@ -1759,6 +1834,7 @@ const UI = {
         document.getElementById('ui-hp').innerText = Math.floor(State.hp); document.getElementById('ui-w').innerText = State.wave; document.getElementById('ui-lv').innerText = State.level; document.getElementById('ui-xp').style.width = `${(State.xp / State.maxXp) * 100}%`;
         Object.keys(UNITS_DB).forEach(k => {
             let el = document.getElementById(`s-${k}`), cEl = document.getElementById(`c-${k}`);
+            if (!el) return;     // tướng chưa mở khoá -> không có nút trong shop
             let cost = unitCost(k); if (cEl) cEl.innerText = cost;     // giá lũy tiến: cập nhật theo số con đã mua
             if (State.gold >= cost) el.classList.remove('lck'); else { el.classList.add('lck'); if (State.ui.shopId === k) this.deselectShop(); }
         });
@@ -1839,7 +1915,9 @@ const Control = {
             if (req && !document.fullscreenElement) req.call(el).then(() => { try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'); } catch(e){} }).catch(()=>{});
         } catch (e) {}
     },
-    start() {
+    start(idx) {
+        if (idx == null) idx = (UI.selStage != null ? UI.selStage : Math.min(Storage.data.stageProg, STAGES.length - 1));
+        State.stageIdx = idx; State.stage = STAGES[idx]; State.mapId = State.stage.map;
         Sound.init(); Sound.resume(); if (Sound.musicOn) Sound.startMusic();
         this.enterFullscreen();
         document.getElementById('start').classList.add('hidden'); document.getElementById('call').style.display = 'block';
@@ -1855,12 +1933,29 @@ const Control = {
     },
     gameOver() {
         State.running = false;
-        if (State.wave > Storage.data.best[State.mapId]) Storage.data.best[State.mapId] = State.wave;
         Storage.sync(); UI.refreshStart();
         Sound.play('lose'); vibe([0, 100, 50, 100, 50, 200]);
         document.getElementById('start').classList.remove('hidden'); document.getElementById('g-stat').classList.remove('hidden');
-        document.getElementById('g-wav').innerText = State.wave; document.getElementById('b-start').innerText = 'TÁI CHIẾN';
+        document.getElementById('g-stat').querySelector('.title').innerText = 'Thất bại tại';
+        document.getElementById('g-wav').innerHTML = `${State.stage.n}<div style="font-size:13px;color:var(--dim);margin-top:4px">Đợt ${State.wave}/${State.stage.waves}</div>`;
+        document.getElementById('b-start').innerText = 'CHƠI LẠI MÀN';
         document.getElementById('pmod').classList.remove('show');
+    },
+    stageWin() {
+        State.running = false;
+        let first = State.stageIdx >= Storage.data.stageProg;          // lần đầu qua màn này?
+        let reward = State.stage.reward * (first ? 1 : 0.3);           // chơi lại: thưởng ít hơn (cày)
+        reward = Math.round(reward);
+        Storage.data.gems += reward;
+        if (State.stageIdx + 1 > Storage.data.stageProg) Storage.data.stageProg = State.stageIdx + 1;  // mở màn sau
+        Storage.sync(); UI.refreshStart();
+        Sound.play('cleared'); vibe([0, 60, 40, 120]);
+        document.getElementById('start').classList.remove('hidden'); document.getElementById('g-stat').classList.remove('hidden');
+        document.getElementById('g-stat').querySelector('.title').innerText = first ? '🎉 Qua màn lần đầu!' : 'Qua màn';
+        document.getElementById('g-wav').innerHTML = `${State.stage.n}<div style="font-size:15px;color:var(--gold);margin-top:6px">+${reward} 💎 Tinh Thạch</div>`;
+        document.getElementById('b-start').innerText = 'CHƠI TIẾP';
+        document.getElementById('pmod').classList.remove('show');
+        UI.selStage = Math.min(Storage.data.stageProg, STAGES.length - 1);   // trỏ tới màn kế
     },
     quitToMenu() {
         Sound.play('click'); State.running = false; State.paused = false;
@@ -1924,7 +2019,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============ PHIÊN BẢN & TỰ CẬP NHẬT ============
-const GAME_VERSION = '2.2.0';
+const GAME_VERSION = '3.0.0';
 let _updChecking = false;
 
 function setVerLabels() {

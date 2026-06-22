@@ -212,12 +212,27 @@ Màn "Nội Tại Vĩnh Viễn" giờ có **2 tab** (`openTalents`, biến `UI._
 **Sim (đã thêm hồ sơ `godlike` = max hết):** spam<kết-hợp ở mọi mức; kết hợp: mới ~13, cày max ~28 đợt.
 > Núm chỉnh: `0.02` (độ khó/bậc kỹ năng) trong `diffScale`, và giá SP từng bậc trong `UNIT_SKILLS`.
 
+### k) CHUYỂN SANG CAMPAIGN ĐI MÀN (Phần A — XONG 2026-06-22)
+Đổi từ "thủ thành vô tận" sang **game đi màn + cày Tinh Thạch + mở khoá tướng**.
+- **STAGES[]** (12 màn): mỗi màn có `waves` (số đợt phải qua), `mul` (hệ số máu quái — ĐỘ KHÓ THEO MÀN,
+  KHÔNG theo kỹ năng nữa), `themes` (chủ đề từng đợt), `rec` (tướng khắc tinh nên có), `reward` (Tinh Thạch),
+  `boss`. Thắng đợt cuối → `Control.stageWin()` → +Tinh Thạch (lần đầu nhiều, chơi lại 30% để cày) + mở màn sau.
+- **Tinh Thạch** (`Storage.data.gems`) = tiền vĩnh viễn từ thưởng màn. **Cửa Hàng Tướng** (`UI.openShop`, modal `#hmod`)
+  dùng Tinh Thạch MỞ KHOÁ tướng (`HERO_COST`, `Storage.data.unlocked`). Shop trong trận chỉ hiện tướng đã mở.
+- **Khắc chế = cổng qua màn**: ban đầu chỉ mở Mỏ Vàng/Giáp Sĩ/Xạ Thủ (phys). Băng/Thần Sét/Độc/Pháo/Thánh Sứ
+  phải mua. Màn 3 (Sói nhanh)→cần Băng; màn 5 (Orc giáp)→cần Thần Sét... không có khắc tinh thì gần như không qua → buộc cày & mua.
+- **Màn hình chính** = chọn màn (`UI.renderStages` vào `#maps`) + ô Tinh Thạch + nút Cửa Hàng. `Control.start(idx)` chơi màn.
+- **Độ khó KHÔNG còn theo kỹ năng**: bỏ `diffScale()` khỏi `buildWave`/rò rỉ; dùng `State.stage.mul`.
+  Kỹ năng/Nội Tại vẫn tăng sức mạnh người chơi → cày lại màn cũ dễ (farm). `metaPow/diffScale` còn định nghĩa nhưng không dùng cho độ khó.
+> ⚠️ **Phần B (chưa làm):** thêm TƯỚNG MỚI + QUÁI MỚI (art + kỹ năng), cổng khắc chế bằng quái mới, thêm màn;
+> và **cập nhật `tools/balance-sim.js` sang chế độ campaign** (hiện sim còn theo endless cũ → cần playtest tay cho cân bằng màn).
+
 ## 5. PHIÊN BẢN / CACHE (nhớ bump khi sửa)
 Khi sửa code muốn người chơi nhận bản mới, **đổi 3 chỗ**:
 1. `sw.js` → `const CACHE = 'kntt-vXX-...'` (tăng số).
 2. `index.html` → `const GAME_VERSION = 'X.Y.Z'`.
 3. `version.json` → cùng version + ghi `notes`.
-- Hiện tại: **CACHE `kntt-v29-skills`**, **GAME_VERSION `2.2.0`**.
+- Hiện tại: **CACHE `kntt-v30-campaign`**, **GAME_VERSION `3.0.0`**.
 
 ## 6. 📋 VIỆC NÊN LÀM TIẾP (TODO)
 - [ ] Sink vàng cuối game (đợt ~17+ bàn đầy thì dư vàng): vd bán/đổi, lính tinh nhuệ giá cao, hoặc nâng cấp cấp 4.
