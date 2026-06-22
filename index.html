@@ -1298,11 +1298,95 @@ const Engine = {
         } catch (e) { console.error("Update error:", e); }
     },
 
+    // RNG ổn định theo seed (mulberry32) -> bố cục nền không nhấp nháy giữa các khung
+    _rng(seed) { return function () { seed = seed + 0x6D2B79F5 | 0; let x = Math.imul(seed ^ seed >>> 15, 1 | seed); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; }; },
+
+    // Nền cảnh chi tiết theo chủ đề từng map (vẽ phủ toàn canvas, dưới lưới)
+    drawBackdrop(ctx, w, h, t) {
+        const id = State.mapId;
+        if (id === 1) this._bgVolcano(ctx, w, h, t);
+        else if (id === 2) this._bgDungeon(ctx, w, h, t);
+        else this._bgForest(ctx, w, h, t);
+    },
+    _conifer(ctx, x, base, s) {
+        ctx.beginPath(); ctx.moveTo(x, base - s * 1.9); ctx.lineTo(x - s * 0.55, base); ctx.lineTo(x + s * 0.55, base); ctx.closePath();
+        ctx.moveTo(x, base - s * 1.25); ctx.lineTo(x - s * 0.72, base - s * 0.25); ctx.lineTo(x + s * 0.72, base - s * 0.25); ctx.closePath(); ctx.fill();
+    },
+    _bgForest(ctx, w, h, t) {
+        let sky = ctx.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, '#0e3b2e'); sky.addColorStop(.55, '#0a2a20'); sky.addColorStop(1, '#061710'); ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+        // tia sáng xuyên tán
+        ctx.save(); ctx.globalAlpha = .045; ctx.fillStyle = '#8ef0c0';
+        for (let i = 0; i < 4; i++) { let x = w * (0.12 + i * 0.24); ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 46, 0); ctx.lineTo(x + 150, h); ctx.lineTo(x + 60, h); ctx.closePath(); ctx.fill(); }
+        ctx.restore();
+        // đồi rừng nhiều lớp
+        const cols = ['#0c2c22', '#103a2c', '#16493a'];
+        for (let L = 0; L < 3; L++) {
+            let base = h * (0.42 + L * 0.16), amp = h * 0.05 + L * 5;
+            ctx.fillStyle = cols[L]; ctx.beginPath(); ctx.moveTo(0, h);
+            for (let x = 0; x <= w; x += 22) { let y = base + Math.sin(x * 0.011 + L * 2) * amp + Math.sin(x * 0.027 + L) * amp * 0.4; ctx.lineTo(x, y); }
+            ctx.lineTo(w, h); ctx.closePath(); ctx.fill();
+        }
+        // cây thông xa
+        const R = this._rng(101); ctx.fillStyle = '#0a241b';
+        for (let i = 0; i < 28; i++) { let x = R() * w, base = h * (0.48 + R() * 0.14), s = 9 + R() * 20; this._conifer(ctx, x, base, s); }
+        // mặt đất gần
+        let gr = ctx.createLinearGradient(0, h * 0.62, 0, h); gr.addColorStop(0, 'rgba(10,40,28,0)'); gr.addColorStop(1, '#0a2417'); ctx.fillStyle = gr; ctx.fillRect(0, h * 0.6, w, h * 0.4);
+        // vũng nước phản chiếu
+        const R2 = this._rng(55);
+        for (let i = 0; i < 6; i++) { let x = R2() * w, y = h * (0.74 + R2() * 0.2), rw = 22 + R2() * 42; ctx.fillStyle = 'rgba(130,210,185,0.06)'; ctx.beginPath(); ctx.ellipse(x, y, rw, rw * 0.24, 0, 0, 7); ctx.fill(); }
+        // sương trôi
+        ctx.save(); ctx.globalAlpha = .05; ctx.fillStyle = '#d6f3e6';
+        for (let i = 0; i < 3; i++) { let y = h * (0.4 + i * 0.18), off = ((t * 0.012 * (i + 1)) % (w + 400)) - 200; ctx.beginPath(); ctx.ellipse(off, y, w * 0.4, 16, 0, 0, 7); ctx.fill(); }
+        ctx.restore();
+    },
+    _bgVolcano(ctx, w, h, t) {
+        let sky = ctx.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, '#1f0707'); sky.addColorStop(.5, '#2a0a06'); sky.addColorStop(1, '#140303'); ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+        // ráng lửa ở chân trời
+        let glow = ctx.createRadialGradient(w * 0.5, h * 0.98, 10, w * 0.5, h * 0.98, h * 1.15); glow.addColorStop(0, 'rgba(249,115,22,0.32)'); glow.addColorStop(.4, 'rgba(180,50,10,0.14)'); glow.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
+        // núi lửa
+        const peaks = [[0.28, 0.44], [0.7, 0.34]];
+        peaks.forEach((p, i) => {
+            let cx = w * p[0], peakY = h * p[1], bw = w * (0.32 + i * 0.05);
+            ctx.fillStyle = '#1a0a08'; ctx.beginPath(); ctx.moveTo(cx - bw, h); ctx.lineTo(cx, peakY); ctx.lineTo(cx + bw, h); ctx.closePath(); ctx.fill();
+            let pulse = 0.5 + Math.sin(t * 0.002 + i) * 0.3;
+            ctx.strokeStyle = `rgba(255,120,30,${0.5 * pulse})`; ctx.lineWidth = 2;
+            for (let k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(cx, peakY); ctx.lineTo(cx + k * 22 + (i ? 12 : -12), h); ctx.stroke(); }
+            let cg = ctx.createRadialGradient(cx, peakY, 2, cx, peakY, 42); cg.addColorStop(0, `rgba(255,190,70,${0.65 * pulse})`); cg.addColorStop(1, 'rgba(255,80,0,0)'); ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(cx, peakY, 42, 0, 7); ctx.fill();
+        });
+        // khói bốc lên
+        ctx.save(); ctx.globalAlpha = .07; ctx.fillStyle = '#3a2420';
+        for (let i = 0; i < 5; i++) { let x = (w * 0.28 + i * w * 0.12 + Math.sin(t * 0.0003 + i) * 30) % w, y = h * 0.34 - ((t * 0.02 + i * 130) % (h * 0.4)); ctx.beginPath(); ctx.arc(x, y, 28 + i * 6, 0, 7); ctx.fill(); }
+        ctx.restore();
+        // nền dung nham nứt
+        let gr = ctx.createLinearGradient(0, h * 0.58, 0, h); gr.addColorStop(0, 'rgba(20,6,4,0)'); gr.addColorStop(1, '#190805'); ctx.fillStyle = gr; ctx.fillRect(0, h * 0.55, w, h * 0.45);
+        const R = this._rng(77), pulse = 0.5 + Math.sin(t * 0.003) * 0.5;
+        ctx.strokeStyle = `rgba(255,100,20,${0.22 + 0.22 * pulse})`; ctx.lineWidth = 2;
+        for (let i = 0; i < 8; i++) { let x = R() * w, y = h * (0.6 + R() * 0.38); ctx.beginPath(); ctx.moveTo(x, y); for (let s = 0; s < 4; s++) { x += (R() - 0.5) * 60; y += (R() - 0.3) * 18; ctx.lineTo(x, y); } ctx.stroke(); }
+    },
+    _bgDungeon(ctx, w, h, t) {
+        let bg = ctx.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, '#1a1233'); bg.addColorStop(1, '#0c0720'); ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+        // tường gạch (phần trên)
+        ctx.strokeStyle = 'rgba(125,95,180,0.10)'; ctx.lineWidth = 1; let bh = h * 0.09, bw = w * 0.08;
+        for (let r = 0; r * bh < h * 0.72; r++) { let y = r * bh; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); let off = (r % 2) * (bw / 2); for (let x = off; x < w; x += bw) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + bh); ctx.stroke(); } }
+        // cột đá
+        [0.16, 0.84].forEach(px => { let x = w * px; ctx.fillStyle = 'rgba(8,5,20,0.55)'; ctx.fillRect(x - 15, 0, 30, h * 0.78); ctx.fillStyle = 'rgba(150,120,200,0.06)'; ctx.fillRect(x - 15, 0, 5, h * 0.78); });
+        // đuốc + quầng sáng bập bùng
+        const torches = [[0.16, 0.3], [0.84, 0.3], [0.5, 0.16]];
+        torches.forEach((tc, i) => {
+            let x = w * tc[0], y = h * tc[1], fl = 0.6 + Math.sin(t * 0.01 + i * 2) * 0.25 + Math.random() * 0.08;
+            let g = ctx.createRadialGradient(x, y, 2, x, y, 95); g.addColorStop(0, `rgba(255,170,70,${0.45 * fl})`); g.addColorStop(.5, `rgba(255,110,30,${0.16 * fl})`); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 95, 0, 7); ctx.fill();
+            ctx.fillStyle = `rgba(255,185,70,${0.85 * fl})`; ctx.beginPath(); ctx.ellipse(x, y, 4, 10 * fl, 0, 0, 7); ctx.fill();
+        });
+        // sàn đá (phần dưới)
+        let fg = ctx.createLinearGradient(0, h * 0.64, 0, h); fg.addColorStop(0, 'rgba(20,14,40,0)'); fg.addColorStop(1, '#0a0618'); ctx.fillStyle = fg; ctx.fillRect(0, h * 0.6, w, h * 0.4);
+    },
+
     draw() {
         let ctx = this.ctx; if (!ctx) return; let t = performance.now();
         let w = State.designW || (this.canvas.width / ((window.devicePixelRatio || 1) * (State.stageScale || 1)));
         let h = State.designH || (this.canvas.height / ((window.devicePixelRatio || 1) * (State.stageScale || 1)));
         ctx.clearRect(0, 0, w, h);
+        this.drawBackdrop(ctx, w, h, t);   // nền cảnh chi tiết theo chủ đề map
 
         ctx.save(); if (State.shake > 0) ctx.translate((Math.random() - 0.5) * State.shake, (Math.random() - 0.5) * State.shake);
 
@@ -1314,8 +1398,9 @@ const Engine = {
         for (let r = 0; r < CFG.rows; r++) {
             for (let c = 0; c < g.cols; c++) {
                 let x = g.offsetX + c * g.size; let y = g.offsetY + r * g.size;
-                ctx.fillStyle = (r + c) % 2 === 0 ? CFG.colors.grid : CFG.colors.grid2; ctx.fillRect(x, y, g.size, g.size);
-                ctx.strokeStyle = 'rgba(255,255,255,0.02)'; ctx.strokeRect(x, y, g.size, g.size);
+                // ô lưới trong suốt nhẹ -> lộ cảnh nền nhưng vẫn rõ ô để đặt quân
+                ctx.fillStyle = (r + c) % 2 === 0 ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.03)'; ctx.fillRect(x, y, g.size, g.size);
+                ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.strokeRect(x, y, g.size, g.size);
             }
         }
 
@@ -1612,7 +1697,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============ PHIÊN BẢN & TỰ CẬP NHẬT ============
-const GAME_VERSION = '1.2.0';
+const GAME_VERSION = '1.2.1';
 let _updChecking = false;
 
 function setVerLabels() {
