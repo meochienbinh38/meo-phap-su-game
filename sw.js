@@ -1,6 +1,6 @@
 /* Service Worker - Kỷ Nguyên Thủ Thành PWA */
-const CACHE = 'kntt-v34-title-small';
-const SERVED_GAME_VERSION = '3.4.0';
+const CACHE = 'kntt-v35-performance';
+const SERVED_GAME_VERSION = '3.5.0';
 
 const CORE = [
   './',
@@ -18,7 +18,7 @@ const EXTRA = [
 ];
 
 const COMPACT_START_CSS = `
-/* campaign-ui-v34: menu 1 màn + title nhỏ hơn để không lấp mép trên */
+/* campaign-ui-v35: menu 1 màn + title nhỏ + performance-ready */
 #start {
   padding: 5px !important;
   overflow: hidden !important;
@@ -176,7 +176,6 @@ const COMPACT_START_CSS = `
   font-size: 9px !important;
   line-height: 1.15 !important;
 }
-/* Modal phải cao hơn #start z-index 100, nếu không bấm nút có mở nhưng bị che phía sau. */
 #tmod,
 #hmod {
   position: absolute !important;
@@ -222,15 +221,116 @@ const COMPACT_START_CSS = `
 }
 `;
 
+const PERF_PATCH_SCRIPT = `
+/* perf-v35: render cap + adaptive effect budget */
+(function(){
+  if (typeof Engine === 'undefined' || typeof State === 'undefined' || typeof Control === 'undefined') return;
+  if (window.__KNTT_PERF_V35__) return;
+  window.__KNTT_PERF_V35__ = true;
+
+  const PERF = window.KNTT_PERF = {
+    version: '3.5.0',
+    fps: 60,
+    low: false,
+    particleHigh: 150,
+    particleLow: 70,
+    textHigh: 32,
+    textLow: 16,
+    coinHigh: 24,
+    coinLow: 10,
+    beamHigh: 22,
+    beamLow: 10
+  };
+
+  function capArray(arr, max) {
+    if (arr && arr.length > max) arr.splice(0, arr.length - max);
+  }
+
+  const _spawnParticles = Engine.spawnParticles && Engine.spawnParticles.bind(Engine);
+  if (_spawnParticles) {
+    Engine.spawnParticles = function(x, y, c, n, spd, sz) {
+      const max = PERF.low ? PERF.particleLow : PERF.particleHigh;
+      if (State.particles && State.particles.length >= max) return;
+      const nn = PERF.low ? Math.min(3, Math.ceil(n * 0.22)) : Math.min(n, 10);
+      return _spawnParticles(x, y, c, nn, PERF.low ? spd * 0.65 : spd, PERF.low ? Math.max(1, (sz || 3) * 0.8) : sz);
+    };
+  }
+
+  const _spawnText = Engine.spawnText && Engine.spawnText.bind(Engine);
+  if (_spawnText) {
+    Engine.spawnText = function(x, y, t, c, cr) {
+      const max = PERF.low ? PERF.textLow : PERF.textHigh;
+      if (State.floatTexts && State.floatTexts.length >= max) return;
+      return _spawnText(x, y, t, c, cr);
+    };
+  }
+
+  const _spawnFlyingCoin = Engine.spawnFlyingCoin && Engine.spawnFlyingCoin.bind(Engine);
+  if (_spawnFlyingCoin) {
+    Engine.spawnFlyingCoin = function(x, y, v) {
+      const max = PERF.low ? PERF.coinLow : PERF.coinHigh;
+      if (State.flyingCoins && State.flyingCoins.length >= max) return;
+      return _spawnFlyingCoin(x, y, v);
+    };
+  }
+
+  const _draw = Engine.draw && Engine.draw.bind(Engine);
+  if (_draw) {
+    Engine.draw = function() {
+      capArray(State.particles, PERF.low ? PERF.particleLow : PERF.particleHigh);
+      capArray(State.floatTexts, PERF.low ? PERF.textLow : PERF.textHigh);
+      capArray(State.flyingCoins, PERF.low ? PERF.coinLow : PERF.coinHigh);
+      capArray(State.beams, PERF.low ? PERF.beamLow : PERF.beamHigh);
+      return _draw();
+    };
+  }
+
+  const _initMap = Engine.initMap && Engine.initMap.bind(Engine);
+  if (_initMap) {
+    Engine.initMap = function() {
+      const r = _initMap();
+      if (State.weather && State.weather.length > 18) State.weather.length = 18;
+      return r;
+    };
+  }
+
+  const _loop = Control.loop && Control.loop.bind(Control);
+  if (_loop) {
+    let last = 0, acc = 0, frames = 0;
+    Control.loop = function(t) {
+      if (last) {
+        const dt = t - last;
+        if (dt > 0) {
+          acc += dt; frames++;
+          if (acc >= 900) {
+            PERF.fps = Math.round(frames * 1000 / acc);
+            const crowd = (State.units ? State.units.length : 0) + (State.enemies ? State.enemies.length : 0) + (State.projs ? State.projs.length : 0);
+            PERF.low = PERF.fps < 48 || crowd > 70;
+            acc = 0; frames = 0;
+          }
+        }
+      }
+      last = t;
+      return _loop(t);
+    };
+  }
+})();
+`;
+
 function patchIndexText(text) {
   let out = text
     .replace("const GAME_VERSION = '3.0.0';", `const GAME_VERSION = '${SERVED_GAME_VERSION}';`)
+    .replace(
+      "const cont = document.getElementById('canv-cont'); const dpr = window.devicePixelRatio || 1;",
+      "const cont = document.getElementById('canv-cont'); const dpr = Math.min(window.devicePixelRatio || 1, 1.35);"
+    )
     .replace(
       "UI.showMessage(WAVE_THEMES[waveTheme(State.wave)].hint, waveTheme(State.wave) === 'boss'); Sound.play('wave'); this.buildWave();",
       "UI.showMessage(WAVE_THEMES[_th].hint, _th === 'boss'); Sound.play('wave'); this.buildWave();"
     );
 
-  if (!out.includes('campaign-ui-v34')) out = out.replace('</style>', `${COMPACT_START_CSS}\n</style>`);
+  if (!out.includes('campaign-ui-v35')) out = out.replace('</style>', `${COMPACT_START_CSS}\n</style>`);
+  if (!out.includes('perf-v35')) out = out.replace('// ============ BOOT ============', `${PERF_PATCH_SCRIPT}\n// ============ BOOT ============`);
   return out;
 }
 
