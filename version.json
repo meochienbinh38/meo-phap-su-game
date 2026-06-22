@@ -1,1 +1,1 @@
-{ "version": "3.2.0", "build": "2026-06-22", "notes": "Thiết kế lại màn chọn màn campaign cho gọn trong một màn landscape; đưa Cửa Hàng Tướng và Nội Tại lên vùng bấm rõ; giữ sửa gợi ý khắc chế theo đúng chủ đề từng màn." }
+{ "version": "3.3.0", "build": "2026-06-22", "notes": "Sửa tiếp màn chọn màn cho vừa một màn ngang; sửa lỗi bấm Cửa Hàng Tướng/Nội Tại không thấy phản ứng do modal bị lớp start screen che." }
