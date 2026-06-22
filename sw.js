@@ -1,5 +1,5 @@
 /* Service Worker - Kỷ Nguyên Thủ Thành PWA */
-const CACHE = 'kntt-v22-range';
+const CACHE = 'kntt-v23-balance';
 
 const CORE = [
   './',

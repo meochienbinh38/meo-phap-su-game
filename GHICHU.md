@@ -82,14 +82,34 @@ ngoài việc vung vũ khí — lao tới/nhảy/chúi người (kiếm), nhún 
 > Đạn (Xạ Thủ/Pháo/Băng) chỉ bắn **cùng hàng**; Thần Sét (laser) bắn **mọi hàng**; Tháp Độc là
 > vòng tròn quanh mình. Vòng tầm đánh hiện ra khi chạm chọn quân.
 
+### d) Làm rõ động tác tấn công + cân bằng lại độ khó (XONG 2026-06-22)
+**Động tác tấn công** (`CharArt.drawUnit`/`drawWeapon`): viết lại theo nhịp 3 pha rõ ràng
+**LẤY ĐÀ → GIÁNG ĐÒN → THU VỀ**. Hai biến điều khiển:
+- `draw`  = pha lấy đà (đầu nhịp): kiếm nhổng cao, cung kéo căng dây, pháp sư lùi niệm chú.
+- `strike`= đỉnh giáng đòn (giữa nhịp, p≈0.55): kiếm bổ xuống + lao tới, cung buông tên, pháo giật nòng,
+  pháp sư thọc gậy tới. Vệt chém/khói/chớp sáng nhất đúng lúc `strike` đạt đỉnh.
+- Nhịp đánh kéo dài ~0.28s (đổi `this.anim -= dt*3.6`) để mắt kịp thấy.
+
+**Cân bằng lại (game trước quá dễ)** — chỉnh ở `Engine.buildWave`, vòng `update`, và nút nâng cấp:
+| Hạng mục | Cũ | Mới |
+|----------|----|-----|
+| Máu quái theo đợt | `1.22^(w-1)` | **`1.27^(w-1)`** (quái dày máu hơn rõ) |
+| Số quái mỗi đợt | `10 + w*2` | `10 + round(w*2.3)` |
+| Sát thương quái vào thành | cố định | **× `(1 + (w-1)*0.12)`** (rò rỉ cuối game rất đau) |
+| Thưởng dọn đợt | `50 + w*20` | `25 + w*9` (bớt tiền chùa) |
+| Giá nâng cấp quân | `cost × 1.5^lv` | **`cost × 1.7^lv`** (nâng cấp là lựa chọn thật sự) |
+> Vàng rơi mỗi quái vẫn cố định → quái trâu hơn nghĩa là vàng/giây giảm tự nhiên, kinh tế chặt hơn.
+> ⚠️ **Cần playtest**: nếu đến đợt ~15-20 thấy quá khó (máu 1.27^w tăng nhanh) thì hạ về 1.25.
+
 ## 5. PHIÊN BẢN / CACHE (nhớ bump khi sửa)
 Khi sửa code muốn người chơi nhận bản mới, **đổi 3 chỗ**:
 1. `sw.js` → `const CACHE = 'kntt-vXX-...'` (tăng số).
 2. `index.html` → `const GAME_VERSION = 'X.Y.Z'`.
 3. `version.json` → cùng version + ghi `notes`.
-- Hiện tại: **CACHE `kntt-v22-range`**, **GAME_VERSION `1.5.0`**.
+- Hiện tại: **CACHE `kntt-v23-balance`**, **GAME_VERSION `1.6.0`**.
 
 ## 6. 📋 VIỆC NÊN LÀM TIẾP (TODO)
+- [ ] Playtest độ khó mới (đợt 10-20): chỉnh `1.27` (máu quái) / `0.12` (sát thương thành) / giá nâng cấp nếu lệch.
 - [ ] Playtest cân bằng sau khi đổi tầm đánh (Xạ Thủ/Thần Sét giờ bắn rất xa — xem có quá mạnh không).
 - [ ] Có thể hiện nhãn "tầm đánh" ngay trong cửa hàng để người chơi biết trước khi mua.
 - [ ] Playtest phần biến đổi tướng theo cấp trên mobile thật (cân chỉnh kích thước vương miện/giáp cho dễ nhìn).

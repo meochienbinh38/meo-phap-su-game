@@ -568,15 +568,17 @@ const CharArt = {
         const tremble = low ? (Math.random()-0.5)*1.2 : 0;  // run khi thương nặng
         const recoil = hit*4;                                // giật lùi khi trúng đòn (lùi trái vì mặt hướng phải)
         const ranged = (cfg.style==='bow'||cfg.style==='launch'||cfg.style==='staff'||cfg.style==='wand'||cfg.style==='flask');
-        // ── CHUYỂN ĐỘNG TẤN CÔNG chi tiết theo kiểu vũ khí (lao/nhảy/chúi/giật) ──
-        const atk = Math.sin(p*Math.PI);                 // nhịp 0→1→0: vung ra rồi thu về
+        // ── CHUYỂN ĐỘNG TẤN CÔNG (rõ ràng: LẤY ĐÀ → GIÁNG ĐÒN → THU VỀ) ──
+        // p: 1 (vừa kích hoạt) → 0 (nghỉ).  draw = pha lấy đà (đầu nhịp).  strike = đỉnh giáng đòn (giữa nhịp).
+        const draw   = p>0.55 ? (p-0.55)/0.45 : 0;     // 1 ở p=1 (vươn/kéo) → 0 ở p=0.55
+        const strike = p>0.55 ? (1-p)/0.45 : p/0.55;   // 0 → 1 ở p≈0.55 (chạm đích) → 0
         let lungeX=0, hopY=0, lean=0;
-        if (cfg.style==='swing'){ lungeX = p*7; hopY = -atk*3.5; lean = p*0.11; }       // KIẾM: lao tới + nhảy + chúi người
-        else if (cfg.style==='work'){ hopY = -atk*3; lean = p*0.09; }                    // CUỐC: nhún & chúi khi bổ
-        else if (cfg.style==='bow'){ lungeX = -p*3; lean = -p*0.06; }                    // CUNG: ngả nhẹ ra sau khi giương
-        else if (cfg.style==='launch'){ lungeX = -p*5.5; hopY = -atk*1.6; lean = -p*0.05; } // PHÁO: giật lùi mạnh & rung
-        else if (cfg.style==='flask'){ lungeX = -p*2; hopY = -atk*2; }                   // BÌNH ĐỘC: nhún khi tung
-        else if (ranged){ lungeX = -p*2.5; lean = -p*0.04; }                             // pháp sư: nhích & ngả nhẹ khi niệm
+        if (cfg.style==='swing'){ lungeX = strike*11 - draw*3; hopY = -strike*4.5; lean = strike*0.18 - draw*0.08; }  // KIẾM: nhổng lên lấy đà rồi lao tới bổ xuống
+        else if (cfg.style==='work'){ hopY = -strike*4 - draw*2; lean = strike*0.14; }                                // CUỐC: nhấc lên rồi nhún bổ
+        else if (cfg.style==='bow'){ lungeX = strike*4 - draw*3; lean = -draw*0.13; }                                 // CUNG: ngả ra sau kéo dây → bật tới khi buông
+        else if (cfg.style==='launch'){ lungeX = -strike*9; lean = -strike*0.12; }                                    // PHÁO: giật lùi mạnh khi khai hỏa
+        else if (cfg.style==='flask'){ hopY = -strike*4; lungeX = strike*4 - draw*2; }                                // BÌNH ĐỘC: vung tay tung bình
+        else if (ranged){ lungeX = strike*6 - draw*2; lean = -draw*0.1; }                                             // pháp sư: lùi niệm chú → thọc gậy tới
 
         ctx.save();
         ctx.scale(k, k);
@@ -666,7 +668,7 @@ const CharArt = {
         ctx.restore(); // head
 
         // ---- TAY TRƯỚC + VŨ KHÍ (animate theo kiểu tấn công) ----
-        C.drawWeapon(ctx, cfg, t, ph, p, acc, fur, robe, u.level, evo);
+        C.drawWeapon(ctx, cfg, t, ph, p, acc, fur, robe, u.level, evo, strike, draw);
 
         ctx.restore(); // body translate
         // hiệu ứng đặc trưng nổi phía trên (glow kỹ năng) — không bị flash
@@ -705,61 +707,63 @@ const CharArt = {
         }
     },
 
-    drawWeapon(ctx, cfg, t, ph, p, acc, fur, robe, lv, evo){
+    drawWeapon(ctx, cfg, t, ph, p, acc, fur, robe, lv, evo, strike, draw){
         const C=this, idleAng = Math.sin(t/560+ph)*0.05;
-        evo = evo || acc;
+        evo = evo || acc; strike = strike||0; draw = draw||0;
         // tham số "lên đời" vũ khí: dài hơn & phát sáng dần theo cấp
         const ext = (lv-1)*3;                 // vũ khí dài thêm theo cấp
         const glow = lv>=3;                    // cấp 3: vũ khí phát quầng sáng evo
-        if (cfg.style==='swing'){                       // KIẾM — vung từ trên cao bổ xuống
-            const a = -1.0 + idleAng - p*2.9;           // giương cao hơn & chém sâu hơn
+        if (cfg.style==='swing'){                       // KIẾM — nhổng cao rồi bổ xuống
+            // -1.6 = giương cao (lúc lấy đà) → +1.4 = bổ hết xuống (lúc giáng đòn)
+            const a = -1.6 + idleAng + draw*-0.4 + strike*3.0;
             const blade = glow ? evo : (lv===2 ? '#e2e8f0' : '#cbd5e1');
-            ctx.save(); ctx.translate(9 + p*3, 8 - p*1.5); ctx.rotate(a);  // chồm tới khi chém
+            ctx.save(); ctx.translate(9 + strike*4, 8 - strike*2); ctx.rotate(a);  // chồm tới khi chém
             C.limb(ctx,0,0,4,9,6,C.col(fur));           // tay
             if(glow){ ctx.save(); ctx.shadowColor=evo; ctx.shadowBlur=10; }
             C.limb(ctx,2,-2,2,-26-ext,3.5+ (lv-1)*0.5,C.col(blade)); // lưỡi (dài & dày dần)
             if(glow) ctx.restore();
-            C.limb(ctx,-3,-2,7,-2,3,C.col(lv>=2?evo:'#94a3b8'));  // chắn (cấp 2+ nhuốm màu evo)
+            C.limb(ctx,-3,-2,7,-2,3,C.col(lv>=2?evo:'#94a3b8'));  // chắn
             ctx.restore();
-            // vệt chém: 1 vệt sáng đậm + 1 vệt mờ rộng phía sau (cảm giác lưỡi rít qua không khí)
-            if (p>0.35){ const sw=glow?evo:'#ffffff';
-                ctx.strokeStyle=`rgba(${C.hex(sw).join(',')},${(p-0.35)*1.4})`; ctx.lineWidth=glow?4:3; ctx.beginPath(); ctx.arc(14,2,18+ext,-1.3,0.6); ctx.stroke();
-                ctx.strokeStyle=`rgba(${C.hex(sw).join(',')},${(p-0.35)*0.5})`; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(14,2,24+ext,-1.1,0.4); ctx.stroke(); }
-        } else if (cfg.style==='bow'){                  // CUNG — kéo & bắn
-            const pull = p*4;
+            // vệt chém quét theo cú bổ (sáng nhất ngay lúc giáng đòn): 1 vệt đậm + 1 vệt mờ
+            if (strike>0.25){ const sw=glow?evo:'#ffffff', al=(strike-0.25)*1.6;
+                ctx.strokeStyle=`rgba(${C.hex(sw).join(',')},${al})`; ctx.lineWidth=glow?4.5:3.5; ctx.beginPath(); ctx.arc(13,4,20+ext,-1.4+strike*0.6,0.3+strike*0.7); ctx.stroke();
+                ctx.strokeStyle=`rgba(${C.hex(sw).join(',')},${al*0.4})`; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(13,4,27+ext,-1.2+strike*0.6,0.1+strike*0.7); ctx.stroke(); }
+        } else if (cfg.style==='bow'){                  // CUNG — kéo dây (lấy đà) rồi buông
+            const pull = draw*7;                        // kéo căng nhất lúc lấy đà
             C.limb(ctx,9,9,13-pull,6,5,C.col(fur));
             ctx.strokeStyle=C.col(lv>=3?'#5b3a8a':'#92684a'); ctx.lineWidth=2.5+(lv-1)*0.4; ctx.beginPath(); ctx.arc(15,4,13+(lv-1),-1.1,1.1); ctx.stroke();
+            // dây cung: kéo lõm về sau khi lấy đà, bật thẳng khi buông
             ctx.strokeStyle = glow?evo:'#e5e7eb'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(15+Math.cos(-1.1)*13,4+Math.sin(-1.1)*13); ctx.lineTo(13-pull,4); ctx.lineTo(15+Math.cos(1.1)*13,4+Math.sin(1.1)*13); ctx.stroke();
-            if (p<0.25){ if(glow){ctx.save();ctx.shadowColor=evo;ctx.shadowBlur=9;} C.limb(ctx,16,4,30+ext,4,glow?2.2:1.5,C.col(glow?evo:acc)); if(glow)ctx.restore(); } // mũi tên vừa bắn
-        } else if (cfg.style==='launch'){               // PHÁO — nâng & giật
-            const rc=-p*2;
+            if (strike>0.5){ if(glow){ctx.save();ctx.shadowColor=evo;ctx.shadowBlur=9;} C.limb(ctx,16,4,30+ext+strike*10,4,glow?2.2:1.5,C.col(glow?evo:acc)); if(glow)ctx.restore(); } // mũi tên vừa buông bay đi
+        } else if (cfg.style==='launch'){               // PHÁO — giật nòng khi khai hỏa
+            const rc=-strike*4;                         // nòng giật lùi mạnh đúng lúc nổ
             ctx.save(); ctx.translate(8,6+rc); ctx.rotate(-0.35);
             C.limb(ctx,0,3,0,-14-ext,9+(lv-1),C.col(lv>=3?'#5b1f1f':'#475569')); C.e(ctx,0,-15-ext,6+(lv-1)*0.6,5,C.col(lv>=3?'#7f1d1d':'#334155'));
             if(glow){ C.e(ctx,0,-16-ext,2.4,2.4,evo); }
             ctx.restore();
             C.limb(ctx,-2,9,8,8,5,C.col(fur));
-            if (p>0.6){ C.e(ctx,16,-9,5+ (p-0.6)*18,5, glow?`rgba(${C.hex(evo).join(',')},0.55)`:'rgba(148,163,184,0.5)'); }  // khói nòng
-        } else if (cfg.style==='staff'){                // GẬY SẤM — vung gậy đập sét
-            ctx.save(); ctx.translate(10 + p*4, 8 - p*3); ctx.rotate(-0.2 - p*0.7);
+            if (strike>0.4){ C.e(ctx,16,-9,5+strike*16,5, glow?`rgba(${C.hex(evo).join(',')},0.6)`:'rgba(148,163,184,0.55)'); }  // chớp & khói đầu nòng
+        } else if (cfg.style==='staff'){                // GẬY SẤM — vung gậy giáng sét
+            ctx.save(); ctx.translate(10 + strike*5, 8 - strike*4 + draw*2); ctx.rotate(-0.1 + draw*-0.4 - strike*0.9);
             C.limb(ctx,0,2,0,-22-ext,3,C.col(lv>=3?'#5b3a8a':'#7c5b3a'));
             ctx.restore(); C.limb(ctx,-2,9,9,8,5,C.col(fur));
         } else if (cfg.style==='wand'){                 // ĐŨA BĂNG — vẩy chĩa tới
-            ctx.save(); ctx.translate(9 + p*4, 7 - p*2); ctx.rotate(-0.6 - p*1.1);
+            ctx.save(); ctx.translate(9 + strike*5, 7 - strike*2 + draw*2); ctx.rotate(-0.5 + draw*-0.3 - strike*1.2);
             C.limb(ctx,0,2,0,-15-ext,2.5,C.col('#cbd5e1')); ctx.restore();
             C.limb(ctx,-2,9,8,7,5,C.col(fur));
-        } else if (cfg.style==='flask'){                // BÌNH ĐỘC — nâng
-            ctx.save(); ctx.translate(9,6-p*3);
+        } else if (cfg.style==='flask'){                // BÌNH ĐỘC — vung tay hất bình
+            ctx.save(); ctx.translate(9 + strike*3, 6 - strike*5); ctx.rotate(strike*0.5);
             C.limb(ctx,-11,3,0,2,5,C.col(fur));
             ctx.fillStyle=C.col('#cbd5e1'); ctx.beginPath(); ctx.moveTo(-3,-2-ext*0.4); ctx.lineTo(3,-2-ext*0.4); ctx.lineTo(5,6); ctx.lineTo(-5,6); ctx.closePath(); ctx.fill();
             C.e(ctx,0,4,4+(lv-1)*0.6,3,C.col(lv>=3?evo:acc)); ctx.restore();
         } else if (cfg.style==='bless'){                // GẬY THÁNH — nâng cao khi ban phúc
-            ctx.save(); ctx.translate(10, 8 - p*3); ctx.rotate(-0.15+Math.sin(t/400+ph)*0.05 - p*0.2);
+            ctx.save(); ctx.translate(10, 8 - strike*5); ctx.rotate(-0.15+Math.sin(t/400+ph)*0.05 - strike*0.3);
             C.limb(ctx,0,2,0,-20-ext,3,C.col('#e2c08a'));
-            if(glow){ctx.save();ctx.shadowColor=evo;ctx.shadowBlur=8;} C.star(ctx,0,-22-ext,3.5+(lv-1)*0.5,C.col(lv>=3?evo:acc)); if(glow)ctx.restore();
+            if(glow){ctx.save();ctx.shadowColor=evo;ctx.shadowBlur=8;} C.star(ctx,0,-22-ext,3.5+(lv-1)*0.5+strike*1.5,C.col(lv>=3?evo:acc)); if(glow)ctx.restore();
             ctx.restore();
             C.limb(ctx,-2,9,9,8,5,C.col(fur));
-        } else if (cfg.style==='work'){                 // CUỐC — bổ xuống
-            ctx.save(); ctx.translate(8,6); ctx.rotate(0.3 + p*0.9);
+        } else if (cfg.style==='work'){                 // CUỐC — nhấc lên rồi bổ xuống
+            ctx.save(); ctx.translate(8,6); ctx.rotate(-0.5 + draw*-0.3 + strike*1.7);
             C.limb(ctx,0,0,0,-16-ext,3,C.col('#8a5a33')); C.limb(ctx,-6,-15-ext,6,-17-ext,3.5,C.col(lv>=3?evo:'#94a3b8')); ctx.restore();
             C.limb(ctx,-2,9,8,8,5,C.col(fur));
         }
@@ -945,7 +949,7 @@ class Unit {
         if (this.dHp > this.hp) this.dHp -= (this.dHp - this.hp) * 10 * dt;
         if (this.flash > 0) this.flash -= dt;
         if (this.stun > 0) { this.stun -= dt; return; }
-        if (this.anim > 0) this.anim -= dt * 5; else this.anim = 0;
+        if (this.anim > 0) this.anim -= dt * 3.6; else this.anim = 0;   // ~0.28s/đòn để thấy rõ động tác vung & thu
         if (this.atkCd > 0) this.atkCd -= dt;
 
         this.auraDmg = 0; this.auraSpd = 0;
@@ -1303,7 +1307,7 @@ const Engine = {
     },
 
     buildWave() {
-        State.spawn.queue = []; let w = State.wave, hm = Math.pow(1.22, w - 1), count = 10 + w * 2; State.spawn.total = count;
+        State.spawn.queue = []; let w = State.wave, hm = Math.pow(1.27, w - 1), count = 10 + Math.round(w * 2.3); State.spawn.total = count;
         for (let i = 0; i < count; i++) {
             let r = Math.random(), tid = 0;
             if (w < 3) tid = r < 0.2 ? 1 : 0;
@@ -1350,7 +1354,7 @@ const Engine = {
                     }
                 } else if (State.enemies.length === 0) {
                     State.spawn.isPrep = true; State.spawn.timer = 10; State.wave++; UI.updateDisplay();
-                    document.getElementById('call').style.display = 'block'; let b = 50 + State.wave * 20; State.gold += b; UI.showMessage(`DỌN SẠCH! +${b}🪙`); Sound.play('cleared');
+                    document.getElementById('call').style.display = 'block'; let b = 25 + State.wave * 9; State.gold += b; UI.showMessage(`DỌN SẠCH! +${b}🪙`); Sound.play('cleared');
                 }
             }
 
@@ -1359,7 +1363,7 @@ const Engine = {
 
             State.enemies.forEach(e => e.update(dt));
             State.enemies = State.enemies.filter(e => {
-                if (e.x < State.grid.offsetX) { State.hp -= e.db.dmg; State.shake = 20; UI.showMessage("THÀNH TRÌ BỊ TẤN CÔNG!", true); Sound.play('alarm'); vibe(60); UI.updateDisplay(); if (State.hp <= 0) Control.gameOver(); return false; }
+                if (e.x < State.grid.offsetX) { let leak = e.db.dmg * (1 + (State.wave - 1) * 0.12); State.hp -= leak; State.shake = 20; UI.showMessage("THÀNH TRÌ BỊ TẤN CÔNG!", true); Sound.play('alarm'); vibe(60); UI.updateDisplay(); if (State.hp <= 0) Control.gameOver(); return false; }
                 if (e.hp <= 0) {
                     let g = Math.floor(e.db.gold * (1 + TALENTS_DB.d.effect(State.talents.d))); this.gainXp(e.db.xp);
                     this.spawnText(e.x, e.y, `+${g}`, '#fde047', false); this.spawnFlyingCoin(e.x, e.y, g); this.spawnParticles(e.x, e.y, '#71717a', 15, 60, 3);
@@ -1612,7 +1616,7 @@ const UI = {
 
         document.querySelectorAll('.m-card').forEach(card => { card.onclick = () => { Sound.play('click'); document.querySelectorAll('.m-card').forEach(x => x.classList.remove('sel')); card.classList.add('sel'); State.mapId = parseInt(card.dataset.m); }; });
         document.getElementById('call').onclick = () => { if (State.spawn.isPrep && State.spawn.timer > 0) { let bonus = Math.floor(State.spawn.timer * 4); State.gold += bonus; State.spawn.timer = 0; Sound.play('coin'); Engine.spawnText(State.ui.goldUiX, State.ui.goldUiY + 30, `+${bonus} Nóng!`, '#fde047', true); } };
-        document.getElementById('b-up').onclick = () => { if (performance.now() - (State.ui.modalAt || 0) < 300) return; let u = State.ui.selUnit; if (!u) return; let c = Math.floor(u.db.cost * Math.pow(1.5, u.level)); if (State.gold >= c && u.level < 3) { State.gold -= c; u.level++; u.hp = u.getStats().hp; Sound.play('upgrade'); vibe(20); Engine.spawnText(u.x, u.y - 20, 'LÊN CẤP', '#fbbf24', true); Engine.spawnParticles(u.x, u.y, '#fbbf24', 20, 70, 4); this.closeUnitModal(); this.updateDisplay(); } };
+        document.getElementById('b-up').onclick = () => { if (performance.now() - (State.ui.modalAt || 0) < 300) return; let u = State.ui.selUnit; if (!u) return; let c = Math.floor(u.db.cost * Math.pow(1.7, u.level)); if (State.gold >= c && u.level < 3) { State.gold -= c; u.level++; u.hp = u.getStats().hp; Sound.play('upgrade'); vibe(20); Engine.spawnText(u.x, u.y - 20, 'LÊN CẤP', '#fbbf24', true); Engine.spawnParticles(u.x, u.y, '#fbbf24', 20, 70, 4); this.closeUnitModal(); this.updateDisplay(); } };
         document.getElementById('b-sell').onclick = () => { if (performance.now() - (State.ui.modalAt || 0) < 300) return; let u = State.ui.selUnit; if (!u) return; let val = Math.floor(u.db.cost * Math.pow(1.5, u.level - 1) * 0.5); State.gold += val; State.units = State.units.filter(i => i !== u); Sound.play('click'); Engine.spawnText(u.x, u.y, `+${val}`, '#fde047', false); Engine.spawnParticles(u.x, u.y, '#94a3b8', 10, 40); this.closeUnitModal(); this.updateDisplay(); };
 
         // Controls cluster
@@ -1663,7 +1667,7 @@ const UI = {
         if (u.level >= 3) { sDesc.classList.remove('hidden'); } else if (u.level === 2) { sDesc.classList.remove('hidden'); } else sDesc.classList.add('hidden');
         let btnUp = document.getElementById('b-up');
         if (u.level >= 3) btnUp.style.display = 'none';
-        else { btnUp.style.display = 'flex'; let cost = Math.floor(u.db.cost * Math.pow(1.5, u.level)); document.getElementById('um-c').innerText = `🪙 ${cost}`; btnUp.className = State.gold >= cost ? 'flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm' : 'flex-1 bg-slate-700 rounded py-1 flex flex-col items-center opacity-50 cursor-not-allowed'; }
+        else { btnUp.style.display = 'flex'; let cost = Math.floor(u.db.cost * Math.pow(1.7, u.level)); document.getElementById('um-c').innerText = `🪙 ${cost}`; btnUp.className = State.gold >= cost ? 'flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm' : 'flex-1 bg-slate-700 rounded py-1 flex flex-col items-center opacity-50 cursor-not-allowed'; }
         document.getElementById('um-s').innerText = `🪙 ${Math.floor(u.db.cost * Math.pow(1.5, u.level - 1) * 0.5)}`;
         State.ui.modalAt = performance.now();      // chống "ghost click" ngay sau khi mở
         modal.classList.remove('hidden');
@@ -1796,7 +1800,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============ PHIÊN BẢN & TỰ CẬP NHẬT ============
-const GAME_VERSION = '1.5.0';
+const GAME_VERSION = '1.6.0';
 let _updChecking = false;
 
 function setVerLabels() {
