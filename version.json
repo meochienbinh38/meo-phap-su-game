@@ -1,1 +1,1 @@
-{ "version": "3.4.0", "build": "2026-06-22", "notes": "Giảm chữ tiêu đề Kỷ Nguyên Thủ Thành và chiều cao header để màn chọn màn không bị lấp mép trên; giữ sửa Cửa Hàng Tướng/Nội Tại mở đúng." }
+{ "version": "3.5.0", "build": "2026-06-22", "notes": "Tối ưu hiệu năng mobile: giới hạn độ phân giải render canvas, thêm chế độ giảm hiệu ứng tự động khi FPS thấp/đông quân, giới hạn particle/text/coin/beam để giảm giật." }
