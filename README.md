@@ -28,6 +28,7 @@ Sau khi cài, game **chạy offline** và mở toàn màn hình như app native.
 - `manifest.json` — khai báo PWA.
 - `sw.js` — service worker (chạy offline, cache app shell).
 - `icon-192.png`, `icon-512.png`, `icon-maskable.png` — biểu tượng ứng dụng.
+- `tools/balance-sim.js` — mô phỏng cân bằng campaign: 12 màn, Tinh Thạch, mở khoá tướng, khắc chế và farm màn cũ.
 - `docs/` — **tài liệu thiết kế game** (xem bên dưới).
 
 ## 📐 Tài liệu thiết kế
