@@ -504,6 +504,8 @@ const WAVE_THEMES = {
     boss:  { tag: 'TRÙM',      tids: [0,1,2,3],       hint: '⚠️ TRÙM: kháng mọi loại — phải KẾT HỢP nhiều tướng' },
 };
 function waveTheme(w){ if (w <= 3) return 'intro'; if (w % 5 === 0) return 'boss'; return ['swarm','armor','fast','mixed'][(w - 4) % 4]; }
+// SỨC MẠNH META từ Nội Tại -> quái mạnh lên TƯƠNG ỨNG. Max Nội Tại = đi XA hơn, KHÔNG phải dễ hơn.
+function metaPow(){ const t = State.talents; return 1 + 0.10 * t.d + 0.06 * t.s + 0.06 * t.c; }   // max ≈ ×2.9
 
 // 2. DATABASE: UNITS & ENEMIES
 // VÙNG TẤN CÔNG theo đặc tính (cân bằng v2 — không còn unit rẻ phủ cả map):
@@ -1326,7 +1328,8 @@ const Engine = {
     },
 
     buildWave() {
-        State.spawn.queue = []; let w = State.wave, hm = Math.pow(1.18, w - 1), count = 10 + Math.round(w * 2.5); State.spawn.total = count;
+        State.spawn.queue = []; let w = State.wave, mp = metaPow();
+        let hm = Math.pow(1.18, w - 1) * mp, count = 10 + Math.round(w * 2.5 * (1 + (mp - 1) * 0.25)); State.spawn.total = count;
         let theme = waveTheme(w), pool = WAVE_THEMES[theme].tids;
         for (let i = 0; i < count; i++) {
             let tid = pool[Math.floor(Math.random() * pool.length)];
@@ -1351,7 +1354,7 @@ const Engine = {
             });
 
             if (State.spawn.isPrep) {
-                State.spawn.timer -= dt; document.getElementById('w-stat').innerText = `CHUẨN BỊ · ${WAVE_THEMES[waveTheme(State.wave)].tag}: ${Math.ceil(State.spawn.timer)}s`; document.getElementById('w-bar').style.width = '0%';
+                State.spawn.timer -= dt; let _mp = metaPow(); document.getElementById('w-stat').innerText = `CHUẨN BỊ · ${WAVE_THEMES[waveTheme(State.wave)].tag}${_mp > 1.3 ? ' · ĐỘ KHÓ ×' + _mp.toFixed(1) : ''}: ${Math.ceil(State.spawn.timer)}s`; document.getElementById('w-bar').style.width = '0%';
                 if (State.spawn.timer <= 0) {
                     State.spawn.isPrep = false; document.getElementById('w-stat').innerText = "ĐANG PHÒNG THỦ";
                     document.getElementById('call').style.display = 'none'; UI.showMessage(WAVE_THEMES[waveTheme(State.wave)].hint, waveTheme(State.wave) === 'boss'); Sound.play('wave'); this.buildWave();
@@ -1380,7 +1383,7 @@ const Engine = {
 
             State.enemies.forEach(e => e.update(dt));
             State.enemies = State.enemies.filter(e => {
-                if (e.x < State.grid.offsetX) { let leak = e.db.dmg * (1 + (State.wave - 1) * 0.09); State.hp -= leak; State.shake = 20; UI.showMessage("THÀNH TRÌ BỊ TẤN CÔNG!", true); Sound.play('alarm'); vibe(60); UI.updateDisplay(); if (State.hp <= 0) Control.gameOver(); return false; }
+                if (e.x < State.grid.offsetX) { let leak = e.db.dmg * (1 + (State.wave - 1) * 0.09) * (1 + (metaPow() - 1) * 0.5); State.hp -= leak; State.shake = 20; UI.showMessage("THÀNH TRÌ BỊ TẤN CÔNG!", true); Sound.play('alarm'); vibe(60); UI.updateDisplay(); if (State.hp <= 0) Control.gameOver(); return false; }
                 if (e.hp <= 0) {
                     let g = e.db.gold; this.gainXp(e.db.xp);   // vàng rơi cố định (talent Vũ Khí chỉ tăng sát thương, không tăng vàng)
                     this.spawnText(e.x, e.y, `+${g}`, '#fde047', false); this.spawnFlyingCoin(e.x, e.y, g); this.spawnParticles(e.x, e.y, '#71717a', 15, 60, 3);
@@ -1817,7 +1820,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============ PHIÊN BẢN & TỰ CẬP NHẬT ============
-const GAME_VERSION = '1.8.0';
+const GAME_VERSION = '1.9.0';
 let _updChecking = false;
 
 function setVerLabels() {

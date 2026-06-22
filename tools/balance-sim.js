@@ -50,8 +50,12 @@ const E = {}; ENEMIES.forEach(e=>E[e.kind]=e);
 
 function talentEffect(T){ return { d:T.d*0.1, s:T.s*0.05, h:T.h*100, c:T.c*0.05 }; }
 
-function newState(){ return { gold:TUNE.startGold, hp:TUNE.baseHp, maxHp:TUNE.baseHp, wave:0, level:1, xp:0, maxXp:100, sp:0,
-  talents:{d:0,s:0,h:0,c:0}, units:[], enemies:[], projs:[], time:0, leaks:0 }; }
+function newState(profile){ const T = profile==='maxed' ? {d:10,s:10,h:5,c:5} : {d:0,s:0,h:0,c:0};
+  return { gold:TUNE.startGold, hp:TUNE.baseHp+T.h*100, maxHp:TUNE.baseHp+T.h*100, wave:0, level:1, xp:0, maxXp:100, sp:0,
+  talents:T, units:[], enemies:[], projs:[], time:0, leaks:0 }; }
+
+// SỨC MẠNH META từ Nội Tại -> quái mạnh lên TƯƠNG ỨNG (max nội tại = đi xa hơn, không phải dễ hơn)
+function metaPow(T){ return 1 + 0.10*T.d + 0.06*T.s + 0.06*T.c; }   // max: 1 + 1.0 + 0.6 + 0.3 = 2.9
 
 function unitStats(u,T){ const db=UNITS[u.type], lvM=Math.pow(1.4,u.level-1), te=talentEffect(T), dmgM=1+te.d, spdM=1+te.s;
   if(db.type==='econ') return { inc:Math.floor(db.income*(u.level>=3?2:lvM)), cd:db.cd };
@@ -116,7 +120,8 @@ function pick(theme){ const r=Math.random();
     case 'boss':   return ['imp','orc','wolf','skel'][Math.floor(r*4)];
   }
 }
-function buildWave(w){ const hm=Math.pow(TUNE.hpScale,w-1), count=TUNE.countBase+Math.round(w*TUNE.countPerWave), interval=1.5-Math.min(0.8,w*0.04), theme=waveTheme(w);
+function buildWave(w, T){ const mp=metaPow(T||{d:0,s:0,h:0,c:0});
+  const hm=Math.pow(TUNE.hpScale,w-1)*mp, count=TUNE.countBase+Math.round(w*TUNE.countPerWave*(1+(mp-1)*0.25)), interval=1.5-Math.min(0.8,w*0.04), theme=waveTheme(w);
   const q=[]; for(let i=0;i<count;i++){ let k=pick(theme); if(i===count-1&&theme==='boss')k='boss'; q.push({d:i*interval, db:E[k], m:hm}); }
   return { queue:q, total:count, theme };
 }
@@ -148,7 +153,7 @@ function updateEnemy(s,e){
 }
 
 function simWave(s,w,strat){
-  const sp=buildWave(w); let tL=0; s.leaks=0;
+  const sp=buildWave(w, s.talents); const wallMp=1+(metaPow(s.talents)-1)*0.5; let tL=0; s.leaks=0;
   let mt=s.units.filter(u=>u.type==='miner').map(u=>unitStats(u,s.talents).cd);
   s.units.forEach(u=>u._cd=Math.random()*0.3);
   while((sp.queue.length>0||s.enemies.length>0)&&tL<600&&s.hp>0){
@@ -160,7 +165,7 @@ function simWave(s,w,strat){
       if(pr.x>=tg.x){ hurt(tg,pr.dmg,pr.dtype,true); if(pr.splash)s.enemies.forEach(e=>{ if(e!==tg&&Math.hypot(e.x-tg.x,(e.row-tg.row)*GRID)<=pr.splash)hurt(e,pr.dmg*0.7,pr.dtype,false); }); if(pr.pierce)s.enemies.forEach(e=>{ if(e!==tg&&e.row===pr.row&&e.x>tg.x)hurt(e,pr.dmg,pr.dtype,true); }); s.projs.splice(i,1); } }
     for(const e of s.enemies)updateEnemy(s,e);
     for(let i=s.enemies.length-1;i>=0;i--){ const e=s.enemies[i];
-      if(e.x<WALL_X){ s.hp-=e.db.dmg*(1+(w-1)*TUNE.wallScale); s.leaks++; e._gone=true; s.enemies.splice(i,1); continue; }
+      if(e.x<WALL_X){ s.hp-=e.db.dmg*(1+(w-1)*TUNE.wallScale)*wallMp; s.leaks++; e._gone=true; s.enemies.splice(i,1); continue; }
       if(e.hp<=0){ s.gold+=e.db.gold; gainXp(s,e.db.xp); e._gone=true; s.enemies.splice(i,1); } }
     if(Math.abs(s.time%0.5)<DT)aiSpend(s,strat);
   }
@@ -170,22 +175,23 @@ function simWave(s,w,strat){
 
 function comp(s){ const m={}; s.units.forEach(u=>m[u.type]=(m[u.type]||0)+1); return Object.entries(m).map(([k,v])=>`${v}${k.slice(0,2)}`).join(' '); }
 
-function run(strat, maxWave=30){
-  const s=newState(); console.log(`\n=== CHIẾN LƯỢC: ${strat.toUpperCase()} ===`);
-  console.log(`đợt | chủ đề  | quái | rò rỉ | máuThành | vàng | nhận xét`);
-  console.log('-'.repeat(70));
+function run(strat, profile, maxWave=35, verbose=true){
+  const s=newState(profile);
+  if(verbose){ console.log(`\n=== ${strat.toUpperCase()} | Nội Tại: ${profile.toUpperCase()} (×${metaPow(s.talents).toFixed(2)} sức mạnh) ===`);
+    console.log(`đợt | chủ đề  | quái | rò rỉ | máuThành | vàng | nhận xét`); console.log('-'.repeat(70)); }
   for(let w=1;w<=maxWave;w++){ s.wave=w; aiSpend(s,strat);
     const r=simWave(s,w,strat);
     let note=''; if(s.hp<=0)note='💀 THUA'; else if(r.leaks===0)note='dễ'; else if(s.hp<s.maxHp*0.35)note='⚠️ căng'; else note='ổn';
-    console.log(`${String(w).padStart(3)} | ${r.theme.padEnd(7)} | ${String(r.total).padStart(4)} | ${String(s.leaks).padStart(5)} | ${String(Math.max(0,Math.round(s.hp))).padStart(8)} | ${String(Math.round(s.gold)).padStart(5)} | ${note}`);
-    if(s.hp<=0){ console.log(`>>> ${strat}: SỤP ở ĐỢT ${w} (chủ đề ${r.theme}). Quân: ${comp(s)}`); return w; }
+    if(verbose) console.log(`${String(w).padStart(3)} | ${r.theme.padEnd(7)} | ${String(r.total).padStart(4)} | ${String(s.leaks).padStart(5)} | ${String(Math.max(0,Math.round(s.hp))).padStart(8)} | ${String(Math.round(s.gold)).padStart(5)} | ${note}`);
+    if(s.hp<=0){ if(verbose)console.log(`>>> SỤP ở ĐỢT ${w} (chủ đề ${r.theme}). Quân: ${comp(s)}`); return w; }
   }
-  console.log(`>>> ${strat}: sống hết ${maxWave} đợt. Quân: ${comp(s)}`); return maxWave+1;
+  if(verbose)console.log(`>>> sống hết ${maxWave} đợt. Quân: ${comp(s)}`); return maxWave+1;
 }
 
-const mono = run('mono');
-const bal = run('balanced');
-console.log(`\n================ KẾT LUẬN ================`);
-console.log(`Spam Xạ Thủ (mono):  sụp ở đợt ${mono}`);
-console.log(`Kết hợp khắc chế:    ${bal>30?'sống hết 30':'sụp ở đợt '+bal}`);
-console.log(`=> Kết hợp tướng đi xa hơn spam ${(bal-mono)} đợt.`);
+// Người chơi MAX Nội Tại = tình huống thực của bạn (ảnh). Người MỚI = lần đầu chơi.
+run('mono','maxed'); run('balanced','maxed');
+console.log(`\n================ TỔNG HỢP (điểm SỤP) ================`);
+for(const p of ['fresh','maxed']){
+  const m=run('mono',p,35,false), b=run('balanced',p,35,false);
+  console.log(`Nội Tại ${p.padEnd(5)}: spam 1 loại sụp đợt ${String(m).padStart(2)} | kết hợp khắc chế ${b>35?'>35':'sụp đợt '+b}`);
+}

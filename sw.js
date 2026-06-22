@@ -1,5 +1,5 @@
 /* Service Worker - Kỷ Nguyên Thủ Thành PWA */
-const CACHE = 'kntt-v25-counters';
+const CACHE = 'kntt-v26-meta';
 
 const CORE = [
   './',

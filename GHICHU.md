@@ -150,12 +150,28 @@ HỖN HỢP, TRÙM mỗi 5 đợt. HUD hiện tag chủ đề khi chuẩn bị +
 → người chơi biết nên mang tướng gì.
 > Cân chỉnh resist/chủ đề trong `tools/balance-sim.js` (UNITS/ENEMIES/waveTheme) rồi chép sang game.
 
+### g) ĐỘ KHÓ SCALE THEO NỘI TẠI — vá lỗ hổng "người chơi max talent" (XONG 2026-06-22)
+Phát hiện (qua ảnh người chơi): **Nội Tại Vĩnh Viễn** (talent lưu vĩnh viễn) khi MAX cho +100% sát thương,
++50% tốc đánh, +25% bạo kích, +500 máu nhà → mạnh **~×3.7**. Sim trước giả định talent khiêm tốn nên
+chưa thấy: với tài khoản max, game vẫn quá dễ + dư vàng (2699). **KHÔNG phải do màn nhỏ.**
+
+**Sửa:** `metaPow()` = 1 + 0.10·d + 0.06·s + 0.06·c (max ≈ ×2.9). Quái mạnh theo:
+- máu quái `hm *= metaPow()`, số quái `×(1+(mp-1)*0.25)`, sát thương vào thành `×(1+(mp-1)*0.5)`.
+- => Max Nội Tại = đi XA hơn (vẫn thắng người mới ~+4 đợt) chứ KHÔNG dễ hơn. HUD hiện "ĐỘ KHÓ ×2.9".
+
+Sim v2 nay mô phỏng cả 2 hồ sơ (`run(strat, profile)` với profile 'fresh'/'maxed'):
+| | spam 1 loại | kết hợp khắc chế |
+|--|--|--|
+| Nội Tại fresh | sụp đợt ~13 | ~15 |
+| Nội Tại maxed | sụp đợt ~13 | ~17-19 |
+> Vàng giờ chặt cho cả người max (38-412, hết cảnh dư 2699).
+
 ## 5. PHIÊN BẢN / CACHE (nhớ bump khi sửa)
 Khi sửa code muốn người chơi nhận bản mới, **đổi 3 chỗ**:
 1. `sw.js` → `const CACHE = 'kntt-vXX-...'` (tăng số).
 2. `index.html` → `const GAME_VERSION = 'X.Y.Z'`.
 3. `version.json` → cùng version + ghi `notes`.
-- Hiện tại: **CACHE `kntt-v25-counters`**, **GAME_VERSION `1.8.0`**.
+- Hiện tại: **CACHE `kntt-v26-meta`**, **GAME_VERSION `1.9.0`**.
 
 ## 6. 📋 VIỆC NÊN LÀM TIẾP (TODO)
 - [ ] **Playtest thật** hệ khắc chế: đợt GIÁP DÀY/TỐC ĐỘ đầu tiên (đợt ~6-9) có dễ mua kịp Thần Sét/Băng không?
