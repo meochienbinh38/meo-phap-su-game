@@ -1,1 +1,1 @@
-{ "version": "3.1.0", "build": "2026-06-22", "notes": "Sửa gợi ý khắc chế theo đúng chủ đề từng màn campaign; cập nhật cache PWA để nhận bản mới; bổ sung công cụ mô phỏng cân bằng campaign 12 màn." }
+{ "version": "3.2.0", "build": "2026-06-22", "notes": "Thiết kế lại màn chọn màn campaign cho gọn trong một màn landscape; đưa Cửa Hàng Tướng và Nội Tại lên vùng bấm rõ; giữ sửa gợi ý khắc chế theo đúng chủ đề từng màn." }
