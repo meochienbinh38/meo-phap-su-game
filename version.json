@@ -1,1 +1,1 @@
-{ "version": "3.3.0", "build": "2026-06-22", "notes": "Sửa tiếp màn chọn màn cho vừa một màn ngang; sửa lỗi bấm Cửa Hàng Tướng/Nội Tại không thấy phản ứng do modal bị lớp start screen che." }
+{ "version": "3.4.0", "build": "2026-06-22", "notes": "Giảm chữ tiêu đề Kỷ Nguyên Thủ Thành và chiều cao header để màn chọn màn không bị lấp mép trên; giữ sửa Cửa Hàng Tướng/Nội Tại mở đúng." }
