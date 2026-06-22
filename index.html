@@ -1013,7 +1013,7 @@ class Unit {
             else if (State.enemies.length > 0) {
                 let t = null, md = s.rng;
                 for (let e of State.enemies) {
-                    if (e.row !== this.row && this.db.type !== 'laser') continue;
+                    if (this.db.type !== 'laser' && !e.occRow(this.row)) continue;   // quái lớn chiếm nhiều hàng -> bắn được từ mọi hàng nó che
                     let d = getDist(this.x, this.y, e.x, e.y);
                     if (d <= md && (e.x - this.x) > -State.grid.size * 0.5) { md = d; t = e; }
                 }
@@ -1072,15 +1072,19 @@ class Unit {
 
 class Enemy {
     constructor(r, hpM, db) {
-        this.row = r; this.db = db;
+        this.db = db;
+        this.rowSpan = db.size >= 1.2 ? 2 : 1;                 // quái lớn (Trùm) chiếm 2 hàng
+        this.row = Math.max(0, Math.min(r, CFG.rows - this.rowSpan));  // kẹp để không tràn ngoài lưới
         this.maxHp = this.db.hp * hpM; this.hp = this.maxHp; this.dHp = this.hp;
         this.x = State.grid.offsetX + State.grid.cols * State.grid.size + State.grid.size;
-        this.y = State.grid.offsetY + r * State.grid.size + State.grid.size / 2;
+        this.y = State.grid.offsetY + (this.row + this.rowSpan / 2) * State.grid.size;  // tâm theo footprint
         this.atkCd = 0; this.flash = 0; this.kb = 0; this.birth = performance.now();
         this.shield = this.db.shieldHits || 0; this.atkAnim = 0;
         this.summonTimer = 4.0; this.slowTimer = 0; this.slowAmt = 0; this.jp = false;
         this.spdMul = 1 + (State.wave - 1) * 0.05;   // quái nhanh dần theo đợt -> sức ép tăng từ từ
+        this.skillCd = 3.0;                          // bộ đếm kỹ năng (Trùm)
     }
+    occRow(row) { return row >= this.row && row < this.row + this.rowSpan; }   // quái có chiếm hàng này không
     update(dt) {
         if (this.dHp > this.hp) this.dHp -= (this.dHp - this.hp) * 10 * dt;
         if (this.flash > 0) this.flash -= dt;
@@ -1101,9 +1105,12 @@ class Enemy {
             }
         }
 
+        if (this.db.isBoss) this.bossSkills(dt);   // kỹ năng Trùm
+
+        // tìm tướng chắn ở BẤT KỲ hàng nào quái che (quái lớn chặn/đánh cả 2 hàng)
         let blk = null;
         for (let u of State.units) {
-            if (u.row === this.row && u.db.type !== 'pulse') {
+            if (this.occRow(u.row) && u.db.type !== 'pulse') {
                 let d = this.x - u.x;
                 if (d > 0 && d < State.grid.size * 0.6) { blk = u; break; }
             }
@@ -1116,13 +1123,38 @@ class Enemy {
                 Engine.spawnParticles(this.x, this.y, '#cbd5e1', 10, 50, 2);
             }
             else if (this.atkCd <= 0) {
-                blk.takeDamage(this.db.dmg); this.atkCd = this.db.aspd; this.atkAnim = 1.0;
-                Engine.spawnParticles(blk.x, blk.y, '#ef4444', 4, 30, 2);
-                if (!this.db.isHeavy) this.kb = 5;
+                // Trùm đánh MỌI tướng kề trước mặt trên cả 2 hàng nó che (không "đi xuyên" nữa)
+                if (this.db.isBoss) {
+                    State.units.forEach(u => { if (this.occRow(u.row) && this.x - u.x > 0 && this.x - u.x < State.grid.size * 0.7) { u.takeDamage(this.db.dmg); Engine.spawnParticles(u.x, u.y, '#ef4444', 4, 30, 2); } });
+                } else { blk.takeDamage(this.db.dmg); Engine.spawnParticles(blk.x, blk.y, '#ef4444', 4, 30, 2); if (!this.db.isHeavy) this.kb = 5; }
+                this.atkCd = this.db.aspd; this.atkAnim = 1.0;
             }
         } else {
             let spd = this.db.spd * this.spdMul * (this.slowTimer > 0 ? (1 - this.slowAmt) : 1);
+            if (this.enrage) spd *= 1.5;            // cuồng nộ: chạy nhanh hơn
             this.x -= spd * dt;
+        }
+    }
+    // ===== KỸ NĂNG TRÙM =====
+    bossSkills(dt) {
+        // Cuồng nộ khi máu < 40%: nhanh hơn + đánh dồn
+        if (!this.enrage && this.hp < this.maxHp * 0.4) {
+            this.enrage = true; Engine.spawnText(this.x, this.y - 40, "CUỒNG NỘ!", '#f87171', true);
+            State.shake = 18; Sound.play('boss'); this.db = { ...this.db, aspd: this.db.aspd * 0.6 };
+        }
+        this.skillCd -= dt;
+        if (this.skillCd <= 0) {
+            this.skillCd = this.enrage ? 3.0 : 5.0;
+            if (Math.random() < 0.5) {
+                // GIẬM ĐẤT: nổ AoE quanh Trùm -> sát thương mọi tướng trong ~1.5 ô + rung màn
+                Engine.spawnText(this.x, this.y - 40, "GIẬM ĐẤT!", '#fbbf24', true); State.shake = 22; Sound.play('boom');
+                Engine.spawnParticles(this.x, this.y, '#f59e0b', 30, 140, 5);
+                State.units.forEach(u => { if (getDist(this.x, this.y, u.x, u.y) < State.grid.size * 1.6) { u.takeDamage(this.db.dmg * 1.2); u.stun = Math.max(u.stun, 0.6); } });
+            } else {
+                // TRIỆU HỒI: gọi 2 lính nhỏ ở 2 hàng Trùm che
+                Engine.spawnText(this.x, this.y - 40, "TRIỆU HỒI!", '#a855f7', true); Sound.play('build');
+                for (let k = 0; k < this.rowSpan; k++) { let m = new Enemy(this.row + k, 1, ENEMIES_DB[2]); m.x = this.x - State.grid.size * 1.2; State.enemies.push(m); Engine.spawnParticles(m.x, m.y, '#a855f7', 12, 50, 3); }
+            }
         }
     }
     // dtype: loại sát thương (phys/magic/frost/pois...); proj: là đạn -> mới bị NÉ
@@ -1154,7 +1186,7 @@ class ProjLin {
         if (this.p) Engine.spawnParticles(this.x, this.y, '#34d399', 1, 10, 2);
 
         for (let e of State.enemies) {
-            if (!this.hl.has(e) && Math.abs(e.y - this.y) < 12 && e.x > this.x - 20 && e.x < this.x + 20) {
+            if (!this.hl.has(e) && Math.abs(e.y - this.y) < (e.rowSpan || 1) * State.grid.size * 0.5 + 6 && e.x > this.x - 20 && e.x < this.x + 20) {
                 if (this.typeId === 'gunner' && this.lv >= 3) {
                     Engine.spawnParticles(this.x, this.y, '#ef4444', 15, 60, 3);
                     State.shake += 4; Sound.play('boom');
@@ -1823,7 +1855,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============ PHIÊN BẢN & TỰ CẬP NHẬT ============
-const GAME_VERSION = '2.0.0';
+const GAME_VERSION = '2.1.0';
 let _updChecking = false;
 
 function setVerLabels() {

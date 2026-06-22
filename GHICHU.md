@@ -186,12 +186,23 @@ Phản hồi người chơi: chờ tiền mòn mỏi, đợt 1 quái đã tràn 
 > Đường cong maxed: đợt 1-3 rò vài con (học), 4-9 ổn định, 10+ căng dần, 17-23 BÙNG NỔ (124-155 quái/đợt).
 > ⚠️ Còn tồn: cuối game (đợt ~17+) khi bàn đầy & full nâng cấp thì vàng lại dư (thiếu chỗ tiêu) — TODO.
 
+### i) Làm lại CHIẾN ĐẤU QUÁI & TRÙM — footprint 2 hàng + kỹ năng Trùm (XONG 2026-06-22)
+Sửa lỗi: Trùm to chiếm 2 ô nhưng chỉ 1 hàng bắn được, và "đi xuyên" qua tướng không đánh.
+- Quái lớn (`size>=1.2`, Trùm) có `rowSpan=2` → `occRow(row)` cho biết nó che hàng nào.
+  - Bắn được từ MỌI hàng nó che (Unit targeting + dải trúng đạn ProjLin theo `rowSpan`).
+  - Chặn & ĐÁNH tướng ở cả 2 hàng (Trùm quật mọi tướng kề trước mặt trên 2 hàng).
+  - `y` đặt ở TÂM footprint (giữa 2 hàng).
+- **Kỹ năng Trùm** (`bossSkills`): GIẬM ĐẤT (AoE quanh mình + choáng 0.6s), TRIỆU HỒI (gọi 2 Sói),
+  CUỒNG NỘ (máu <40% → nhanh hơn + đánh dồn). Đếm `skillCd` ~5s (cuồng nộ 3s).
+> Lưu ý: sim chưa mô phỏng footprint/kỹ năng Trùm (đó là cơ chế, không phải đường cong kinh tế).
+> Trùm giờ MẠNH hơn nhiều ở đợt boss (mỗi 5 đợt) → cần playtest xem có quá gắt không.
+
 ## 5. PHIÊN BẢN / CACHE (nhớ bump khi sửa)
 Khi sửa code muốn người chơi nhận bản mới, **đổi 3 chỗ**:
 1. `sw.js` → `const CACHE = 'kntt-vXX-...'` (tăng số).
 2. `index.html` → `const GAME_VERSION = 'X.Y.Z'`.
 3. `version.json` → cùng version + ghi `notes`.
-- Hiện tại: **CACHE `kntt-v27-pacing`**, **GAME_VERSION `2.0.0`**.
+- Hiện tại: **CACHE `kntt-v28-boss`**, **GAME_VERSION `2.1.0`**.
 
 ## 6. 📋 VIỆC NÊN LÀM TIẾP (TODO)
 - [ ] Sink vàng cuối game (đợt ~17+ bàn đầy thì dư vàng): vd bán/đổi, lính tinh nhuệ giá cao, hoặc nâng cấp cấp 4.

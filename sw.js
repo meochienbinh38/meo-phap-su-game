@@ -1,5 +1,5 @@
 /* Service Worker - Kỷ Nguyên Thủ Thành PWA */
-const CACHE = 'kntt-v27-pacing';
+const CACHE = 'kntt-v28-boss';
 
 const CORE = [
   './',
