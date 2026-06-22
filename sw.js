@@ -1,6 +1,6 @@
 /* Service Worker - Kỷ Nguyên Thủ Thành PWA */
-const CACHE = 'kntt-v33-menu-modal-fix';
-const SERVED_GAME_VERSION = '3.3.0';
+const CACHE = 'kntt-v34-title-small';
+const SERVED_GAME_VERSION = '3.4.0';
 
 const CORE = [
   './',
@@ -18,7 +18,7 @@ const EXTRA = [
 ];
 
 const COMPACT_START_CSS = `
-/* campaign-ui-v33: menu 1 màn + sửa modal bị nằm dưới start screen */
+/* campaign-ui-v34: menu 1 màn + title nhỏ hơn để không lấp mép trên */
 #start {
   padding: 5px !important;
   overflow: hidden !important;
@@ -34,18 +34,18 @@ const COMPACT_START_CSS = `
   overflow: hidden !important;
 }
 .s-hero {
-  flex: 0 0 48px !important;
-  padding: 2px 12px 4px !important;
+  flex: 0 0 38px !important;
+  padding: 1px 12px 2px !important;
 }
 .s-hero-title {
-  font-size: 24px !important;
-  line-height: 1.04 !important;
-  letter-spacing: .13em !important;
+  font-size: 18px !important;
+  line-height: 1.02 !important;
+  letter-spacing: .14em !important;
   white-space: nowrap !important;
 }
 .s-hero-sub {
-  font-size: 9px !important;
-  line-height: 1.12 !important;
+  font-size: 7.6px !important;
+  line-height: 1.06 !important;
   margin-top: 0 !important;
   white-space: nowrap !important;
   overflow: hidden !important;
@@ -210,9 +210,9 @@ const COMPACT_START_CSS = `
   padding: 7px 9px !important;
 }
 @media (max-height: 380px) {
-  .s-hero { flex-basis: 40px !important; padding-top: 1px !important; }
-  .s-hero-title { font-size: 20px !important; }
-  .s-hero-sub { font-size: 8px !important; }
+  .s-hero { flex-basis: 32px !important; padding-top: 0 !important; }
+  .s-hero-title { font-size: 16px !important; }
+  .s-hero-sub { font-size: 7px !important; }
   .s-body { padding: 5px !important; gap: 5px !important; grid-template-columns: minmax(0, 1fr) 248px !important; }
   .s-col-main { grid-template-rows: 24px minmax(0, 1fr) 34px !important; gap: 4px !important; }
   .s-col-main > div:first-child { height: 24px !important; min-height: 24px !important; }
@@ -230,7 +230,7 @@ function patchIndexText(text) {
       "UI.showMessage(WAVE_THEMES[_th].hint, _th === 'boss'); Sound.play('wave'); this.buildWave();"
     );
 
-  if (!out.includes('campaign-ui-v33')) out = out.replace('</style>', `${COMPACT_START_CSS}\n</style>`);
+  if (!out.includes('campaign-ui-v34')) out = out.replace('</style>', `${COMPACT_START_CSS}\n</style>`);
   return out;
 }
 
