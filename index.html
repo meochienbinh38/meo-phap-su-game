@@ -524,15 +524,16 @@ const TALENTS_DB = {
 
 // ============ CHARACTER ART — nhân vật Mèo vẽ & animate bằng code (procedural) ============
 // Cấu hình nghệ thuật từng quân: lông, áo choàng, màu nhấn, mũ, vũ khí, kiểu tấn công.
+// evo = màu "tiến hoá" cấp 3, ăn theo kỹ năng tối thượng của từng quân (đào x2 vàng, phản đòn, xuyên thấu, nổ chùm, lan độc, sét chuỗi, đóng băng, hào quang)
 const UNIT_ART = {
-    miner:  { fur:'#ece5d4', robe:'#a16207', accent:'#fde047', hat:'cap',    weapon:'pick',   style:'work'  },
-    knight: { fur:'#f4ead6', robe:'#3b82f6', accent:'#bfdbfe', hat:'helm',   weapon:'sword',  style:'swing' },
-    archer: { fur:'#f4ead6', robe:'#22c55e', accent:'#bbf7d0', hat:'hood',   weapon:'bow',    style:'bow'   },
-    gunner: { fur:'#f4ead6', robe:'#f97316', accent:'#fed7aa', hat:'band',   weapon:'cannon', style:'launch'},
-    poison: { fur:'#ece4d6', robe:'#8b5cf6', accent:'#ddd6fe', hat:'wizard', weapon:'flask',  style:'flask' },
-    mage:   { fur:'#f4ead6', robe:'#0891a6', accent:'#a5f3fc', hat:'wizard', weapon:'staff',  style:'staff' },
-    ice:    { fur:'#f2f6fb', robe:'#3b82f6', accent:'#e0f2fe', hat:'wizard', weapon:'wand',   style:'wand'  },
-    priest: { fur:'#f6efe6', robe:'#f472b6', accent:'#fbcfe8', hat:'halo',   weapon:'cross',  style:'bless' }
+    miner:  { fur:'#ece5d4', robe:'#a16207', accent:'#fde047', evo:'#fde047', hat:'cap',    weapon:'pick',   style:'work'  },
+    knight: { fur:'#f4ead6', robe:'#3b82f6', accent:'#bfdbfe', evo:'#93c5fd', hat:'helm',   weapon:'sword',  style:'swing' },
+    archer: { fur:'#f4ead6', robe:'#22c55e', accent:'#bbf7d0', evo:'#34d399', hat:'hood',   weapon:'bow',    style:'bow'   },
+    gunner: { fur:'#f4ead6', robe:'#f97316', accent:'#fed7aa', evo:'#f87171', hat:'band',   weapon:'cannon', style:'launch'},
+    poison: { fur:'#ece4d6', robe:'#8b5cf6', accent:'#ddd6fe', evo:'#c084fc', hat:'wizard', weapon:'flask',  style:'flask' },
+    mage:   { fur:'#f4ead6', robe:'#0891a6', accent:'#a5f3fc', evo:'#c084fc', hat:'wizard', weapon:'staff',  style:'staff' },
+    ice:    { fur:'#f2f6fb', robe:'#3b82f6', accent:'#e0f2fe', evo:'#bae6fd', hat:'wizard', weapon:'wand',   style:'wand'  },
+    priest: { fur:'#f6efe6', robe:'#f472b6', accent:'#fbcfe8', evo:'#fcd34d', hat:'halo',   weapon:'cross',  style:'bless' }
 };
 
 const CharArt = {
@@ -573,7 +574,20 @@ const CharArt = {
         // bóng đổ (co theo nhún)
         C.e(ctx, 0, 25, 19 - bob*0.4, 5, 'rgba(0,0,0,0.45)');
 
-        const fur=cfg.fur, robe=cfg.robe, acc=cfg.accent, dark='#39394f', pink='#f4a9b8';
+        const lv=u.level, evo=cfg.evo||cfg.accent;
+        // robe sáng/đậm dần theo cấp -> nhìn là biết đã nâng cấp
+        const robe = lv>=3 ? C.mix(cfg.robe,'#ffffff',0.14) : (lv===2 ? C.mix(cfg.robe,'#ffffff',0.06) : cfg.robe);
+        const fur=cfg.fur, acc=cfg.accent, dark='#39394f', pink='#f4a9b8';
+
+        // HÀO QUANG DƯỚI CHÂN theo cấp (cấp 2 nhẹ, cấp 3 mạnh & đập nhịp)
+        if (lv>=2){
+            const ac = lv>=3 ? evo : acc, pulse = lv>=3 ? (0.5+Math.sin(t/260+ph)*0.5) : 1;
+            ctx.save(); ctx.globalAlpha=(lv>=3?0.28:0.16)*pulse;
+            C.e(ctx, 0, 24, 20, 6, ac);
+            if(lv>=3){ ctx.globalAlpha=0.5; ctx.strokeStyle=ac; ctx.lineWidth=1.5; ctx.beginPath(); ctx.ellipse(0,24,20,6,0,0,6.2832); ctx.stroke(); }
+            ctx.restore();
+        }
+
         ctx.save();
         ctx.translate(0, bob + recoil*0.3);
 
@@ -589,6 +603,13 @@ const CharArt = {
         C.e(ctx, 0, 12, 9, 9, C.col(C.mix(robe,'#fff',0.12)));     // bụng sáng
         // chân
         C.e(ctx, -7, 21, 5, 4, C.col(fur)); C.e(ctx, 7, 21, 5, 4, C.col(fur));
+        // GIÁP VAI theo cấp: cấp 2 mọc giáp vai, cấp 3 thêm vạch sáng evo
+        if (lv>=2){
+            C.e(ctx,-13,2,5,4,C.col(acc)); C.e(ctx,13,2,5,4,C.col(acc));
+            if(lv>=3){ C.e(ctx,-13,2,2.4,2,C.col(evo)); C.e(ctx,13,2,2.4,2,C.col(evo));
+                // vạch năng lượng giữa thân
+                ctx.strokeStyle=C.col(evo); ctx.lineWidth=1.4; ctx.beginPath(); ctx.moveTo(0,2); ctx.lineTo(0,16); ctx.stroke(); }
+        }
 
         // ---- ĐẦU ----
         ctx.save();
@@ -620,15 +641,25 @@ const CharArt = {
         for(const dy of [-2,2,6]){ ctx.beginPath(); ctx.moveTo(-9,4+dy); ctx.lineTo(-19,2+dy); ctx.moveTo(9,4+dy); ctx.lineTo(19,2+dy); ctx.stroke(); }
         // mũ / vương miện
         C.drawHat(ctx, cfg, t, ph, acc, robe);
+        // VƯƠNG MIỆN cấp 3 — dấu hiệu "tối thượng" nổi trên đỉnh đầu
+        if (lv>=3){
+            const cy=-30+Math.sin(t/400+ph)*1.2;
+            ctx.fillStyle=C.col(evo);
+            ctx.beginPath(); ctx.moveTo(-7,cy+4); ctx.lineTo(-7,cy-1); ctx.lineTo(-3.5,cy+2); ctx.lineTo(0,cy-3); ctx.lineTo(3.5,cy+2); ctx.lineTo(7,cy-1); ctx.lineTo(7,cy+4); ctx.closePath(); ctx.fill();
+            C.e(ctx,0,cy-3,1.4,1.4,'#fff');
+        } else if (lv===2){
+            // cấp 2 — viên đá quý nhỏ
+            C.e(ctx,0,-28,2.2,2.6,C.col(acc)); C.e(ctx,-0.5,-28.6,0.8,1,'#fff');
+        }
         ctx.restore(); // head
 
         // ---- TAY TRƯỚC + VŨ KHÍ (animate theo kiểu tấn công) ----
-        C.drawWeapon(ctx, cfg, t, ph, p, acc, fur, robe, u.level);
+        C.drawWeapon(ctx, cfg, t, ph, p, acc, fur, robe, u.level, evo);
 
         ctx.restore(); // body translate
         // hiệu ứng đặc trưng nổi phía trên (glow kỹ năng) — không bị flash
         this._f = 0;
-        C.drawSkillFx(ctx, cfg, t, ph, p, acc, u.level);
+        C.drawSkillFx(ctx, cfg, t, ph, p, acc, u.level, evo);
         ctx.restore(); // scale
 
         // giọt mồ hôi khi bị thương nặng
@@ -662,70 +693,88 @@ const CharArt = {
         }
     },
 
-    drawWeapon(ctx, cfg, t, ph, p, acc, fur, robe, lv){
+    drawWeapon(ctx, cfg, t, ph, p, acc, fur, robe, lv, evo){
         const C=this, idleAng = Math.sin(t/560+ph)*0.05;
+        evo = evo || acc;
+        // tham số "lên đời" vũ khí: dài hơn & phát sáng dần theo cấp
+        const ext = (lv-1)*3;                 // vũ khí dài thêm theo cấp
+        const glow = lv>=3;                    // cấp 3: vũ khí phát quầng sáng evo
         if (cfg.style==='swing'){                       // KIẾM — chém vòng cung
             const a = -0.5 + idleAng - p*2.2;           // vung từ trên xuống
+            const blade = glow ? evo : (lv===2 ? '#e2e8f0' : '#cbd5e1');
             ctx.save(); ctx.translate(9,8); ctx.rotate(a);
             C.limb(ctx,0,0,4,9,6,C.col(fur));           // tay
-            C.limb(ctx,2,-2,2,-26,3.5,C.col('#cbd5e1')); // lưỡi
-            C.limb(ctx,-3,-2,7,-2,3,C.col('#94a3b8'));  // chắn
+            if(glow){ ctx.save(); ctx.shadowColor=evo; ctx.shadowBlur=10; }
+            C.limb(ctx,2,-2,2,-26-ext,3.5+ (lv-1)*0.5,C.col(blade)); // lưỡi (dài & dày dần)
+            if(glow) ctx.restore();
+            C.limb(ctx,-3,-2,7,-2,3,C.col(lv>=2?evo:'#94a3b8'));  // chắn (cấp 2+ nhuốm màu evo)
             ctx.restore();
-            if (p>0.5){ ctx.strokeStyle=`rgba(255,255,255,${(p-0.5)*1.6})`; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(14,2,18,-1.1,0.5); ctx.stroke(); }
+            if (p>0.5){ ctx.strokeStyle = glow?`rgba(${C.hex(evo).join(',')},${(p-0.5)*1.8})`:`rgba(255,255,255,${(p-0.5)*1.6})`; ctx.lineWidth=glow?4:3; ctx.beginPath(); ctx.arc(14,2,18+ext,-1.1,0.5); ctx.stroke(); }
         } else if (cfg.style==='bow'){                  // CUNG — kéo & bắn
             const pull = p*4;
             C.limb(ctx,9,9,13-pull,6,5,C.col(fur));
-            ctx.strokeStyle=C.col('#92684a'); ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(15,4,13,-1.1,1.1); ctx.stroke();
-            ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(15+Math.cos(-1.1)*13,4+Math.sin(-1.1)*13); ctx.lineTo(13-pull,4); ctx.lineTo(15+Math.cos(1.1)*13,4+Math.sin(1.1)*13); ctx.stroke();
-            if (p<0.25) C.limb(ctx,16,4,30,4,1.5,C.col(acc)); // mũi tên vừa bắn
+            ctx.strokeStyle=C.col(lv>=3?'#5b3a8a':'#92684a'); ctx.lineWidth=2.5+(lv-1)*0.4; ctx.beginPath(); ctx.arc(15,4,13+(lv-1),-1.1,1.1); ctx.stroke();
+            ctx.strokeStyle = glow?evo:'#e5e7eb'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(15+Math.cos(-1.1)*13,4+Math.sin(-1.1)*13); ctx.lineTo(13-pull,4); ctx.lineTo(15+Math.cos(1.1)*13,4+Math.sin(1.1)*13); ctx.stroke();
+            if (p<0.25){ if(glow){ctx.save();ctx.shadowColor=evo;ctx.shadowBlur=9;} C.limb(ctx,16,4,30+ext,4,glow?2.2:1.5,C.col(glow?evo:acc)); if(glow)ctx.restore(); } // mũi tên vừa bắn
         } else if (cfg.style==='launch'){               // PHÁO — nâng & giật
             const rc=-p*2;
             ctx.save(); ctx.translate(8,6+rc); ctx.rotate(-0.35);
-            C.limb(ctx,0,3,0,-14,9,C.col('#475569')); C.e(ctx,0,-15,6,5,C.col('#334155'));
+            C.limb(ctx,0,3,0,-14-ext,9+(lv-1),C.col(lv>=3?'#5b1f1f':'#475569')); C.e(ctx,0,-15-ext,6+(lv-1)*0.6,5,C.col(lv>=3?'#7f1d1d':'#334155'));
+            if(glow){ C.e(ctx,0,-16-ext,2.4,2.4,evo); }
             ctx.restore();
             C.limb(ctx,-2,9,8,8,5,C.col(fur));
-            if (p>0.6){ C.e(ctx,16,-9,5+ (p-0.6)*18,5,'rgba(148,163,184,0.5)'); }  // khói nòng
+            if (p>0.6){ C.e(ctx,16,-9,5+ (p-0.6)*18,5, glow?`rgba(${C.hex(evo).join(',')},0.55)`:'rgba(148,163,184,0.5)'); }  // khói nòng
         } else if (cfg.style==='staff'){                // GẬY SẤM
             ctx.save(); ctx.translate(10,8); ctx.rotate(-0.2 - p*0.5);
-            C.limb(ctx,0,2,0,-22,3,C.col('#7c5b3a'));
+            C.limb(ctx,0,2,0,-22-ext,3,C.col(lv>=3?'#5b3a8a':'#7c5b3a'));
             ctx.restore(); C.limb(ctx,-2,9,9,8,5,C.col(fur));
         } else if (cfg.style==='wand'){                 // ĐŨA BĂNG — vẩy lên
             ctx.save(); ctx.translate(9,7); ctx.rotate(-0.6 - p*1.0);
-            C.limb(ctx,0,2,0,-15,2.5,C.col('#cbd5e1')); ctx.restore();
+            C.limb(ctx,0,2,0,-15-ext,2.5,C.col('#cbd5e1')); ctx.restore();
             C.limb(ctx,-2,9,8,7,5,C.col(fur));
         } else if (cfg.style==='flask'){                // BÌNH ĐỘC — nâng
             ctx.save(); ctx.translate(9,6-p*3);
             C.limb(ctx,-11,3,0,2,5,C.col(fur));
-            ctx.fillStyle=C.col('#cbd5e1'); ctx.beginPath(); ctx.moveTo(-3,-2); ctx.lineTo(3,-2); ctx.lineTo(5,6); ctx.lineTo(-5,6); ctx.closePath(); ctx.fill();
-            C.e(ctx,0,4,4,3,C.col(acc)); ctx.restore();
+            ctx.fillStyle=C.col('#cbd5e1'); ctx.beginPath(); ctx.moveTo(-3,-2-ext*0.4); ctx.lineTo(3,-2-ext*0.4); ctx.lineTo(5,6); ctx.lineTo(-5,6); ctx.closePath(); ctx.fill();
+            C.e(ctx,0,4,4+(lv-1)*0.6,3,C.col(lv>=3?evo:acc)); ctx.restore();
         } else if (cfg.style==='bless'){                // GẬY THÁNH
             ctx.save(); ctx.translate(10,8); ctx.rotate(-0.15+Math.sin(t/400+ph)*0.05);
-            C.limb(ctx,0,2,0,-20,3,C.col('#e2c08a')); C.star(ctx,0,-22,3.5,C.col(acc)); ctx.restore();
+            C.limb(ctx,0,2,0,-20-ext,3,C.col('#e2c08a'));
+            if(glow){ctx.save();ctx.shadowColor=evo;ctx.shadowBlur=8;} C.star(ctx,0,-22-ext,3.5+(lv-1)*0.5,C.col(lv>=3?evo:acc)); if(glow)ctx.restore();
+            ctx.restore();
             C.limb(ctx,-2,9,9,8,5,C.col(fur));
         } else if (cfg.style==='work'){                 // CUỐC — bổ xuống
             ctx.save(); ctx.translate(8,6); ctx.rotate(0.3 + p*0.9);
-            C.limb(ctx,0,0,0,-16,3,C.col('#8a5a33')); C.limb(ctx,-6,-15,6,-17,3.5,C.col('#94a3b8')); ctx.restore();
+            C.limb(ctx,0,0,0,-16-ext,3,C.col('#8a5a33')); C.limb(ctx,-6,-15-ext,6,-17-ext,3.5,C.col(lv>=3?evo:'#94a3b8')); ctx.restore();
             C.limb(ctx,-2,9,8,8,5,C.col(fur));
         }
     },
 
-    drawSkillFx(ctx, cfg, t, ph, p, acc, lv){
-        const C=this;
+    drawSkillFx(ctx, cfg, t, ph, p, acc, lv, evo){
+        const C=this; evo = evo || acc;
+        const eC = lv>=3 ? evo : acc;        // cấp 3 đổi sang màu kỹ năng tối thượng
         if (cfg.style==='staff'){                       // quả cầu sét trên gậy
-            const gx=10, gy=-14, fl=0.5+Math.sin(t/120+ph)*0.3+p*0.7;
-            ctx.globalAlpha=0.35*fl; C.e(ctx,gx,gy,8,8,acc); ctx.globalAlpha=1;
-            C.e(ctx,gx,gy,4,4,acc); C.e(ctx,gx,gy,2,2,'#fff');
-            if(lv>=3 && p>0.3){ ctx.strokeStyle=acc; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx+6,gy-4); ctx.lineTo(gx+2,gy-7); ctx.stroke(); }
+            const gx=10, gy=-14-(lv-1)*3, fl=0.5+Math.sin(t/120+ph)*0.3+p*0.7, sz=(lv>=3?1.4:1);
+            ctx.globalAlpha=0.35*fl; C.e(ctx,gx,gy,8*sz,8*sz,eC); ctx.globalAlpha=1;
+            C.e(ctx,gx,gy,4*sz,4*sz,eC); C.e(ctx,gx,gy,2,2,'#fff');
+            if(lv>=3 && p>0.3){ ctx.strokeStyle=evo; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx+6,gy-4); ctx.lineTo(gx+2,gy-7); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx-6,gy-3); ctx.lineTo(gx-2,gy-7); ctx.stroke(); }   // tia chuỗi cấp 3
         } else if (cfg.style==='wand'){                 // bông tuyết quanh đũa
-            const fl=p*0.8+0.2; ctx.globalAlpha=0.6*fl;
-            for(let i=0;i<3;i++){ const a=t/300+ph+i*2.1; C.e(ctx, 9+Math.cos(a)*9, -8+Math.sin(a)*9, 1.6,1.6, acc); }
+            const fl=p*0.8+0.2, n=lv>=3?5:3; ctx.globalAlpha=0.6*fl;
+            for(let i=0;i<n;i++){ const a=t/300+ph+i*(6.283/n); C.e(ctx, 9+Math.cos(a)*(9+(lv-1)*2), -8+Math.sin(a)*(9+(lv-1)*2), 1.6,1.6, eC); }
             ctx.globalAlpha=1;
         } else if (cfg.style==='flask'){                // bọt độc
-            ctx.globalAlpha=0.7; for(let i=0;i<3;i++){ const yy=2-((t/400+i*0.5+ph)%1.5)*10; C.e(ctx,9+Math.sin(yy+i)*2,yy,1.4,1.4,acc);} ctx.globalAlpha=1;
+            const n=lv>=3?5:3; ctx.globalAlpha=0.7; for(let i=0;i<n;i++){ const yy=2-((t/400+i*0.5+ph)%1.5)*10; C.e(ctx,9+Math.sin(yy+i)*2,yy,1.4,1.4,eC);} ctx.globalAlpha=1;
         } else if (cfg.style==='bless'){                // hào quang ấm
-            ctx.globalAlpha=0.18+Math.sin(t/300+ph)*0.07; C.e(ctx,0,2,24,22,acc); ctx.globalAlpha=1;
+            ctx.globalAlpha=0.18+Math.sin(t/300+ph)*0.07; C.e(ctx,0,2,24+(lv-1)*4,22+(lv-1)*4,eC); ctx.globalAlpha=1;
         } else if (cfg.style==='launch' && p>0.6){      // tia lửa đầu nòng
-            ctx.globalAlpha=(p-0.6)*2; C.star(ctx,18,-9,4,'#fde047'); ctx.globalAlpha=1;
+            ctx.globalAlpha=(p-0.6)*2; C.star(ctx,18,-9,4+(lv-1),lv>=3?evo:'#fde047'); ctx.globalAlpha=1;
+        }
+        // ĐỐM NĂNG LƯỢNG bay quanh quân cấp 3 (mọi loại) — dấu hiệu "tối thượng"
+        if (lv>=3){
+            ctx.globalAlpha=0.85;
+            for(let i=0;i<3;i++){ const a=t/420+ph+i*2.094; C.e(ctx, Math.cos(a)*17, -6+Math.sin(a)*9, 1.5,1.5, evo); }
+            ctx.globalAlpha=1;
         }
     },
 
@@ -1732,7 +1781,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============ PHIÊN BẢN & TỰ CẬP NHẬT ============
-const GAME_VERSION = '1.3.0';
+const GAME_VERSION = '1.4.0';
 let _updChecking = false;
 
 function setVerLabels() {
