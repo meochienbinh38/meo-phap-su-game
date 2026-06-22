@@ -1,218 +1,313 @@
 /* ============================================================================
- *  TRÌNH MÔ PHỎNG CÂN BẰNG v2 — kiểm chứng HỆ KHẮC CHẾ
- *  "Chơi" tự động bằng đúng cơ chế game. Chạy: `node tools/balance-sim.js`
- *  Mục tiêu: spam 1 loại tướng PHẢI thua sớm; kết hợp đúng tướng mới qua ải.
+ *  CAMPAIGN BALANCE SIM — Kỷ Nguyên Thủ Thành v3.0
  *
- *  Khắc chế (kéo–búa–bao):
- *   - phys (Giáp Sĩ/Xạ Thủ/Pháo) : đòn thường; bị Orc/Sói/Sát Thủ kháng mạnh
- *   - magic (Thần Sét)           : khắc Orc giáp dày & Triệu Hồi; không bị né
- *   - frost (Băng)               : khắc Sói nhanh (sát thương + LÀM CHẬM)
- *   - pois  (Tháp Độc)           : khắc Sát Thủ né & bóc khiên (đánh nhiều nhịp, không bị né)
- *   - Khiên (Skel): chặn theo SỐ đòn -> đòn nhanh (Xạ Thủ/Độc) bóc; đòn to chậm phí
- *   - Né (Sát Thủ): chỉ né ĐẠN (phys tầm xa / frost), KHÔNG né magic/độc/cận chiến
- * ==========================================================================*/
-
-const GRID = 68, ROWS = 6, COLS = 12, DT = 0.05, WALL_X = 0;
-const cellX = c => WALL_X + c*GRID + GRID/2;
-const SPAWN_X = WALL_X + COLS*GRID + GRID;
+ *  Chạy: node tools/balance-sim.js
+ *  Mục tiêu: kiểm tra nhanh 12 màn campaign, đường mở khoá Tinh Thạch,
+ *  và các cổng khắc chế (Băng/Thần Sét/Độc/Pháo) có bị kẹt quá sớm không.
+ *
+ *  Đây là mô phỏng số nhanh, không thay thế playtest tay:
+ *  - Không vẽ canvas, không mô phỏng cảm giác thao tác.
+ *  - Đạn được tính gần như trúng tức thì, nên kết quả hơi lạc quan.
+ *  - Có mô phỏng kháng/né/khiên/chậm/boss footprint ở mức đủ để so độ khó.
+ * ========================================================================== */
 
 const TUNE = {
-  startGold: 280, baseHp: 150,
-  hpScale: 1.16, speedScale: 0.05,
-  wallScale: 0.09, waveBonusBase: 20, waveBonusPer: 8,
-  upgradePow: 1.8,        // nâng cấp đắt hơn
-  buyRamp: 1.11,          // mua thêm 1 tướng (cùng loại) đắt hơn con trước (van chống snowball, bỏ cap)
-  minerIncome: 14,
-};
-// giá mua tướng kế tiếp = base × buyRamp^(số con CÙNG LOẠI đang có)
-function costOf(s, t){ return Math.round(UNITS[t].cost * Math.pow(TUNE.buyRamp, s.units.filter(u=>u.type===t).length)); }
-// NHỊP ĐỘ: màn đầu ÍT & CHẬM (thư thả) -> cuối BÙNG NỔ (đông & dồn dập)
-function waveCount(w){ return Math.round(4 + w*1.4 + w*w*0.13); }      // w1≈6, w10≈31, w20≈84
-function waveInterval(w){ return Math.max(0.35, 1.9 - w*0.08); }       // w1≈1.8s (rỉ rả) -> cuối 0.35s (lũ lượt)
-
-// dtype = loại sát thương; range theo ô (×GRID)
-const UNITS = {
-  miner:  { type:'econ',  cost:50,  hp:300, income:12, cd:4.0 },
-  knight: { type:'melee', cost:60,  hp:700, dmg:15, range:1.2, aspd:1.2, dtype:'phys' },
-  archer: { type:'linear',cost:90,  hp:150, dmg:32, range:7.0, aspd:1.0, dtype:'phys', pSpeed:760 },
-  gunner: { type:'gunner',cost:130, hp:200, dmg:60, range:6.5, aspd:1.8, dtype:'phys', pSpeed:600 },
-  poison: { type:'pulse', cost:120, hp:250, dmg:10, range:2.6, aspd:0.8, dtype:'pois' }, // đánh nhanh (nhiều nhịp)
-  mage:   { type:'laser', cost:180, hp:120, dmg:40, range:12.0,aspd:1.6, dtype:'magic' },
-  ice:    { type:'lob',   cost:160, hp:120, dmg:35, range:6.0, aspd:2.0, dtype:'frost', splash:1.2 },
+  rows: 6,
+  cols: 11,
+  cell: 68,
+  dt: 0.05,
+  maxWaveSeconds: 180,
+  startGold: 280,
+  baseHp: 150,
+  buyRamp: 1.11,
+  upgradePow: 1.8,
+  hpScale: 1.16,
+  waveBonusBase: 20,
+  waveBonusPer: 8,
+  replayRewardRate: 0.3,
 };
 
-// resist: <1 = kháng, >1 = yếu. evade: chỉ né đạn. shield: chặn N đòn.
-const ENEMIES = [
-  // mỗi quái có KHẮC TINH rõ ràng (weak >1) và điểm KHÁNG (resist <1)
-  { kind:'imp',      hp:70,  spd:30, dmg:5,  aspd:1.0, gold:9,  xp:15, resist:{} },                                   // bầy đàn -> AoE
-  { kind:'orc',      hp:420, spd:16, dmg:18, aspd:1.5, gold:22, xp:30, isHeavy:true, resist:{phys:0.45, frost:0.6, pois:0.6, magic:1.4} }, // giáp dày -> THẦN SÉT
-  { kind:'wolf',     hp:60,  spd:78, dmg:8,  aspd:0.8, gold:9,  xp:20, resist:{phys:0.6, frost:1.6} },                // nhanh -> BĂNG (chậm)
-  { kind:'skel',     hp:150, spd:16, dmg:20, aspd:1.5, gold:30, xp:40, shield:3, resist:{frost:0.7} },                // khiên -> đòn NHANH (Xạ/Độc)
-  { kind:'summoner', hp:140, spd:15, dmg:5,  aspd:2.0, gold:25, xp:35, summons:true, resist:{phys:0.5, magic:1.5} },  // triệu hồi -> THẦN SÉT diệt nhanh
-  { kind:'assassin', hp:120, spd:60, dmg:25, aspd:1.0, gold:28, xp:35, jump:true, evade:0.55, resist:{phys:0.45, pois:1.5, magic:1.2} }, // né+nhảy -> ĐỘC/SÉT
-  { kind:'boss',     hp:5200,spd:11, dmg:70, aspd:2.0, gold:300,xp:600, isBoss:true, resist:{phys:0.5, magic:0.8, frost:0.8, pois:0.8} }, // cần KẾT HỢP
+const HERO_COST = { miner: 0, knight: 0, archer: 0, gunner: 40, ice: 55, poison: 70, mage: 90, priest: 75 };
+
+const STAGES = [
+  { n: 'Bìa Rừng',          map: 0, waves: 6,  mul: 1.0,  themes: ['intro'],                 reward: 30 },
+  { n: 'Rừng Rậm',          map: 0, waves: 7,  mul: 1.25, themes: ['intro', 'swarm'],        reward: 35 },
+  { n: 'Đầm Lầy',           map: 0, waves: 7,  mul: 1.5,  themes: ['swarm', 'fast'],         rec: 'ice',    reward: 40 },
+  { n: 'Hẻm Núi',           map: 1, waves: 8,  mul: 1.85, themes: ['fast', 'swarm'],         rec: 'ice',    reward: 45 },
+  { n: 'Lò Dung Nham',      map: 1, waves: 9,  mul: 2.2,  themes: ['armor', 'swarm'],        rec: 'mage',   reward: 55 },
+  { n: 'Đỉnh Lửa ⚔TRÙM',    map: 1, waves: 9,  mul: 2.6,  themes: ['mixed'], boss: true,     rec: 'mage',   reward: 80 },
+  { n: 'Cổng Ngục',         map: 2, waves: 10, mul: 3.1,  themes: ['armor', 'fast'],         rec: 'mage',   reward: 60 },
+  { n: 'Hành Lang Xương',   map: 2, waves: 10, mul: 3.7,  themes: ['mixed', 'armor'],        rec: 'poison', reward: 65 },
+  { n: 'Hầm Sâu',           map: 2, waves: 11, mul: 4.4,  themes: ['fast', 'mixed'],         rec: 'poison', reward: 70 },
+  { n: 'Ngai Hắc Ám ⚔TRÙM', map: 2, waves: 11, mul: 5.2,  themes: ['mixed'], boss: true,                   reward: 110 },
+  { n: 'Vực Thẳm I',        map: 2, waves: 12, mul: 6.2,  themes: ['mixed'],                               reward: 90 },
+  { n: 'Vực Thẳm II ⚔TRÙM', map: 1, waves: 12, mul: 7.6,  themes: ['mixed'], boss: true,                   reward: 150 },
 ];
-const E = {}; ENEMIES.forEach(e=>E[e.kind]=e);
 
-function talentEffect(T){ return { d:T.d*0.1, s:T.s*0.05, h:T.h*100, c:T.c*0.05 }; }
-
-function newState(profile){ const T = (profile==='maxed'||profile==='godlike') ? {d:10,s:10,h:5,c:5} : {d:0,s:0,h:0,c:0};
-  const US = profile==='godlike' ? {miner:3,knight:3,archer:3,gunner:3,poison:3,mage:3,ice:3,priest:3} : {};
-  return { gold:TUNE.startGold, hp:TUNE.baseHp+T.h*100, maxHp:TUNE.baseHp+T.h*100, wave:0, level:1, xp:0, maxXp:100, sp:0,
-  talents:T, unitSkills:US, units:[], enemies:[], projs:[], time:0, leaks:0 }; }
-
-// KỸ NĂNG TƯỚNG (mirror index.html) — bậc 1/2 cộng dồn số, bậc 3 = cờ mở khoá đặc tính
-const USK = {
-  miner:[{income:.2},{income:.25},{cdMul:.75}], knight:[{hp:.25},{reflect:.15},{hp:.3,reflect:.2}],
-  archer:[{aspd:.15},{dmg:.2},{earlyPierce:1}], gunner:[{dmg:.2},{splash:.4},{earlyExplode:1}],
-  poison:[{dmg:.25},{range:.25},{earlySlow:1}], mage:[{dmg:.2},{aspd:.15},{earlyChain:1}],
-  ice:[{dmg:.2},{slow:.2},{earlyFreeze:1}], priest:[{dmg:.3},{range:.25},{earlyAura:1}],
+const WAVE_THEMES = {
+  intro: { tag: 'NHẬP MÔN', tids: [0, 0, 0, 0, 2] },
+  swarm: { tag: 'BẦY ĐÀN',  tids: [0, 0, 0, 4, 1] },
+  armor: { tag: 'GIÁP DÀY', tids: [1, 1, 1, 3, 0] },
+  fast:  { tag: 'TỐC ĐỘ',   tids: [2, 2, 2, 5, 0] },
+  mixed: { tag: 'HỖN HỢP',  tids: [0, 1, 2, 3, 4, 5] },
+  boss:  { tag: 'TRÙM',     tids: [0, 1, 2, 3] },
 };
-function uskBonus(US,type){ const tiers=USK[type]||[], n=(US&&US[type])||0; let b={dmg:1,hp:1,aspd:1,range:1,income:1,splash:1,cdMul:1,reflect:0,slow:0};
-  for(let i=0;i<n;i++){const t=tiers[i]; if(t.dmg)b.dmg+=t.dmg; if(t.hp)b.hp+=t.hp; if(t.aspd)b.aspd+=t.aspd; if(t.range)b.range+=t.range; if(t.income)b.income+=t.income; if(t.splash)b.splash+=t.splash; if(t.cdMul)b.cdMul*=t.cdMul; if(t.reflect)b.reflect+=t.reflect; if(t.slow)b.slow+=t.slow; if(t.earlyPierce)b.earlyPierce=1; if(t.earlyExplode)b.earlyExplode=1; if(t.earlyChain)b.earlyChain=1; if(t.earlyFreeze)b.earlyFreeze=1; if(t.earlySlow)b.earlySlow=1; if(t.earlyAura)b.earlyAura=1;}
-  return b; }
-function tiersTotal(US){ let n=0; for(const k in (US||{}))n+=US[k]; return n; }
 
-// SỨC MẠNH META = Nội Tại chung; ĐỘ KHÓ = meta × kỹ năng tướng
-function metaPow(T){ return 1 + 0.10*T.d + 0.06*T.s + 0.06*T.c; }   // max ×2.9
-function diffScale(T,US){ return metaPow(T) * (1 + 0.02*tiersTotal(US)); }
+const UNITS = {
+  miner:  { type: 'econ',    cost: 50,  hp: 300, income: 14, cd: 4.0, name: 'Mỏ Vàng' },
+  knight: { type: 'melee',   cost: 60,  hp: 700, dmg: 15, range: 1.2, aspd: 1.2, dtype: 'phys',  name: 'Giáp Sĩ' },
+  archer: { type: 'linear',  cost: 90,  hp: 150, dmg: 32, range: 7.0, aspd: 1.0, dtype: 'phys',  name: 'Xạ Thủ' },
+  gunner: { type: 'gunner',  cost: 130, hp: 200, dmg: 60, range: 6.5, aspd: 1.8, dtype: 'phys',  splash: 1.2, name: 'Pháo Thủ' },
+  poison: { type: 'pulse',   cost: 120, hp: 250, dmg: 10, range: 2.6, aspd: 0.8, dtype: 'pois',  name: 'Tháp Độc' },
+  mage:   { type: 'laser',   cost: 180, hp: 120, dmg: 40, range: 12,  aspd: 1.6, dtype: 'magic', name: 'Thần Sét' },
+  ice:    { type: 'lob',     cost: 160, hp: 120, dmg: 35, range: 6.0, aspd: 2.0, dtype: 'frost', splash: 1.2, name: 'Băng Thần' },
+  priest: { type: 'support', cost: 150, hp: 250, dmg: 30, range: 3.0, aspd: 2.0, dtype: 'magic', name: 'Thánh Sứ' },
+};
 
-function unitStats(u,T,US){ const db=UNITS[u.type], lvM=Math.pow(1.4,u.level-1), sb=uskBonus(US,u.type), te=talentEffect(T), dmgM=(1+te.d)*sb.dmg, spdM=(1+te.s)*sb.aspd;
-  if(db.type==='econ') return { inc:Math.floor(db.income*(u.level>=3?2:lvM)*sb.income), cd:db.cd*sb.cdMul };
-  if(db.type==='pulse') return { dmg:db.dmg*lvM*dmgM, rng:db.range*GRID*(u.level>=3?1.3:1)*sb.range, aspd:db.aspd/spdM };
-  return { dmg:db.dmg*lvM*dmgM, rng:db.range*GRID*sb.range, aspd:db.aspd/spdM };
+const ENEMIES = [
+  { kind: 'imp',      hp: 70,   spd: 30, dmg: 5,  aspd: 1.0, gold: 9,   xp: 15,  size: 0.6,  resist: {} },
+  { kind: 'orc',      hp: 420,  spd: 16, dmg: 18, aspd: 1.5, gold: 22,  xp: 30,  size: 0.85, resist: { phys: 0.45, frost: 0.6, pois: 0.6, magic: 1.4 } },
+  { kind: 'wolf',     hp: 60,   spd: 78, dmg: 8,  aspd: 0.8, gold: 9,   xp: 20,  size: 0.55, resist: { phys: 0.6, frost: 1.6 } },
+  { kind: 'skel',     hp: 150,  spd: 16, dmg: 20, aspd: 1.5, gold: 30,  xp: 40,  size: 0.8,  shieldHits: 3, resist: { frost: 0.7 } },
+  { kind: 'summoner', hp: 140,  spd: 15, dmg: 5,  aspd: 2.0, gold: 25,  xp: 35,  size: 0.7,  summons: true, resist: { phys: 0.5, magic: 1.5 } },
+  { kind: 'assassin', hp: 120,  spd: 60, dmg: 25, aspd: 1.0, gold: 28,  xp: 35,  size: 0.6,  evade: 0.55, resist: { phys: 0.45, pois: 1.5, magic: 1.2 } },
+  { kind: 'boss',     hp: 5200, spd: 11, dmg: 70, aspd: 2.0, gold: 300, xp: 600, size: 1.5,  isBoss: true, resist: { phys: 0.5, magic: 0.8, frost: 0.8, pois: 0.8 } },
+];
+
+function mulberry32(seed) {
+  return function rng() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
 }
-const critMul = T => 1 + (0.1 + talentEffect(T).c);
 
-// ---- KHẮC CHẾ trung tâm ----
-function hurt(e, dmg, dtype, proj){
-  if (e.shield>0){ e.shield--; return; }                          // khiên chặn theo SỐ đòn
-  if (proj && e.db.evade && Math.random()<e.db.evade) return;     // né chỉ với đạn
-  const r = (e.db.resist && e.db.resist[dtype]!=null) ? e.db.resist[dtype] : 1;
-  e.hp -= dmg * r;
+function waveCount(w) { return Math.round(4 + w * 1.5 + w * w * 0.12); }
+function waveInterval(w) { return Math.max(0.45, 1.9 - w * 0.09); }
+function costOf(state, type) { return Math.round(UNITS[type].cost * Math.pow(TUNE.buyRamp, state.units.filter(u => u.type === type).length)); }
+function upgradeCost(u) { return Math.round(UNITS[u.type].cost * Math.pow(TUNE.upgradePow, u.level)); }
+function unitXY(u) { return { x: (u.col + 0.5) * TUNE.cell, y: (u.row + 0.5) * TUNE.cell }; }
+function enemyY(e) { return (e.row + 0.5 + (e.rowSpan === 2 ? 0.5 : 0)) * TUNE.cell; }
+function occRows(e) { return e.rowSpan === 2 ? [e.row, e.row + 1].filter(r => r < TUNE.rows) : [e.row]; }
+function sameLane(u, e) { return occRows(e).includes(u.row); }
+function distUnitEnemy(u, e) { const p = unitXY(u); return Math.hypot(e.x - p.x, enemyY(e) - p.y); }
+
+function newEnemy(row, waveMul, db, rng) {
+  const safeRow = db.isBoss ? Math.min(row, TUNE.rows - 2) : row;
+  return {
+    db,
+    row: safeRow,
+    rowSpan: db.isBoss || db.size >= 1.2 ? 2 : 1,
+    x: TUNE.cols * TUNE.cell + TUNE.cell,
+    hp: db.hp * waveMul,
+    maxHp: db.hp * waveMul,
+    shield: db.shieldHits || 0,
+    slow: 0,
+    atk: 0,
+    skill: db.isBoss ? 5 + rng() : 0,
+  };
 }
 
-// ---- NGƯỜI CHƠI TỰ ĐỘNG (theo chiến lược) ----
-function aiSpend(s, strat){
-  const have=t=>s.units.filter(u=>u.type===t);
-  const laneHas=(t,r)=>s.units.some(u=>u.type===t&&u.row===r);
-  const occ=(c,r)=>s.units.some(u=>u.col===c&&u.row===r);
-  const buy=(t,c,r)=>{ const cost=costOf(s,t); if(s.gold>=cost && !occ(c,r)){ s.gold-=cost; s.units.push({type:t,col:c,row:r,level:1}); return true;} return false; };
-  const up=(u)=>{ const c=Math.round(UNITS[u.type].cost*Math.pow(TUNE.upgradePow,u.level)); if(u.level<3&&s.gold>=c){ s.gold-=c; u.level++; return true;} return false; };
-  const nextCell=()=>{ for(let c=3;c<=8;c++) for(let r=0;r<ROWS;r++) if(!occ(c,r)) return [c,r]; return null; };
-  const minerCell=()=>{ const n=have('miner').length; return [Math.floor(n/ROWS), n%ROWS]; };
-  // tỉ lệ dàn cân đối (đủ 4 loại sát thương để khắc mọi quái)
-  const targets = strat==='mono' ? {archer:60} : {mage:6, ice:5, poison:5, gunner:4, archer:4};
-  let g=0;
-  while(g++<400){ let act=false;
-    if(have('miner').length<3){ const mc=minerCell(); if(buy('miner',mc[0],mc[1]))act=true; }
-    else { for(let r=0;r<ROWS;r++){ if(!laneHas('knight',r)&&buy('knight',9,r)){act=true;break;} } } // tuyến đầu chắn
-    if(!act){ // chọn loại THIẾU nhất so với tỉ lệ mục tiêu; nếu loại cần nhất chưa đủ tiền -> để dành (không mua bừa)
-      const types=Object.keys(targets);
-      const need=types.map(t=>({t, deficit:targets[t]-have(t).length})).filter(o=>o.deficit>0).sort((a,b)=>b.deficit-a.deficit);
-      if(need.length){ const cell=nextCell();
-        if(cell){ const top=need[0];
-          if(s.gold>=costOf(s,top.t)){ if(buy(top.t,cell[0],cell[1]))act=true; }
-          else { // để dành cho loại cần nhất, trừ khi loại khác cũng thiếu mà rẻ hơn nhiều
-            const cheap=need.find(o=>s.gold>=costOf(s,o.t) && costOf(s,o.t)<=costOf(s,top.t)*0.6);
-            if(cheap && buy(cheap.t,cell[0],cell[1]))act=true;
-          }
+function newBattle(stage, campaign, seed) {
+  return { stage, rng: mulberry32(seed), gold: TUNE.startGold, hp: TUNE.baseHp, wave: 1, units: [], enemies: [], kills: 0, leaks: 0, unlocked: new Set(campaign.unlocked) };
+}
+
+function dmgEnemy(state, e, amount, dtype, projectile) {
+  if (e.shield > 0) { e.shield -= 1; return 0; }
+  if (projectile && e.db.evade && state.rng() < e.db.evade) return 0;
+  const r = e.db.resist && e.db.resist[dtype] != null ? e.db.resist[dtype] : 1;
+  const dealt = amount * r;
+  e.hp -= dealt;
+  return dealt;
+}
+
+function killDead(state) {
+  for (let i = state.enemies.length - 1; i >= 0; i--) {
+    const e = state.enemies[i];
+    if (e.hp <= 0) { state.gold += e.db.gold; state.kills += 1; state.enemies.splice(i, 1); }
+  }
+}
+
+function desiredTypesFor(stage, wave) {
+  const theme = stage.boss && wave >= stage.waves ? 'boss' : stage.themes[(wave - 1) % stage.themes.length];
+  const base = ['archer'];
+  if (theme === 'swarm') base.unshift('gunner', 'ice', 'poison');
+  if (theme === 'armor') base.unshift('mage', 'poison');
+  if (theme === 'fast') base.unshift('ice', 'poison', 'mage');
+  if (theme === 'mixed' || theme === 'boss') base.unshift('mage', 'ice', 'poison', 'gunner', 'priest');
+  if (stage.rec) base.unshift(stage.rec);
+  return [...new Set(base)];
+}
+
+function aiSpend(state) {
+  const have = t => state.units.filter(u => u.type === t);
+  const occupied = (c, r) => state.units.some(u => u.col === c && u.row === r);
+  const buy = (type, col, row) => {
+    if (!state.unlocked.has(type) || occupied(col, row)) return false;
+    const cost = costOf(state, type);
+    if (state.gold < cost) return false;
+    state.gold -= cost;
+    state.units.push({ type, col, row, level: 1, hp: UNITS[type].hp, cd: 0 });
+    return true;
+  };
+
+  let guard = 0;
+  while (guard++ < 80) {
+    let acted = false;
+    if (have('miner').length < 3) { const n = have('miner').length; if (buy('miner', 0, n % TUNE.rows)) { acted = true; continue; } }
+    for (let r = 0; r < TUNE.rows && !acted; r++) if (!state.units.some(u => u.type === 'knight' && u.row === r)) acted = buy('knight', 9, r);
+    if (acted) continue;
+
+    const up = state.units.filter(u => u.type !== 'miner' && u.level < 3).sort((a, b) => a.level - b.level || upgradeCost(a) - upgradeCost(b))[0];
+    if (up && state.gold >= upgradeCost(up) && state.units.length >= 12) { state.gold -= upgradeCost(up); up.level++; up.hp = UNITS[up.type].hp * Math.pow(1.4, up.level - 1); continue; }
+
+    const wants = desiredTypesFor(state.stage, state.wave).filter(t => state.unlocked.has(t));
+    const cells = [];
+    for (let c = 3; c <= 7; c++) for (let r = 0; r < TUNE.rows; r++) if (!occupied(c, r)) cells.push([c, r]);
+    if (!cells.length || !wants.length) break;
+
+    const type = wants.map(t => ({ t, n: have(t).length, cost: costOf(state, t) })).filter(o => state.gold >= o.cost).sort((a, b) => a.n - b.n || wants.indexOf(a.t) - wants.indexOf(b.t))[0]?.t;
+    if (!type) break;
+    const [c, r] = cells[0];
+    if (!buy(type, c, r)) break;
+  }
+}
+
+function unitStats(u) {
+  const db = UNITS[u.type], lvM = Math.pow(1.4, u.level - 1);
+  if (db.type === 'econ') return { income: Math.floor(db.income * (u.level >= 3 ? 2 : lvM)), cd: db.cd };
+  return { dmg: db.dmg * lvM, range: db.range * TUNE.cell * (db.type === 'pulse' && u.level >= 3 ? 1.3 : 1), aspd: db.aspd, splash: (db.splash || 0) * TUNE.cell * (u.level >= 3 ? 1.25 : 1) };
+}
+
+function updateUnits(state, dt) {
+  for (const u of state.units) {
+    const db = UNITS[u.type], st = unitStats(u); u.cd -= dt;
+    if (db.type === 'econ') { if (u.cd <= 0) { state.gold += st.income; u.cd = st.cd; } continue; }
+    if (u.cd > 0) continue;
+
+    if (db.type === 'pulse') {
+      const p = unitXY(u), targets = state.enemies.filter(e => Math.hypot(e.x - p.x, enemyY(e) - p.y) <= st.range);
+      if (!targets.length) continue;
+      for (const e of targets) { dmgEnemy(state, e, st.dmg, db.dtype, false); if (u.level >= 3) e.slow = Math.max(e.slow, 0.20); }
+      u.cd = st.aspd; continue;
+    }
+
+    let candidates = state.enemies.filter(e => e.x > unitXY(u).x - TUNE.cell * 0.2);
+    if (db.type !== 'laser') candidates = candidates.filter(e => sameLane(u, e));
+    candidates = candidates.filter(e => distUnitEnemy(u, e) <= st.range).sort((a, b) => a.x - b.x);
+    const target = candidates[0]; if (!target) continue;
+
+    if (db.type === 'gunner' || db.type === 'lob') {
+      const splash = st.splash || TUNE.cell;
+      for (const e of state.enemies) {
+        if ((sameLane(u, e) || Math.abs(enemyY(e) - enemyY(target)) <= TUNE.cell * 0.9) && Math.abs(e.x - target.x) <= splash) {
+          dmgEnemy(state, e, st.dmg * (e === target ? 1 : 0.55), db.dtype, true);
+          if (db.type === 'lob') e.slow = Math.max(e.slow, u.level >= 3 ? 0.55 : 0.35);
         }
       }
+    } else if (db.type === 'laser' && u.level >= 3) {
+      dmgEnemy(state, target, st.dmg, db.dtype, false);
+      for (const e of state.enemies.filter(e => e !== target).sort((a, b) => Math.abs(a.x - target.x) - Math.abs(b.x - target.x)).slice(0, 2)) dmgEnemy(state, e, st.dmg * 0.45, db.dtype, false);
+    } else {
+      dmgEnemy(state, target, st.dmg, db.dtype, db.type !== 'melee' && db.type !== 'support');
     }
-    if(!act && s.gold > costOf(s,'miner')*3 && have('miner').length<12){ const mc=minerCell(); if(buy('miner',mc[0],mc[1]))act=true; }
-    if(!act){ const order=s.units.filter(u=>UNITS[u.type].type!=='econ').sort((a,b)=>a.level-b.level); for(const u of order){ if(up(u)){act=true;break;} } }
-    if(!act) break;
+    u.cd = st.aspd;
   }
-  while(s.sp>0){ const T=s.talents; if(T.h<3){T.h++;s.hp+=100;s.maxHp+=100;} else if(T.d<10)T.d++; else if(T.c<5)T.c++; else if(T.s<10)T.s++; else break; s.sp--; }
+  killDead(state);
 }
 
-function gainXp(s,a){ s.xp+=a; while(s.xp>=s.maxXp){ s.xp-=s.maxXp; s.level++; s.sp++; s.maxXp=Math.floor(100*Math.pow(1.5,s.level-1)); } }
-
-// ---- ĐỢT theo CHỦ ĐỀ (ép người chơi đổi/kết hợp tướng) ----
-function waveTheme(w){ if(w<=3) return 'intro'; if(w%5===0) return 'boss'; return ['swarm','armor','fast','mixed'][(w-4)%4]; }
-function pick(theme){ const r=Math.random();
-  switch(theme){
-    case 'intro':  return r<0.25?'orc':'imp';
-    case 'swarm':  return r<0.65?'imp':(r<0.85?'summoner':'orc');
-    case 'armor':  return r<0.6?'orc':(r<0.8?'skel':'imp');
-    case 'fast':   return r<0.5?'wolf':(r<0.8?'assassin':'imp');
-    case 'mixed':  return ['imp','orc','wolf','skel','summoner','assassin'][Math.floor(r*6)];
-    case 'boss':   return ['imp','orc','wolf','skel'][Math.floor(r*4)];
+function updateEnemies(state, dt) {
+  for (let i = state.enemies.length - 1; i >= 0; i--) {
+    const e = state.enemies[i]; e.slow = Math.max(0, e.slow - dt * 0.4); e.skill -= dt;
+    if (e.db.isBoss && e.skill <= 0) { for (const u of state.units.filter(u => distUnitEnemy(u, e) <= TUNE.cell * 1.8)) u.hp -= 45; if (e.hp < e.maxHp * 0.4) e.slow = 0; e.skill = e.hp < e.maxHp * 0.4 ? 3 : 5; }
+    const blocker = state.units.filter(u => sameLane(u, e) && Math.abs(e.x - unitXY(u).x) < TUNE.cell * 0.55).sort((a, b) => b.col - a.col)[0];
+    if (blocker) { e.atk -= dt; if (e.atk <= 0) { blocker.hp -= e.db.dmg; e.atk = e.db.aspd; } } else e.x -= e.db.spd * (1 - e.slow) * dt;
+    if (e.x <= 0) { state.hp -= e.db.dmg; state.leaks++; state.enemies.splice(i, 1); }
   }
-}
-function buildWave(w, T, US){ const mp=diffScale(T||{d:0,s:0,h:0,c:0}, US||{});
-  const hm=Math.pow(TUNE.hpScale,w-1)*mp, count=Math.round(waveCount(w)*(1+(mp-1)*0.25)), interval=waveInterval(w), theme=waveTheme(w);
-  const q=[]; for(let i=0;i<count;i++){ let k=pick(theme); if(i===count-1&&theme==='boss')k='boss'; q.push({d:i*interval, db:E[k], m:hm}); }
-  return { queue:q, total:count, theme };
+  state.units = state.units.filter(u => u.hp > 0);
 }
 
-function makeEnemy(db,m,w){ return { db, hp:db.hp*m, x:SPAWN_X, row:Math.floor(Math.random()*ROWS), atkCd:0, kb:0, shield:db.shield||0, slowT:0, slowAmt:0, jp:false, summonT:4, spdMul:1+(w-1)*TUNE.speedScale }; }
-
-function fireUnit(s,u,T){
-  const US=s.unitSkills, sb=uskBonus(US,u.type), st=unitStats(u,T,US), db=UNITS[u.type], ux=cellX(u.col), crit=critMul(T), dmg=st.dmg*crit;
-  const ahead=e=>e.row===u.row && (e.x-ux)>-GRID*0.5 && Math.abs(e.x-ux)<=st.rng;
-  if(db.type==='melee'){ const blk=s.enemies.filter(e=>e.row===u.row&&(e.x-ux)>0&&(e.x-ux)<GRID*0.6).sort((a,b)=>a.x-b.x)[0]; if(blk){ const bonus=(u.level>=3?0.3:0)+sb.reflect; hurt(blk,dmg*(1+bonus),'phys',false); u._cd=st.aspd; } }
-  else if(db.type==='linear'){ const ts=s.enemies.filter(ahead).sort((a,b)=>a.x-b.x); if(ts.length){ s.projs.push({row:u.row,x:ux,tgt:ts[0],dmg,dtype:'phys',pierce:(u.level>=3||sb.earlyPierce),speed:760}); u._cd=st.aspd; } }
-  else if(db.type==='gunner'){ const ts=s.enemies.filter(ahead).sort((a,b)=>a.x-b.x); if(ts.length){ const ex=(u.level>=3||sb.earlyExplode); s.projs.push({row:u.row,x:ux,tgt:ts[0],dmg,dtype:'phys',splash:ex?GRID*1.2*(1+sb.splash):0,speed:600}); u._cd=st.aspd; } }
-  else if(db.type==='lob'){ const ts=s.enemies.filter(ahead).sort((a,b)=>a.x-b.x); if(ts.length){ const tg=ts[0],mx=(u.level>=3||sb.earlyFreeze),R=GRID*(mx?2.0:db.splash);
-      s.enemies.forEach(e=>{ if(Math.hypot(e.x-tg.x,(e.row-tg.row)*GRID)<=R){ hurt(e,dmg,'frost',true); e.slowT=mx?3.5:1.5; e.slowAmt=Math.min(0.9,(mx?0.8:0.4)+sb.slow); } }); u._cd=st.aspd; } }
-  else if(db.type==='laser'){ const ts=s.enemies.filter(e=>Math.hypot(e.x-ux,(e.row-u.row)*GRID)<=st.rng).sort((a,b)=>a.x-b.x); if(ts.length){ const tg=ts[0]; hurt(tg,dmg,'magic',false);
-      if(u.level>=3||sb.earlyChain){ let ch=2,cur=tg,hl=[tg]; while(ch>0){ const n=s.enemies.filter(e=>!hl.includes(e)&&Math.hypot(e.x-cur.x,(e.row-cur.row)*GRID)<150)[0]; if(!n)break; hurt(n,dmg*0.7,'magic',false); cur=n; hl.push(n); ch--; } }
-      u._cd=st.aspd; } }
-  else if(db.type==='pulse'){ const hit=s.enemies.filter(e=>Math.hypot(e.x-ux,(e.row-u.row)*GRID)<=st.rng); if(hit.length){ hit.forEach(e=>{ hurt(e,dmg,'pois',false); if(u.level>=3||sb.earlySlow){e.slowT=2;e.slowAmt=0.5;} }); u._cd=st.aspd; } }
+function buildWave(state, wave) {
+  const st = state.stage, hm = Math.pow(TUNE.hpScale, wave - 1) * st.mul, count = waveCount(wave), interval = waveInterval(wave);
+  const theme = st.boss && wave >= st.waves ? 'boss' : st.themes[(wave - 1) % st.themes.length];
+  const pool = WAVE_THEMES[theme].tids, queue = [];
+  for (let i = 0; i < count; i++) { let tid = pool[Math.floor(state.rng() * pool.length)]; if (i === count - 1 && theme === 'boss') tid = 6; queue.push({ at: i * interval, db: ENEMIES[tid], row: Math.floor(state.rng() * TUNE.rows), mul: hm }); }
+  return { queue, theme, count };
 }
 
-function updateEnemy(s,e){
-  if(e.slowT>0)e.slowT-=DT;
-  if(e.kb>0&&!e.db.isHeavy){ e.x+=e.kb*DT; e.kb-=DT*120; if(e.kb<0)e.kb=0; return; }
-  if(e.atkCd>0)e.atkCd-=DT;
-  if(e.db.summons){ e.summonT-=DT; if(e.summonT<=0){ e.summonT=5; s.enemies.push(makeEnemy(E.imp,1,s.wave)); } }
-  let blk=null; for(const u of s.units){ if(u.row===e.row&&UNITS[u.type].type!=='econ'&&UNITS[u.type].type!=='pulse'){ const d=e.x-cellX(u.col); if(d>0&&d<GRID*0.6){blk=u;break;} } }
-  if(blk){ if(e.db.jump&&!e.jp){ e.x-=GRID*1.2; e.jp=true; } else if(e.atkCd<=0){ blk._hp=(blk._hp??UNITS[blk.type].hp*Math.pow(1.4,blk.level-1))-e.db.dmg; e.atkCd=e.db.aspd; if(!e.db.isHeavy)e.kb=5; if(blk._hp<=0)s.units=s.units.filter(x=>x!==blk); } }
-  else { e.x -= e.db.spd*(e.spdMul||1)*(e.slowT>0?(1-e.slowAmt):1)*DT; }
-}
-
-function simWave(s,w,strat){
-  const sp=buildWave(w, s.talents, s.unitSkills); const wallMp=1+(diffScale(s.talents,s.unitSkills)-1)*0.5; let tL=0; s.leaks=0;
-  let mt=s.units.filter(u=>u.type==='miner').map(u=>unitStats(u,s.talents,s.unitSkills).cd);
-  s.units.forEach(u=>u._cd=Math.random()*0.3);
-  while((sp.queue.length>0||s.enemies.length>0)&&tL<600&&s.hp>0){
-    tL+=DT; s.time+=DT;
-    for(let i=sp.queue.length-1;i>=0;i--){ const it=sp.queue[i]; it.d-=DT; if(it.d<=0){ s.enemies.push(makeEnemy(it.db,it.m,w)); sp.queue.splice(i,1); } }
-    const miners=s.units.filter(u=>u.type==='miner'); miners.forEach((u,i)=>{ mt[i]=(mt[i]??unitStats(u,s.talents,s.unitSkills).cd)-DT; if(mt[i]<=0){ const st=unitStats(u,s.talents,s.unitSkills); s.gold+=st.inc; mt[i]=st.cd; } });
-    for(const u of s.units){ if(UNITS[u.type].type==='econ')continue; u._cd-=DT; if(u._cd>0)continue; fireUnit(s,u,s.talents); }
-    for(let i=s.projs.length-1;i>=0;i--){ const pr=s.projs[i],tg=pr.tgt; if(tg._gone||tg.hp<=0){ s.projs.splice(i,1); continue; } pr.x+=pr.speed*DT;
-      if(pr.x>=tg.x){ hurt(tg,pr.dmg,pr.dtype,true); if(pr.splash)s.enemies.forEach(e=>{ if(e!==tg&&Math.hypot(e.x-tg.x,(e.row-tg.row)*GRID)<=pr.splash)hurt(e,pr.dmg*0.7,pr.dtype,false); }); if(pr.pierce)s.enemies.forEach(e=>{ if(e!==tg&&e.row===pr.row&&e.x>tg.x)hurt(e,pr.dmg,pr.dtype,true); }); s.projs.splice(i,1); } }
-    for(const e of s.enemies)updateEnemy(s,e);
-    for(let i=s.enemies.length-1;i>=0;i--){ const e=s.enemies[i];
-      if(e.x<WALL_X){ s.hp-=e.db.dmg*(1+(w-1)*TUNE.wallScale)*wallMp; s.leaks++; e._gone=true; s.enemies.splice(i,1); continue; }
-      if(e.hp<=0){ s.gold+=e.db.gold; gainXp(s,e.db.xp); e._gone=true; s.enemies.splice(i,1); } }
-    if(Math.abs(s.time%0.5)<DT)aiSpend(s,strat);
+function runStage(stage, campaign, seed) {
+  const state = newBattle(stage, campaign, seed), waveReports = [];
+  for (let wave = 1; wave <= stage.waves; wave++) {
+    state.wave = wave; aiSpend(state);
+    const { queue, theme, count } = buildWave(state, wave);
+    let t = 0, qi = 0, hpBefore = state.hp;
+    while ((qi < queue.length || state.enemies.length > 0) && state.hp > 0 && t < TUNE.maxWaveSeconds) {
+      while (qi < queue.length && queue[qi].at <= t) { const q = queue[qi++]; state.enemies.push(newEnemy(q.row, q.mul, q.db, state.rng)); }
+      if (Math.floor(t * 2) !== Math.floor((t - TUNE.dt) * 2)) aiSpend(state);
+      updateUnits(state, TUNE.dt); updateEnemies(state, TUNE.dt); t += TUNE.dt;
+    }
+    if (state.hp > 0) state.gold += TUNE.waveBonusBase + wave * TUNE.waveBonusPer;
+    waveReports.push({ wave, theme, count, hpLost: hpBefore - state.hp, hp: state.hp, gold: Math.round(state.gold), units: state.units.length });
+    if (state.hp <= 0) return { ok: false, failedWave: wave, state, waveReports };
   }
-  if(s.hp>0)s.gold+=TUNE.waveBonusBase+w*TUNE.waveBonusPer;
-  return { t:tL, theme:sp.theme, total:sp.total };
+  return { ok: true, state, waveReports };
 }
 
-function comp(s){ const m={}; s.units.forEach(u=>m[u.type]=(m[u.type]||0)+1); return Object.entries(m).map(([k,v])=>`${v}${k.slice(0,2)}`).join(' '); }
+function makeCampaign() { return { gems: 0, stageProg: 0, unlocked: new Set(['miner', 'knight', 'archer']), cleared: new Set() }; }
+function replayFarm(campaign, stageIndex) { if (stageIndex <= 0) return 0; const reward = Math.round(STAGES[stageIndex - 1].reward * TUNE.replayRewardRate); campaign.gems += reward; return reward; }
+function buyCampaignHeroes(campaign, stage) {
+  const priority = [];
+  if (stage?.rec) priority.push(stage.rec);
+  const themes = new Set(stage?.themes || []);
+  if (themes.has('swarm')) priority.push('gunner');
+  if (themes.has('fast')) priority.push('ice', 'poison');
+  if (themes.has('armor')) priority.push('mage');
+  priority.push('ice', 'mage', 'poison', 'gunner', 'priest');
+  const bought = [];
+  for (const type of [...new Set(priority)]) { const cost = HERO_COST[type]; if (cost > 0 && !campaign.unlocked.has(type) && campaign.gems >= cost) { campaign.gems -= cost; campaign.unlocked.add(type); bought.push(type); } }
+  return bought;
+}
 
-function run(strat, profile, maxWave=35, verbose=true){
-  const s=newState(profile);
-  if(verbose){ console.log(`\n=== ${strat.toUpperCase()} | ${profile.toUpperCase()} (độ khó ×${diffScale(s.talents,s.unitSkills).toFixed(2)}) ===`);
-    console.log(`đợt | chủ đề  | quái | rò rỉ | máuThành | vàng | nhận xét`); console.log('-'.repeat(70)); }
-  for(let w=1;w<=maxWave;w++){ s.wave=w; aiSpend(s,strat);
-    const r=simWave(s,w,strat);
-    let note=''; if(s.hp<=0)note='💀 THUA'; else if(r.leaks===0)note='dễ'; else if(s.hp<s.maxHp*0.35)note='⚠️ căng'; else note='ổn';
-    if(verbose) console.log(`${String(w).padStart(3)} | ${r.theme.padEnd(7)} | ${String(r.total).padStart(4)} | ${String(s.leaks).padStart(5)} | ${String(Math.max(0,Math.round(s.hp))).padStart(8)} | ${String(Math.round(s.gold)).padStart(5)} | ${note}`);
-    if(s.hp<=0){ if(verbose)console.log(`>>> SỤP ở ĐỢT ${w} (chủ đề ${r.theme}). Quân: ${comp(s)}`); return w; }
+function runCampaign() {
+  const campaign = makeCampaign(), rows = [];
+  for (let i = 0; i < STAGES.length; i++) {
+    const stage = STAGES[i]; let farms = 0, farmGems = 0, boughtLog = [], result = null;
+    for (let attempt = 1; attempt <= 8; attempt++) {
+      const preBuy = buyCampaignHeroes(campaign, stage); if (preBuy.length) boughtLog.push(...preBuy.map(x => `${x}@${attempt}`));
+      result = runStage(stage, campaign, 20260622 + i * 101 + attempt * 17);
+      if (result.ok) break;
+      if (i === 0) break;
+      farmGems += replayFarm(campaign, i); farms++;
+    }
+    if (!result || !result.ok) { rows.push({ stage: i + 1, name: stage.n, ok: false, wave: `${result?.failedWave || '?'} / ${stage.waves}`, gems: campaign.gems, unlocked: [...campaign.unlocked].join(','), bought: boughtLog.join(',') || '-', hp: Math.round(result?.state?.hp || 0), farms, farmGems }); break; }
+    const first = !campaign.cleared.has(i), reward = Math.round(stage.reward * (first ? 1 : TUNE.replayRewardRate));
+    campaign.gems += reward; campaign.cleared.add(i); campaign.stageProg = Math.max(campaign.stageProg, i + 1);
+    rows.push({ stage: i + 1, name: stage.n, ok: true, wave: `${stage.waves}/${stage.waves}`, gems: campaign.gems, unlocked: [...campaign.unlocked].join(','), bought: boughtLog.join(',') || '-', hp: Math.round(result.state.hp), farms, farmGems });
   }
-  if(verbose)console.log(`>>> sống hết ${maxWave} đợt. Quân: ${comp(s)}`); return maxWave+1;
+  return { campaign, rows };
 }
 
-// godlike = MAX cả Nội Tại chung + MỌI kỹ năng tướng (người chơi cày lâu = tình huống cuối)
-run('balanced','godlike');
-console.log(`\n================ TỔNG HỢP (điểm SỤP, trung bình) ================`);
-for(const p of ['fresh','maxed','godlike']){
-  let mS=0,bS=0,N=4; for(let i=0;i<N;i++){ mS+=run('mono',p,40,false); bS+=run('balanced',p,40,false); }
-  console.log(`${p.padEnd(7)}: spam 1 loại sụp ~đợt ${(mS/N).toFixed(0).padStart(2)} | kết hợp khắc chế ~đợt ${(bS/N).toFixed(0)}`);
+function pad(s, n) { s = String(s); return s.length >= n ? s : s + ' '.repeat(n - s.length); }
+function printRows(rows) {
+  console.log('CAMPAIGN BALANCE SIM v3.0 — deterministic quick check');
+  console.log('Lưu ý: sim hơi lạc quan vì tính đạn gần như trúng tức thì. Cần playtest tay trên mobile.');
+  console.log('Cột Farm = số lần phải chơi lại màn trước để đủ Tinh Thạch / lực qua màn.\n');
+  console.log(`${pad('Màn', 4)} ${pad('Tên', 22)} ${pad('KQ', 6)} ${pad('Đợt', 7)} ${pad('HP', 6)} ${pad('Gems', 6)} ${pad('Farm', 5)} ${pad('Mua', 18)} Tướng đã mở`);
+  console.log('-'.repeat(124));
+  for (const r of rows) console.log(`${pad(r.stage, 4)} ${pad(r.name, 22)} ${pad(r.ok ? 'PASS' : 'FAIL', 6)} ${pad(r.wave, 7)} ${pad(r.hp, 6)} ${pad(r.gems, 6)} ${pad(r.farms, 5)} ${pad(r.bought, 18)} ${r.unlocked}`);
 }
+
+function runSingleStageFromArgs() {
+  const args = process.argv.slice(2), stageArg = args.find(a => a.startsWith('--stage='));
+  if (!stageArg) return false;
+  const idx = Number(stageArg.split('=')[1]) - 1, stage = STAGES[idx]; if (!stage) throw new Error('Không có màn này. Dùng --stage=1..12');
+  const unlocked = new Set(['miner', 'knight', 'archer']);
+  const unlockedArg = args.find(a => a.startsWith('--unlocked=')); if (unlockedArg) unlockedArg.split('=')[1].split(',').filter(Boolean).forEach(x => unlocked.add(x));
+  const result = runStage(stage, { gems: 0, stageProg: idx, unlocked, cleared: new Set() }, 20260622 + idx * 101);
+  console.log(`Stage ${idx + 1}: ${stage.n}`); console.log(`Unlocked: ${[...unlocked].join(', ')}`); console.log(result.ok ? 'PASS' : `FAIL tại đợt ${result.failedWave}/${stage.waves}`);
+  console.table(result.waveReports.map(w => ({ wave: w.wave, theme: w.theme, count: w.count, hpLost: Math.round(w.hpLost), hp: Math.round(w.hp), gold: w.gold, units: w.units })));
+  return true;
+}
+
+if (!runSingleStageFromArgs()) { const { rows } = runCampaign(); printRows(rows); }
