@@ -494,15 +494,18 @@ const MAPS = [
 ];
 
 // 2. DATABASE: UNITS & ENEMIES
+// VÙNG TẤN CÔNG theo đặc tính (lưới rộng 11 cột): cận chiến ~1 / quanh mình ~2-3 / tầm trung ~6 / toàn bản đồ 12-13
+// - Giáp Sĩ: cận chiến (đỡ đòn)   - Tháp Độc/Thánh Sứ: quầng quanh mình   - Pháo/Băng: tầm trung theo hàng
+// - Xạ Thủ: BẮN TOÀN HÀNG ngang map (sniper)   - Thần Sét: BẮN TOÀN BẢN ĐỒ mọi hàng (pháp sư tầm xa)
 const UNITS_DB = {
     miner:   { icon: '⛺', type: 'econ', cost: 50, hp: 300, income: 15, cd: 4.0, color: CFG.colors.econ, name: "Mỏ Vàng", lv3Desc: "Năng suất đào Vàng x2." },
-    knight:  { icon: '🛡️', type: 'melee', cost: 60, hp: 700, dmg: 15, range: 1.1, aspd: 1.2, color: CFG.colors.melee, name: "Giáp Sĩ", lv3Desc: "Phản lại 30% sát thương." },
-    archer:  { icon: '🏹', type: 'linear', pSpeed: 700, cost: 80, hp: 150, dmg: 30, range: 6.0, aspd: 0.8, color: CFG.colors.ranged, name: "Xạ Thủ", lv3Desc: "Đạn Năng lượng xanh: Xuyên thấu mọi địch." },
-    gunner:  { icon: '💣', type: 'gunner', pSpeed: 600, cost: 130, hp: 200, dmg: 60, range: 5.0, aspd: 1.8, color: CFG.colors.gunner, name: "Pháo Thủ", lv3Desc: "Đạn Nổ Chùm: Nổ sát thương diện rộng khi chạm đích." },
-    poison:  { icon: '☠️', type: 'pulse', cost: 120, hp: 250, dmg: 10, range: 2.0, aspd: 1.5, color: CFG.colors.poison, name: "Tháp Độc", lv3Desc: "Tỏa Mộc Độc: Vòng độc rộng hơn và làm chậm địch." },
-    mage:    { icon: '⚡', type: 'laser', cost: 180, hp: 120, dmg: 40, range: 4.5, aspd: 1.5, color: CFG.colors.laser, name: "Thần Sét", lv3Desc: "Sét Tím: Nảy chuỗi sang 2 mục tiêu lân cận." },
-    ice:     { icon: '❄️', type: 'lob', pSpeed: 350, splash: 1.2, cost: 160, hp: 120, dmg: 35, range: 5.0, aspd: 2.0, color: CFG.colors.ice, name: "Băng Thần", lv3Desc: "Bão Tuyết: Nổ rộng gấp đôi, gần như đóng băng địch." },
-    priest:  { icon: '🕊️', type: 'support', cost: 150, hp: 250, dmg: 30, range: 2.5, aspd: 2.0, color: CFG.colors.support, name: "Thánh Sứ", lv3Desc: "Hào quang: Buff +15% Dmg & Tốc độ đánh cho lính kề bên." }
+    knight:  { icon: '🛡️', type: 'melee', cost: 60, hp: 700, dmg: 15, range: 1.2, aspd: 1.2, color: CFG.colors.melee, name: "Giáp Sĩ", lv3Desc: "Phản lại 30% sát thương." },
+    archer:  { icon: '🏹', type: 'linear', pSpeed: 760, cost: 80, hp: 150, dmg: 32, range: 13.0, aspd: 1.0, color: CFG.colors.ranged, name: "Xạ Thủ", lv3Desc: "Đạn Năng lượng xanh: Xuyên thấu mọi địch." },
+    gunner:  { icon: '💣', type: 'gunner', pSpeed: 600, cost: 130, hp: 200, dmg: 60, range: 6.5, aspd: 1.8, color: CFG.colors.gunner, name: "Pháo Thủ", lv3Desc: "Đạn Nổ Chùm: Nổ sát thương diện rộng khi chạm đích." },
+    poison:  { icon: '☠️', type: 'pulse', cost: 120, hp: 250, dmg: 10, range: 2.6, aspd: 1.5, color: CFG.colors.poison, name: "Tháp Độc", lv3Desc: "Tỏa Mộc Độc: Vòng độc rộng hơn và làm chậm địch." },
+    mage:    { icon: '⚡', type: 'laser', cost: 180, hp: 120, dmg: 40, range: 12.0, aspd: 1.6, color: CFG.colors.laser, name: "Thần Sét", lv3Desc: "Sét Tím: Nảy chuỗi sang 2 mục tiêu lân cận." },
+    ice:     { icon: '❄️', type: 'lob', pSpeed: 350, splash: 1.2, cost: 160, hp: 120, dmg: 35, range: 6.0, aspd: 2.0, color: CFG.colors.ice, name: "Băng Thần", lv3Desc: "Bão Tuyết: Nổ rộng gấp đôi, gần như đóng băng địch." },
+    priest:  { icon: '🕊️', type: 'support', cost: 150, hp: 250, dmg: 30, range: 3.0, aspd: 2.0, color: CFG.colors.support, name: "Thánh Sứ", lv3Desc: "Hào quang: Buff +15% Dmg & Tốc độ đánh cho lính kề bên." }
 };
 
 const ENEMIES_DB = [
@@ -565,11 +568,19 @@ const CharArt = {
         const tremble = low ? (Math.random()-0.5)*1.2 : 0;  // run khi thương nặng
         const recoil = hit*4;                                // giật lùi khi trúng đòn (lùi trái vì mặt hướng phải)
         const ranged = (cfg.style==='bow'||cfg.style==='launch'||cfg.style==='staff'||cfg.style==='wand'||cfg.style==='flask');
-        const lunge = cfg.style==='swing' ? p*5 : (cfg.style==='work' ? 0 : (ranged ? -p*3 : 0));
+        // ── CHUYỂN ĐỘNG TẤN CÔNG chi tiết theo kiểu vũ khí (lao/nhảy/chúi/giật) ──
+        const atk = Math.sin(p*Math.PI);                 // nhịp 0→1→0: vung ra rồi thu về
+        let lungeX=0, hopY=0, lean=0;
+        if (cfg.style==='swing'){ lungeX = p*7; hopY = -atk*3.5; lean = p*0.11; }       // KIẾM: lao tới + nhảy + chúi người
+        else if (cfg.style==='work'){ hopY = -atk*3; lean = p*0.09; }                    // CUỐC: nhún & chúi khi bổ
+        else if (cfg.style==='bow'){ lungeX = -p*3; lean = -p*0.06; }                    // CUNG: ngả nhẹ ra sau khi giương
+        else if (cfg.style==='launch'){ lungeX = -p*5.5; hopY = -atk*1.6; lean = -p*0.05; } // PHÁO: giật lùi mạnh & rung
+        else if (cfg.style==='flask'){ lungeX = -p*2; hopY = -atk*2; }                   // BÌNH ĐỘC: nhún khi tung
+        else if (ranged){ lungeX = -p*2.5; lean = -p*0.04; }                             // pháp sư: nhích & ngả nhẹ khi niệm
 
         ctx.save();
         ctx.scale(k, k);
-        ctx.translate(lunge - recoil + tremble, 0);
+        ctx.translate(lungeX - recoil + tremble, 0);
 
         // bóng đổ (co theo nhún)
         C.e(ctx, 0, 25, 19 - bob*0.4, 5, 'rgba(0,0,0,0.45)');
@@ -589,7 +600,8 @@ const CharArt = {
         }
 
         ctx.save();
-        ctx.translate(0, bob + recoil*0.3);
+        ctx.translate(0, bob + recoil*0.3 + hopY);
+        if (lean) ctx.rotate(lean);
 
         // đuôi (sau lưng, vẫy)
         C.limb(ctx, 13, 12, 22+tail*3, 4+tail*4, 6, C.col(fur));
@@ -699,17 +711,20 @@ const CharArt = {
         // tham số "lên đời" vũ khí: dài hơn & phát sáng dần theo cấp
         const ext = (lv-1)*3;                 // vũ khí dài thêm theo cấp
         const glow = lv>=3;                    // cấp 3: vũ khí phát quầng sáng evo
-        if (cfg.style==='swing'){                       // KIẾM — chém vòng cung
-            const a = -0.5 + idleAng - p*2.2;           // vung từ trên xuống
+        if (cfg.style==='swing'){                       // KIẾM — vung từ trên cao bổ xuống
+            const a = -1.0 + idleAng - p*2.9;           // giương cao hơn & chém sâu hơn
             const blade = glow ? evo : (lv===2 ? '#e2e8f0' : '#cbd5e1');
-            ctx.save(); ctx.translate(9,8); ctx.rotate(a);
+            ctx.save(); ctx.translate(9 + p*3, 8 - p*1.5); ctx.rotate(a);  // chồm tới khi chém
             C.limb(ctx,0,0,4,9,6,C.col(fur));           // tay
             if(glow){ ctx.save(); ctx.shadowColor=evo; ctx.shadowBlur=10; }
             C.limb(ctx,2,-2,2,-26-ext,3.5+ (lv-1)*0.5,C.col(blade)); // lưỡi (dài & dày dần)
             if(glow) ctx.restore();
             C.limb(ctx,-3,-2,7,-2,3,C.col(lv>=2?evo:'#94a3b8'));  // chắn (cấp 2+ nhuốm màu evo)
             ctx.restore();
-            if (p>0.5){ ctx.strokeStyle = glow?`rgba(${C.hex(evo).join(',')},${(p-0.5)*1.8})`:`rgba(255,255,255,${(p-0.5)*1.6})`; ctx.lineWidth=glow?4:3; ctx.beginPath(); ctx.arc(14,2,18+ext,-1.1,0.5); ctx.stroke(); }
+            // vệt chém: 1 vệt sáng đậm + 1 vệt mờ rộng phía sau (cảm giác lưỡi rít qua không khí)
+            if (p>0.35){ const sw=glow?evo:'#ffffff';
+                ctx.strokeStyle=`rgba(${C.hex(sw).join(',')},${(p-0.35)*1.4})`; ctx.lineWidth=glow?4:3; ctx.beginPath(); ctx.arc(14,2,18+ext,-1.3,0.6); ctx.stroke();
+                ctx.strokeStyle=`rgba(${C.hex(sw).join(',')},${(p-0.35)*0.5})`; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(14,2,24+ext,-1.1,0.4); ctx.stroke(); }
         } else if (cfg.style==='bow'){                  // CUNG — kéo & bắn
             const pull = p*4;
             C.limb(ctx,9,9,13-pull,6,5,C.col(fur));
@@ -724,12 +739,12 @@ const CharArt = {
             ctx.restore();
             C.limb(ctx,-2,9,8,8,5,C.col(fur));
             if (p>0.6){ C.e(ctx,16,-9,5+ (p-0.6)*18,5, glow?`rgba(${C.hex(evo).join(',')},0.55)`:'rgba(148,163,184,0.5)'); }  // khói nòng
-        } else if (cfg.style==='staff'){                // GẬY SẤM
-            ctx.save(); ctx.translate(10,8); ctx.rotate(-0.2 - p*0.5);
+        } else if (cfg.style==='staff'){                // GẬY SẤM — vung gậy đập sét
+            ctx.save(); ctx.translate(10 + p*4, 8 - p*3); ctx.rotate(-0.2 - p*0.7);
             C.limb(ctx,0,2,0,-22-ext,3,C.col(lv>=3?'#5b3a8a':'#7c5b3a'));
             ctx.restore(); C.limb(ctx,-2,9,9,8,5,C.col(fur));
-        } else if (cfg.style==='wand'){                 // ĐŨA BĂNG — vẩy lên
-            ctx.save(); ctx.translate(9,7); ctx.rotate(-0.6 - p*1.0);
+        } else if (cfg.style==='wand'){                 // ĐŨA BĂNG — vẩy chĩa tới
+            ctx.save(); ctx.translate(9 + p*4, 7 - p*2); ctx.rotate(-0.6 - p*1.1);
             C.limb(ctx,0,2,0,-15-ext,2.5,C.col('#cbd5e1')); ctx.restore();
             C.limb(ctx,-2,9,8,7,5,C.col(fur));
         } else if (cfg.style==='flask'){                // BÌNH ĐỘC — nâng
@@ -737,8 +752,8 @@ const CharArt = {
             C.limb(ctx,-11,3,0,2,5,C.col(fur));
             ctx.fillStyle=C.col('#cbd5e1'); ctx.beginPath(); ctx.moveTo(-3,-2-ext*0.4); ctx.lineTo(3,-2-ext*0.4); ctx.lineTo(5,6); ctx.lineTo(-5,6); ctx.closePath(); ctx.fill();
             C.e(ctx,0,4,4+(lv-1)*0.6,3,C.col(lv>=3?evo:acc)); ctx.restore();
-        } else if (cfg.style==='bless'){                // GẬY THÁNH
-            ctx.save(); ctx.translate(10,8); ctx.rotate(-0.15+Math.sin(t/400+ph)*0.05);
+        } else if (cfg.style==='bless'){                // GẬY THÁNH — nâng cao khi ban phúc
+            ctx.save(); ctx.translate(10, 8 - p*3); ctx.rotate(-0.15+Math.sin(t/400+ph)*0.05 - p*0.2);
             C.limb(ctx,0,2,0,-20-ext,3,C.col('#e2c08a'));
             if(glow){ctx.save();ctx.shadowColor=evo;ctx.shadowBlur=8;} C.star(ctx,0,-22-ext,3.5+(lv-1)*0.5,C.col(lv>=3?evo:acc)); if(glow)ctx.restore();
             ctx.restore();
@@ -1781,7 +1796,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============ PHIÊN BẢN & TỰ CẬP NHẬT ============
-const GAME_VERSION = '1.4.0';
+const GAME_VERSION = '1.5.0';
 let _updChecking = false;
 
 function setVerLabels() {

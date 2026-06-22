@@ -63,14 +63,35 @@ Quân có **3 cấp** (level 1→3, nâng ở modal khi chạm vào quân). Trư
 > (xuyên thấu, nổ chùm, sét chuỗi, đóng băng, lan độc, phản đòn, đào x2 vàng, hào quang buff).
 > Phần vừa làm chủ yếu là **biến đổi HÌNH DẠNG + hiệu ứng hình ảnh** cho khớp với cấp.
 
+### c) Cử động tấn công chi tiết + vùng tấn công theo đặc tính (XONG 2026-06-22)
+**Cử động tấn công** (trong `CharArt.drawUnit` + `drawWeapon`): mỗi kiểu vũ khí có chuyển động riêng
+ngoài việc vung vũ khí — lao tới/nhảy/chúi người (kiếm), nhún (cuốc), ngả ra sau (cung), giật lùi & rung
+(pháo), thọc gậy lên-tới (pháp sư). Kiếm có **vệt chém kép** (1 đậm + 1 mờ). Biến `atk = sin(p·π)`,
+`lungeX`/`hopY`/`lean` điều khiển thân; vũ khí dùng `p` (tiến trình đòn).
+
+**Vùng tấn công** (sửa `range` trong `UNITS_DB`, lưới rộng 11 cột) — chia tầng rõ ràng:
+| Quân | Vai trò | range (ô) | Phạm vi |
+|------|---------|-----------|---------|
+| Giáp Sĩ | Cận chiến (tank) | 1.2 | ô kề trước |
+| Tháp Độc | Quầng độc quanh mình | 2.6 | mọi hàng trong bán kính |
+| Thánh Sứ | Hỗ trợ/hồi máu | 3.0 | đồng minh quanh mình |
+| Băng Thần | Tầm trung (đạn vòng) | 6.0 | theo hàng |
+| Pháo Thủ | Tầm trung-xa (nổ) | 6.5 | theo hàng |
+| Thần Sét | **Toàn bản đồ, MỌI hàng** | 12 | bất kỳ địch nào (pháp sư) |
+| Xạ Thủ | **Toàn hàng ngang map** | 13 | sniper theo hàng |
+> Đạn (Xạ Thủ/Pháo/Băng) chỉ bắn **cùng hàng**; Thần Sét (laser) bắn **mọi hàng**; Tháp Độc là
+> vòng tròn quanh mình. Vòng tầm đánh hiện ra khi chạm chọn quân.
+
 ## 5. PHIÊN BẢN / CACHE (nhớ bump khi sửa)
 Khi sửa code muốn người chơi nhận bản mới, **đổi 3 chỗ**:
 1. `sw.js` → `const CACHE = 'kntt-vXX-...'` (tăng số).
 2. `index.html` → `const GAME_VERSION = 'X.Y.Z'`.
 3. `version.json` → cùng version + ghi `notes`.
-- Hiện tại: **CACHE `kntt-v21-hero`**, **GAME_VERSION `1.4.0`**.
+- Hiện tại: **CACHE `kntt-v22-range`**, **GAME_VERSION `1.5.0`**.
 
 ## 6. 📋 VIỆC NÊN LÀM TIẾP (TODO)
+- [ ] Playtest cân bằng sau khi đổi tầm đánh (Xạ Thủ/Thần Sét giờ bắn rất xa — xem có quá mạnh không).
+- [ ] Có thể hiện nhãn "tầm đánh" ngay trong cửa hàng để người chơi biết trước khi mua.
 - [ ] Playtest phần biến đổi tướng theo cấp trên mobile thật (cân chỉnh kích thước vương miện/giáp cho dễ nhìn).
 - [ ] Có thể thêm thay đổi **cách tấn công cảm nhận được ở cấp 2** (hiện gameplay chỉ đổi mạnh ở cấp 3).
 - [ ] Cân nhắc hiệu ứng "vụ nổ ánh sáng" khi quân lên cấp (hiện chỉ có chữ + hạt vàng).
