@@ -18,21 +18,52 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Oswald:wght@500;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #030712; --panel: #0f172a; --bord: #1e293b;
-            --sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px);
-            --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px);
+            --sl: env(safe-area-inset-left, 0px);  --sr: env(safe-area-inset-right, 0px);
+            --st: env(safe-area-inset-top, 0px);   --sb: env(safe-area-inset-bottom, 0px);
+            /* Bề mặt (xanh than tối) */
+            --bg: #060a14; --bg-2: #0a1120; --panel: #0f1a30; --panel-2: #13203a; --elev: #1b2a47;
+            --line: #25324c; --line-2: #34456c;
+            --ink: #eaf1ff; --dim: #9fb0ce; --mut: #61708e;
+            --pri: #38bdf8; --pri-2: #2563eb; --gold: #fbbf24; --green: #34d399; --red: #f87171; --indigo: #818cf8;
+            --r-sm: 9px; --r: 13px; --r-lg: 18px; --r-pill: 999px;
+            --sh: 0 6px 18px rgba(0,0,0,.45); --sh-lg: 0 18px 44px rgba(0,0,0,.7); --glow: 0 0 18px rgba(56,189,248,.45);
+            --f-disp: 'Oswald', sans-serif; --f-body: 'Nunito', sans-serif;
         }
-        html { width: 100%; height: 100%; background: #05070d; }
+        *, *::before, *::after { box-sizing: border-box; }
+        html { width: 100%; height: 100%; background: var(--bg); }
         body {
             margin: 0; padding: 0; position: fixed; inset: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle at center, #0b1220 0%, #05070d 75%); color: #f8fafc; font-family: 'Nunito', sans-serif;
+            background: radial-gradient(circle at 50% 40%, #0b1426 0%, #05070d 80%); color: var(--ink); font-family: var(--f-body);
             overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: none;
-            overscroll-behavior: none; -webkit-tap-highlight-color: transparent;
+            overscroll-behavior: none; -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased;
         }
-        .tf { font-family: 'Oswald', sans-serif; }
-        /* Dấu thanh tiếng Việt nằm cao hơn chữ hoa — Oswald in hoa bị cắt dấu nếu line-height = 1 (Tailwind text-*xl). */
-        h1.tf, h2.tf, h3.tf, h4.tf { line-height: 1.3; }
-        #w-stat, #call { line-height: 1.3; }
+        ::-webkit-scrollbar { width: 0; height: 0; display: none; }
+        h1, h2, h3, h4, p { margin: 0; }
+        .hidden { display: none !important; }
+
+        /* ===== Chữ ===== */
+        .tf { font-family: var(--f-disp); }
+        /* Dấu thanh tiếng Việt cao hơn chữ hoa -> luôn chừa headroom, không bị cắt */
+        .tf, .title { line-height: 1.3; }
+        .title { font-family: var(--f-disp); font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: var(--ink); }
+        .title--grad { background: linear-gradient(90deg, #5eead4, #60a5fa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .title--gold { color: var(--gold); } .title--pri { color: var(--pri); } .title--indigo { color: var(--indigo); }
+        .sub { color: var(--dim); } .muted { color: var(--mut); }
+
+        /* ===== Nút (đồng nhất) ===== */
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: .4em; font-family: var(--f-disp); font-weight: 900; text-transform: uppercase; letter-spacing: .06em; line-height: 1.3; color: #fff; border: 1px solid transparent; border-radius: var(--r); padding: .7em 1.1em; cursor: pointer; transition: transform .1s, filter .15s; box-shadow: var(--sh); }
+        .btn:active { transform: scale(.96); }
+        .btn--block { width: 100%; }
+        .btn--pri { background: linear-gradient(135deg, #0ea5e9, #2563eb); border-color: #38bdf8; box-shadow: var(--glow); }
+        .btn--indigo { background: linear-gradient(135deg, #6366f1, #4338ca); border-color: #818cf8; }
+        .btn--green { background: linear-gradient(135deg, #22c55e, #15803d); border-color: #4ade80; }
+        .btn--danger { background: linear-gradient(135deg, #ef4444, #b91c1c); border-color: #fca5a5; }
+        .btn--ghost { background: var(--elev); border-color: var(--line-2); color: var(--ink); box-shadow: none; }
+        .ibtn { width: 36px; height: 36px; flex: 0 0 auto; border-radius: var(--r-sm); background: rgba(10,17,32,.85); border: 1px solid var(--line-2); color: var(--ink); font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: var(--sh); transition: transform .1s, border-color .15s, color .15s; }
+        .ibtn:active { transform: scale(.9); }
+        .ibtn.on { border-color: var(--pri); color: var(--pri); }
+        .panel { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--sh); }
+        .chip { display: inline-flex; align-items: center; gap: .35em; font-size: 13px; font-weight: 800; background: linear-gradient(180deg, rgba(27,42,71,.92), rgba(15,26,48,.96)); border: 1px solid var(--line-2); border-radius: var(--r-pill); padding: .25em .7em; box-shadow: var(--sh); }
 
         /* dùng 100% (body đã fixed inset:0) + dvh fallback để full màn hình trên di động */
         /* ===== KHUNG GAME: #screen = vùng an toàn, #stage = khung thiết kế cố định scale vừa khít ===== */
@@ -52,109 +83,112 @@
         }
 
         #side {
-            width: 84px; height: 100%; background: var(--panel); border-right: 2px solid var(--bord);
-            display: flex; flex-direction: column; z-index: 10; box-sizing: border-box; box-shadow: 2px 0 20px rgba(0,0,0,0.9);
+            width: 88px; flex: 0 0 auto; height: 100%; z-index: 10; box-sizing: border-box;
+            background: linear-gradient(180deg, var(--panel-2), var(--panel)); border-right: 1px solid var(--line);
+            display: flex; flex-direction: column; box-shadow: 4px 0 24px rgba(0,0,0,.55);
         }
+        #side-head { height: 32px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--line); background: var(--bg-2); }
+        #shop { flex: 1; overflow-y: auto; padding: 6px 0; }
+        #side-foot { border-top: 1px solid var(--line); padding: 8px; background: var(--bg-2); position: relative; }
 
-        #main { flex: 1; display: flex; flex-direction: column; position: relative; height: 100%; box-sizing: border-box; min-width: 0; }
+        #main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; height: 100%; box-sizing: border-box; background: var(--bg); }
+        #w-bar-track { position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: var(--bg-2); z-index: 10; }
+        #w-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--pri), var(--pri-2)); box-shadow: 0 0 8px var(--pri); transition: width .3s linear; }
 
         #hud {
-            height: 50px; background: rgba(3, 7, 18, 0.95); border-bottom: 2px solid var(--bord);
-            display: flex; align-items: center; justify-content: space-between; padding: 0 12px; z-index: 5; box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            height: 52px; flex: 0 0 auto; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 0 14px;
+            background: linear-gradient(180deg, rgba(8,13,24,.97), rgba(8,13,24,.9)); border-bottom: 1px solid var(--line); box-shadow: 0 6px 18px rgba(0,0,0,.5);
         }
+        .hud-side { display: flex; align-items: center; gap: 8px; flex: 1 1 0; min-width: 0; }
+        .hud-end { justify-content: flex-end; }
+        .hud-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 0 0 auto; text-align: center; padding: 0 6px; }
+        .hud-label { font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); line-height: 1.35; white-space: nowrap; }
+        #xp-track { width: 96px; height: 6px; border-radius: var(--r-pill); background: var(--bg-2); border: 1px solid var(--line-2); overflow: hidden; }
+        #ui-xp { height: 100%; width: 0%; background: linear-gradient(90deg, var(--green), #10b981); transition: width .3s; }
 
         #canv-cont { flex: 1; position: relative; overflow: hidden; transition: background 1s; }
         canvas { display: block; width: 100%; height: 100%; }
 
-        .s-btn {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 4px 2px; margin: 3px 6px; background: #020617; border: 2px solid #1e293b; border-radius: 8px;
-            cursor: pointer; transition: all 0.15s; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.5);
-        }
-        .s-btn:active { transform: scale(0.95); }
-        .s-btn.sel { border-color: #3b82f6; background: #1e3a8a; transform: scale(1.05); box-shadow: 0 0 12px rgba(59,130,246,0.8); }
-        .s-btn.lck { filter: grayscale(100%) opacity(40%); cursor: not-allowed; box-shadow: none; }
-        .s-btn .lim {
-            position: absolute; top: -5px; right: -5px; background: #ef4444; font-size: 8px;
-            font-weight: bold; padding: 2px 4px; border-radius: 4px; border: 1px solid #7f1d1d; display: none;
-        }
+        .s-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 2px; margin: 5px 7px; border-radius: var(--r-sm); background: linear-gradient(180deg, #0c1424, #070d18); border: 1.5px solid var(--line); cursor: pointer; position: relative; box-shadow: var(--sh); transition: transform .12s, border-color .15s, box-shadow .15s; }
+        .s-btn:active { transform: scale(.95); }
+        .s-btn.sel { border-color: var(--pri); background: linear-gradient(180deg, #13294b, #0c1c38); box-shadow: var(--glow); transform: scale(1.04); }
+        .s-btn.lck { filter: grayscale(100%) opacity(.4); cursor: not-allowed; box-shadow: none; }
+        .s-btn .lim { position: absolute; top: -6px; right: -4px; background: var(--red); color: #fff; font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: var(--r-pill); border: 1px solid #7f1d1d; display: none; }
 
-        .badge {
-            background: linear-gradient(180deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.9) 100%);
-            border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 2px 8px;
-            display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-        }
-
-        #call {
-            background: linear-gradient(to bottom, #22c55e, #16a34a); border: 1px solid #4ade80;
-            padding: 2px 10px; border-radius: 6px; font-weight: 900; color: white; cursor: pointer;
-            box-shadow: 0 0 10px rgba(34,197,94,0.4); display: none; transition: transform 0.1s;
-        }
-        #call:active { transform: scale(0.95); }
+        #call { display: none; font-family: var(--f-disp); font-weight: 900; font-size: 10px; line-height: 1.4; color: #fff; cursor: pointer; padding: 3px 9px; border-radius: var(--r-pill); background: linear-gradient(180deg, #22c55e, #15803d); border: 1px solid #4ade80; box-shadow: 0 0 10px rgba(34,197,94,.4); }
+        #call:active { transform: scale(.95); }
 
         #umod {
-            background: rgba(15,23,42,0.97); border: 1px solid #475569; backdrop-filter: blur(5px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.9); border-radius: 12px;
-            left: 50%; transform: translateX(-50%); bottom: 10px;
+            background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line-2); backdrop-filter: blur(6px);
+            box-shadow: var(--sh-lg); border-radius: var(--r); left: 50%; transform: translateX(-50%); bottom: 12px;
         }
 
         #ult {
-            position: absolute; bottom: 14px; right: 14px; width: 56px; height: 56px; border-radius: 50%;
-            background: radial-gradient(circle, #ef4444 0%, #991b1b 100%); border: 2px solid #fca5a5;
-            box-shadow: 0 0 15px rgba(239,68,68,0.5); display: flex; flex-direction: column;
-            align-items: center; justify-content: center; z-index: 20; cursor: pointer; transition: transform 0.1s;
+            position: absolute; bottom: 14px; right: 14px; width: 58px; height: 58px; border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, #fca5a5, #ef4444 45%, #991b1b); border: 2px solid #fecaca;
+            box-shadow: 0 0 18px rgba(239,68,68,.55); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 20; cursor: pointer; transition: transform .1s;
         }
-        #ult:active:not(.cd) { transform: scale(0.9); }
+        #ult:active:not(.cd) { transform: scale(.9); }
         #ult.cd { filter: grayscale(100%); pointer-events: none; border-color: #64748b; }
-        .ult-msk { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.7); transition: height 0.1s linear; border-radius: 50%; }
+        .ult-msk { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,.7); transition: height .1s linear; border-radius: 50%; }
 
-        /* Floating control cluster (pause / speed / sound / fullscreen) */
-        #ctrls { position: absolute; top: 8px; right: 8px; z-index: 22; display: flex; flex-direction: column; gap: 6px; }
-        .c-btn {
-            width: 34px; height: 34px; border-radius: 9px; background: rgba(2,6,23,0.85);
-            border: 1px solid #334155; color: #e2e8f0; font-size: 15px; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.6); transition: transform 0.1s, border-color 0.15s;
-        }
-        .c-btn:active { transform: scale(0.9); }
-        .c-btn.on { border-color: #3b82f6; color: #93c5fd; }
+        /* Cụm điều khiển nổi (xếp dọc góc phải) */
+        #ctrls { position: absolute; top: 8px; right: 8px; z-index: 22; display: flex; flex-direction: column; gap: 7px; }
 
-        .m-card { cursor: pointer; transition: transform 0.2s; border: 2px solid transparent; position: relative; }
-        .m-card:hover { transform: scale(1.05); }
-        .m-card.sel { border-color: #3b82f6; box-shadow: 0 0 20px rgba(59,130,246,0.6); }
-        .m-best { font-size: 9px; margin-top: 3px; color: #fcd34d; font-weight: 700; }
+        /* Card chiến dịch (menu) */
+        .m-card { cursor: pointer; position: relative; padding: 14px 8px; text-align: center; border-radius: var(--r); border: 1.5px solid var(--line); background: var(--bg-2); transition: transform .15s, border-color .15s, box-shadow .15s; }
+        .m-card:active { transform: scale(.97); }
+        .m-card.sel { border-color: var(--pri); box-shadow: var(--glow); }
+        .m-ic { font-size: 28px; margin-bottom: 6px; }
+        .m-nm { font-weight: 800; font-size: 14px; color: var(--mc, #fff); }
+        .m-best { font-size: 9px; margin-top: 3px; color: var(--gold); font-weight: 800; }
 
-        #w-bar { height: 100%; background: #3b82f6; width: 0%; transition: width 0.3s linear; box-shadow: 0 0 8px #3b82f6; }
-        ::-webkit-scrollbar { display: none; }
-
-        /* Pause / overlay panels */
-        .overlay { position: absolute; inset: 0; z-index: 60; background: rgba(2,6,23,0.85); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 16px; }
+        /* ===== Lớp phủ / modal (đồng nhất) — absolute để scale theo #stage ===== */
+        .overlay { position: absolute; inset: 0; z-index: 60; background: rgba(4,8,18,.85); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; padding: 14px; }
         .overlay.show { display: flex; }
-        .ov-card { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 20px; width: 100%; max-width: 360px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
-        .ov-btn { width: 100%; padding: 12px; border-radius: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; transition: transform 0.1s; }
-        .ov-btn:active { transform: scale(0.97); }
-        .toggle { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #020617; border: 1px solid #1e293b; border-radius: 10px; margin-bottom: 8px; }
-        .sw { width: 46px; height: 26px; border-radius: 14px; background: #334155; position: relative; transition: background 0.2s; cursor: pointer; flex-shrink: 0; }
-        .sw.on { background: #22c55e; }
-        .sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
+        .ov-card { width: 100%; max-width: 360px; padding: 20px; border-radius: var(--r-lg); background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line-2); box-shadow: var(--sh-lg); }
+        .ov-btn { width: 100%; padding: 12px; border-radius: var(--r); font-family: var(--f-disp); font-weight: 900; text-transform: uppercase; letter-spacing: .08em; line-height: 1.3; color: #fff; cursor: pointer; border: 1px solid transparent; transition: transform .1s; }
+        .ov-btn:active { transform: scale(.97); }
+        .toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; border-radius: var(--r); background: var(--bg-2); border: 1px solid var(--line); margin-bottom: 9px; }
+        .sw { width: 46px; height: 26px; border-radius: var(--r-pill); background: var(--line-2); position: relative; transition: background .2s; cursor: pointer; flex-shrink: 0; }
+        .sw.on { background: var(--green); }
+        .sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .2s; }
         .sw.on::after { transform: translateX(20px); }
+        .t-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r); background: var(--bg-2); border: 1px solid var(--line); }
 
-        @keyframes floatIn { from { opacity: 0; transform: translateY(10px) scale(0.96); } to { opacity: 1; transform: none; } }
-        .pop { animation: floatIn 0.25s ease-out; }
+        @keyframes floatIn { from { opacity: 0; transform: translateY(12px) scale(.96); } to { opacity: 1; transform: none; } }
+        .pop { animation: floatIn .25s ease-out; }
+        @keyframes pulse2 { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+        .blink { animation: pulse2 1.2s infinite; }
 
-        /* Thanh thông báo cập nhật (ngoài khung, luôn nổi trên cùng) */
+        /* Thanh thông báo cập nhật (ngoài khung, nổi trên cùng) */
         #updbar {
             position: fixed; top: calc(8px + var(--st)); left: 50%; transform: translateX(-50%); z-index: 10000;
-            display: none; align-items: center; gap: 10px; padding: 8px 12px;
-            background: linear-gradient(180deg, #1e293b, #0f172a); border: 1px solid #3b82f6; border-radius: 10px;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.7); font-size: 13px; font-weight: 700; color: #e2e8f0; max-width: 92vw;
+            display: none; align-items: center; gap: 10px; padding: 8px 12px; max-width: 92vw;
+            background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--pri); border-radius: var(--r);
+            box-shadow: var(--sh-lg); font-size: 13px; font-weight: 700; color: var(--ink);
         }
         #updbar.show { display: flex; }
-        #updbar button { background: linear-gradient(180deg,#3b82f6,#2563eb); color:#fff; border:none; border-radius:7px; padding:5px 12px; font-weight:900; }
-        #updbar .x { color:#94a3b8; padding:0 4px; }
+        #updbar button { background: linear-gradient(180deg, var(--pri), var(--pri-2)); color: #fff; border: none; border-radius: 8px; padding: 5px 12px; font-weight: 900; cursor: pointer; }
+        #updbar .x { color: var(--dim); padding: 0 4px; cursor: pointer; }
 
-        /* Menu nằm trong khung -> chỉ cần padding cố định, không lo bị cắt */
-        #start { padding: 10px; align-items: safe center; }
-        #tmod { padding: 8px; align-items: safe center; }
+        /* ===== Màn hình bắt đầu (absolute trong #stage) ===== */
+        #start { position: absolute; inset: 0; z-index: 100; background: linear-gradient(180deg, #070d1b, #04070f); align-items: center; justify-content: center; overflow-y: auto; padding: 12px; }
+        #start:not(.hidden) { display: flex; }
+        #s-card { width: 100%; max-width: 860px; margin: auto; overflow: hidden; }
+        .s-hero { padding: 14px 18px; text-align: center; background: linear-gradient(180deg, #0b1426, #0a1120); border-bottom: 1px solid var(--line); }
+        .s-hero-title { font-size: clamp(24px, 5vw, 42px); }
+        .s-hero-sub { font-size: clamp(10px, 2.2vw, 13px); margin-top: 5px; }
+        .s-body { display: flex; gap: 14px; padding: 16px; }
+        .s-col-main { flex: 1; min-width: 0; }
+        .s-col-side { width: 36%; min-width: 190px; padding: 16px; display: flex; flex-direction: column; gap: 10px; justify-content: center; align-items: stretch; }
+        .s-sec-title { font-size: 17px; letter-spacing: .14em; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 12px; }
+        .s-maps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .s-actions { display: flex; gap: 10px; margin-top: 14px; }
+
+        #tmod { position: absolute; inset: 0; z-index: 65; background: rgba(4,8,18,.9); backdrop-filter: blur(5px); align-items: center; justify-content: center; padding: 10px; }
+        #tmod:not(.hidden) { display: flex; }
     </style>
 </head>
 <body>
@@ -177,38 +211,34 @@
 <div id="screen"><div id="stage">
 
 <!-- Start screen -->
-<div id="start" class="absolute inset-0 bg-slate-900/95 z-[100] flex flex-col items-center justify-start p-4 overflow-y-auto">
-    <div class="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden my-auto" id="s-card">
-        <div class="p-3 sm:p-4 text-center bg-slate-900 border-b border-slate-700 relative overflow-hidden">
-            <h1 class="tf text-2xl sm:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-500 drop-shadow-md uppercase font-black relative z-10">
-                KỶ NGUYÊN THỦ THÀNH
-            </h1>
-            <p class="text-slate-400 text-xs sm:text-sm mt-1 relative z-10">Pháo thủ đạn nổ · Tháp độc · Giáp sĩ chắn đòn · Thần Sét gọi sấm. Chặn đứng mọi đợt tấn công!</p>
+<div id="start">
+    <div id="s-card" class="panel">
+        <div class="s-hero">
+            <h1 class="title title--grad s-hero-title">KỶ NGUYÊN THỦ THÀNH</h1>
+            <p class="sub s-hero-sub">Pháo thủ đạn nổ · Tháp độc · Giáp sĩ chắn đòn · Thần Sét gọi sấm. Chặn đứng mọi đợt tấn công!</p>
         </div>
-        <div class="p-6 flex flex-col sm:flex-row gap-4 flex-1">
-            <div class="flex-1">
-                <h3 class="tf text-xl text-yellow-400 mb-3 uppercase tracking-widest border-b border-slate-700 pb-2">Chọn Chiến Dịch</h3>
-                <div class="grid grid-cols-3 gap-3" id="maps">
-                    <div class="m-card bg-green-900/40 rounded-lg p-3 text-center sel" data-m="0"><div class="text-3xl mb-1">🌲</div><div class="font-bold text-sm text-green-300">Rừng Mưa</div><div class="m-best" id="best-0"></div></div>
-                    <div class="m-card bg-orange-900/40 rounded-lg p-3 text-center" data-m="1"><div class="text-3xl mb-1">🌋</div><div class="font-bold text-sm text-orange-300">Núi Lửa</div><div class="m-best" id="best-1"></div></div>
-                    <div class="m-card bg-purple-900/40 rounded-lg p-3 text-center" data-m="2"><div class="text-3xl mb-1">🪦</div><div class="font-bold text-sm text-purple-300">Hầm Ngục</div><div class="m-best" id="best-2"></div></div>
+        <div class="s-body">
+            <div class="s-col-main">
+                <h3 class="title title--gold s-sec-title">Chọn Chiến Dịch</h3>
+                <div class="s-maps" id="maps">
+                    <div class="m-card sel" data-m="0" style="--mc:#6ee7b7"><div class="m-ic">🌲</div><div class="m-nm">Rừng Mưa</div><div class="m-best" id="best-0"></div></div>
+                    <div class="m-card" data-m="1" style="--mc:#fdba74"><div class="m-ic">🌋</div><div class="m-nm">Núi Lửa</div><div class="m-best" id="best-1"></div></div>
+                    <div class="m-card" data-m="2" style="--mc:#c4b5fd"><div class="m-ic">🪦</div><div class="m-nm">Hầm Ngục</div><div class="m-best" id="best-2"></div></div>
                 </div>
-                <div class="mt-4 flex gap-2">
-                    <button id="b-tal-2" class="flex-1 bg-gradient-to-b from-indigo-500 to-indigo-700 py-2.5 rounded-lg font-black tf text-sm tracking-widest border border-indigo-400 text-white active:scale-95 transition">⚙️ NỘI TẠI <span id="tp-d2" class="text-yellow-300"></span></button>
-                    <button id="b-set" class="w-12 bg-slate-700 rounded-lg border border-slate-600 text-lg active:scale-95 transition">🔊</button>
+                <div class="s-actions">
+                    <button id="b-tal-2" class="btn btn--indigo" style="flex:1">⚙️ Nội Tại <span id="tp-d2" style="color:var(--gold)"></span></button>
+                    <button id="b-set" class="ibtn" style="width:46px;height:auto;align-self:stretch;font-size:18px">🔊</button>
                 </div>
             </div>
-            <div class="w-full sm:w-1/3 bg-slate-900 rounded-xl p-4 flex flex-col justify-center items-center border border-slate-700 gap-3">
-                <div id="g-stat" class="hidden text-center">
-                    <div class="text-xs text-red-400 uppercase font-bold mb-1">Phòng tuyến sụp đổ ở</div>
-                    <div class="tf text-4xl font-black text-red-500 leading-none">ĐỢT <span id="g-wav">1</span></div>
+            <div class="s-col-side panel">
+                <div id="g-stat" class="hidden" style="text-align:center">
+                    <div class="title" style="font-size:11px;color:var(--red);letter-spacing:.1em;margin-bottom:4px">Phòng tuyến sụp đổ ở</div>
+                    <div class="tf" style="font-size:32px;font-weight:900;color:var(--red)">ĐỢT <span id="g-wav">1</span></div>
                 </div>
-                <button id="b-start" class="w-full bg-gradient-to-br from-teal-600 to-blue-700 hover:from-teal-500 text-white py-4 rounded-xl font-black tf text-2xl uppercase tracking-widest shadow-[0_0_20px_rgba(45,212,191,0.4)] active:scale-95 border border-teal-400 transition-all">
-                    XUẤT QUÂN
-                </button>
-                <button id="b-install" class="hidden w-full bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl font-bold text-sm border border-slate-500 active:scale-95 transition">📥 Cài đặt vào màn hình chính</button>
-                <p class="text-[10px] text-slate-500 text-center leading-tight">Mẹo: Nâng <b class="text-indigo-300">Nội Tại</b> để mạnh hơn ở lần chơi sau — tiến trình được lưu tự động.</p>
-                <button id="b-update-2" class="text-[11px] text-slate-400 underline decoration-dotted active:text-white">🔄 Phiên bản <span id="ver-num-2">—</span> · Kiểm tra cập nhật</button>
+                <button id="b-start" class="btn btn--pri btn--block" style="font-size:21px;padding:15px">XUẤT QUÂN</button>
+                <button id="b-install" class="btn btn--ghost btn--block hidden" style="font-size:12px">📥 Cài đặt vào màn hình chính</button>
+                <p class="muted" style="font-size:10px;text-align:center;line-height:1.5">Mẹo: Nâng <b style="color:var(--indigo)">Nội Tại</b> để mạnh hơn ở lần chơi sau — tiến trình lưu tự động.</p>
+                <button id="b-update-2" class="muted" style="font-size:11px;background:none;border:none;text-decoration:underline dotted;cursor:pointer">🔄 Phiên bản <span id="ver-num-2">—</span> · Kiểm tra cập nhật</button>
             </div>
         </div>
     </div>
@@ -216,33 +246,33 @@
 
 <div id="wrap">
     <div id="side">
-        <div class="h-8 flex items-center justify-center border-b border-slate-700 bg-slate-900 font-black tf text-sm text-slate-300 tracking-widest">QUÂN</div>
-        <div id="shop" class="flex-1 overflow-y-auto py-1"></div>
-        <div class="border-t border-slate-700 p-2 bg-slate-900 relative">
-            <button id="b-tal" class="w-full bg-gradient-to-b from-indigo-500 to-indigo-700 py-2 rounded font-black tf text-[10px] tracking-widest border border-indigo-400 text-white">NỘI TẠI</button>
-            <span id="tp-bdg" class="hidden absolute top-0 right-0 bg-red-500 text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full border border-slate-900 animate-bounce">1</span>
+        <div id="side-head"><span class="tf" style="font-weight:900;font-size:13px;letter-spacing:.18em;color:var(--dim)">QUÂN</span></div>
+        <div id="shop"></div>
+        <div id="side-foot">
+            <button id="b-tal" class="btn btn--indigo btn--block" style="font-size:10px;letter-spacing:.08em;padding:8px 4px">Nội Tại</button>
+            <span id="tp-bdg" class="hidden blink" style="position:absolute;top:2px;right:4px;width:17px;height:17px;border-radius:50%;background:var(--red);border:1px solid var(--bg);color:#fff;font-size:9px;font-weight:900;align-items:center;justify-content:center;display:flex">1</span>
         </div>
     </div>
 
     <div id="main">
-        <div class="w-full h-1 bg-slate-800 absolute top-0 left-0 z-10"><div id="w-bar"></div></div>
+        <div id="w-bar-track"><div id="w-bar"></div></div>
 
         <div id="hud">
-            <div class="flex gap-2 sm:gap-3 w-1/3">
-                <div class="badge text-red-400 text-xs sm:text-sm">❤️ <span class="font-black tf" id="ui-hp">100</span></div>
-                <div class="badge text-yellow-400 text-xs sm:text-sm relative" id="ui-g-c">🪙 <span class="font-black tf" id="ui-g">250</span></div>
+            <div class="hud-side">
+                <div class="chip" style="color:var(--red)">❤️ <span class="tf" id="ui-hp" style="font-weight:800">100</span></div>
+                <div class="chip" style="color:var(--gold)" id="ui-g-c">🪙 <span class="tf" id="ui-g" style="font-weight:800">250</span></div>
             </div>
-            <div class="flex flex-col items-center justify-center w-1/3 text-center pt-1">
-                <div class="flex items-center gap-2">
-                    <span class="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-[0.1em]" id="w-stat">ĐỢT TẤN CÔNG</span>
-                    <button id="call" class="tf text-[10px]">⏩ GỌI SỚM</button>
+            <div class="hud-mid">
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span class="hud-label" id="w-stat">ĐỢT TẤN CÔNG</span>
+                    <button id="call">⏩ Gọi Sớm</button>
                 </div>
-                <div class="tf font-black text-2xl sm:text-3xl text-white drop-shadow-md leading-none" id="ui-w">1</div>
+                <div class="tf" id="ui-w" style="font-weight:900;font-size:24px;line-height:1.1;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.6)">1</div>
             </div>
-            <div class="flex flex-col items-end justify-center w-1/3">
-                <div class="text-[9px] sm:text-[10px] text-green-400 font-black tf tracking-widest">CẤP <span id="ui-lv" class="text-white">1</span></div>
-                <div class="w-20 sm:w-28 h-1.5 bg-slate-900 rounded-full mt-0.5 overflow-hidden border border-slate-600">
-                    <div id="ui-xp" class="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all" style="width: 0%;"></div>
+            <div class="hud-side hud-end">
+                <div style="text-align:right">
+                    <div class="hud-label" style="color:var(--green);letter-spacing:.14em">CẤP <span id="ui-lv" style="color:#fff">1</span></div>
+                    <div id="xp-track" style="margin-top:3px;margin-left:auto"><div id="ui-xp"></div></div>
                 </div>
             </div>
         </div>
@@ -251,10 +281,10 @@
             <canvas id="cvs"></canvas>
 
             <div id="ctrls">
-                <div class="c-btn" id="b-speed">1x</div>
-                <div class="c-btn" id="b-pause">⏸</div>
-                <div class="c-btn" id="b-sound">🔊</div>
-                <div class="c-btn" id="b-full">⛶</div>
+                <div class="ibtn tf" id="b-speed" style="font-weight:900;font-size:13px">1x</div>
+                <div class="ibtn" id="b-pause">⏸</div>
+                <div class="ibtn" id="b-sound">🔊</div>
+                <div class="ibtn" id="b-full">⛶</div>
             </div>
 
             <div id="msg" class="absolute top-[25%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-0 transition-all duration-300 z-20 text-center w-full scale-50">
@@ -263,8 +293,8 @@
 
             <div id="ult">
                 <div class="ult-msk" id="u-msk" style="height: 0%;"></div>
-                <span class="text-xl drop-shadow-md relative z-10">☄️</span>
-                <span class="text-[6px] font-black tf text-white uppercase relative z-10 mt-0.5">Thiên Thạch</span>
+                <span style="font-size:22px;position:relative;z-index:10;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))">☄️</span>
+                <span class="tf" style="font-size:7px;font-weight:900;color:#fff;text-transform:uppercase;position:relative;z-index:10;margin-top:1px;letter-spacing:.04em">Thiên Thạch</span>
             </div>
 
             <div id="umod" class="hidden fixed z-30 w-56 p-2">
@@ -288,25 +318,31 @@
 </div>
 
 <!-- Talents modal -->
-<div id="tmod" class="hidden absolute inset-0 bg-black/95 z-50 flex items-center justify-center p-2">
-    <div class="bg-slate-800 w-full max-w-lg rounded-xl border border-indigo-500/50 p-4 flex flex-col max-h-[90vh] shadow-[0_0_30px_rgba(79,70,229,0.3)]">
-        <div class="flex justify-between items-center mb-3"><h2 class="tf text-2xl text-indigo-400 tracking-widest uppercase font-black">Nội Tại Vĩnh Viễn</h2><button id="b-cls-t" class="text-2xl text-slate-400 hover:text-white">✕</button></div>
-        <div class="bg-slate-900 rounded-lg p-2 mb-3 flex justify-between items-center border border-slate-700"><span class="text-xs text-slate-400">Điểm Nâng Cấp (SP):</span><span class="tf text-2xl font-black text-yellow-400" id="tp-d">0</span></div>
-        <div class="overflow-y-auto flex-1 space-y-2 pr-1" id="t-cont"></div>
-        <p class="text-[10px] text-slate-500 mt-2 text-center">Nội tại được lưu lại và áp dụng cho mọi trận đấu.</p>
+<div id="tmod" class="hidden">
+    <div class="ov-card pop" style="max-width:520px;max-height:90vh;display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <h2 class="title title--indigo" style="font-size:22px;letter-spacing:.12em">Nội Tại Vĩnh Viễn</h2>
+            <button id="b-cls-t" class="ibtn" style="background:transparent;border-color:transparent;font-size:20px;color:var(--dim)">✕</button>
+        </div>
+        <div class="t-row" style="margin-bottom:14px">
+            <span class="sub" style="font-size:12px">Điểm Nâng Cấp (SP)</span>
+            <span class="tf" id="tp-d" style="font-size:24px;font-weight:900;color:var(--gold)">0</span>
+        </div>
+        <div id="t-cont" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px;padding-right:4px"></div>
+        <p class="muted" style="font-size:10px;margin-top:10px;text-align:center">Nội tại được lưu lại và áp dụng cho mọi trận đấu.</p>
     </div>
 </div>
 
 <!-- Pause / settings overlay -->
 <div id="pmod" class="overlay">
     <div class="ov-card pop">
-        <h2 class="tf text-2xl text-blue-400 uppercase tracking-widest font-black text-center mb-4">Tạm Dừng</h2>
-        <div class="toggle"><span class="text-sm font-bold">🔊 Hiệu ứng âm thanh</span><div class="sw" id="t-sfx"></div></div>
-        <div class="toggle"><span class="text-sm font-bold">🎵 Nhạc nền</span><div class="sw" id="t-music"></div></div>
-        <button id="b-resume" class="ov-btn bg-gradient-to-br from-teal-600 to-blue-700 text-white border border-teal-400 mt-2">Tiếp tục</button>
-        <button id="b-quit" class="ov-btn bg-slate-700 text-slate-200 border border-slate-600 mt-2">Về Menu</button>
-        <button id="b-update" class="ov-btn bg-slate-800 text-slate-300 border border-slate-700 mt-2" style="font-size:13px;">🔄 Kiểm tra cập nhật</button>
-        <div class="text-center text-[11px] text-slate-500 mt-2">Phiên bản <span id="ver-num">—</span></div>
+        <h2 class="title title--pri" style="font-size:22px;text-align:center;margin-bottom:16px;letter-spacing:.12em">Tạm Dừng</h2>
+        <div class="toggle"><span style="font-size:14px;font-weight:700">🔊 Hiệu ứng âm thanh</span><div class="sw" id="t-sfx"></div></div>
+        <div class="toggle"><span style="font-size:14px;font-weight:700">🎵 Nhạc nền</span><div class="sw" id="t-music"></div></div>
+        <button id="b-resume" class="ov-btn btn--pri" style="margin-top:10px">Tiếp tục</button>
+        <button id="b-quit" class="ov-btn btn--ghost" style="margin-top:10px">Về Menu</button>
+        <button id="b-update" class="ov-btn btn--ghost" style="margin-top:10px;font-size:13px">🔄 Kiểm tra cập nhật</button>
+        <div class="muted" style="text-align:center;font-size:11px;margin-top:10px">Phiên bản <span id="ver-num">—</span></div>
     </div>
 </div>
 
@@ -1453,8 +1489,8 @@ const UI = {
         let modal = document.getElementById('tmod'), container = document.getElementById('t-cont'); container.innerHTML = ''; document.getElementById('tp-d').innerText = State.tp;
         Object.keys(TALENTS_DB).forEach(k => {
             let t = TALENTS_DB[k], lv = State.talents[k], canUp = State.tp > 0 && lv < t.max;
-            let d = document.createElement('div'); d.className = 'bg-slate-900/90 p-2 sm:p-3 rounded-lg flex justify-between items-center border border-slate-700 shadow-sm';
-            d.innerHTML = `<div class="flex items-center gap-3"><div class="text-2xl sm:text-3xl drop-shadow-md">${t.icon}</div><div><div class="text-xs sm:text-sm font-bold text-slate-100">${t.name} <span class="text-[10px] text-indigo-400 ml-1">Lv.${lv}/${t.max}</span></div><div class="text-[9px] sm:text-[10px] text-slate-400 mt-0.5">${t.desc}</div></div></div><button class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg font-black text-xl flex items-center justify-center transition-all ${canUp ? 'bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-md active:scale-95' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}">+</button>`;
+            let d = document.createElement('div'); d.className = 't-row';
+            d.innerHTML = `<div style="display:flex;align-items:center;gap:12px;min-width:0"><div style="font-size:28px;flex:0 0 auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))">${t.icon}</div><div style="min-width:0"><div style="font-size:13px;font-weight:800;color:var(--ink)">${t.name} <span style="font-size:10px;color:var(--indigo);margin-left:4px">Lv.${lv}/${t.max}</span></div><div class="sub" style="font-size:10px;margin-top:2px">${t.desc}</div></div></div><button class="btn ${canUp ? 'btn--indigo' : 'btn--ghost'}" style="width:40px;height:40px;flex:0 0 auto;padding:0;font-size:22px${canUp ? '' : ';opacity:.5;pointer-events:none'}">+</button>`;
             if (canUp) { d.querySelector('button').onclick = () => { State.tp--; State.talents[k]++; if (k === 'h') State.hp += 100; Sound.play('upgrade'); Storage.sync(); this.updateDisplay(); this.refreshStart(); this.openTalents(); }; } container.appendChild(d);
         }); modal.classList.remove('hidden');
     },
@@ -1576,7 +1612,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============ PHIÊN BẢN & TỰ CẬP NHẬT ============
-const GAME_VERSION = '1.1.1';
+const GAME_VERSION = '1.2.0';
 let _updChecking = false;
 
 function setVerLabels() {
