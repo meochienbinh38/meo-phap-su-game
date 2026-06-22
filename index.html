@@ -493,6 +493,18 @@ const MAPS = [
       grade: 'rgba(139,92,246,0.05)', vig: 0.72, key: 'rgba(180,150,255,0.09)' }
 ];
 
+// CHỦ ĐỀ MỖI ĐỢT — ép người chơi đổi/kết hợp tướng theo khắc tinh (tids = chỉ số ENEMIES_DB)
+// 0 imp · 1 orc · 2 wolf · 3 skel · 4 summoner · 5 assassin · 6 boss
+const WAVE_THEMES = {
+    intro: { tag: 'NHẬP MÔN',  tids: [0,0,0,0,2],     hint: 'Đợt nhập môn — làm quen' },
+    swarm: { tag: 'BẦY ĐÀN',   tids: [0,0,0,4,1],     hint: 'BẦY ĐÀN: cần sát thương DIỆN RỘNG (Pháo Thủ / Băng Thần / Tháp Độc)' },
+    armor: { tag: 'GIÁP DÀY',  tids: [1,1,1,3,0],     hint: 'GIÁP DÀY (Orc): cần THẦN SÉT — đòn thường bị kháng mạnh' },
+    fast:  { tag: 'TỐC ĐỘ',    tids: [2,2,2,5,0],     hint: 'TỐC ĐỘ (Sói/Sát Thủ): cần BĂNG THẦN làm chậm + Độc/Sét trị Sát Thủ né' },
+    mixed: { tag: 'HỖN HỢP',   tids: [0,1,2,3,4,5],   hint: 'HỖN HỢP: cần KẾT HỢP đủ loại tướng' },
+    boss:  { tag: 'TRÙM',      tids: [0,1,2,3],       hint: '⚠️ TRÙM: kháng mọi loại — phải KẾT HỢP nhiều tướng' },
+};
+function waveTheme(w){ if (w <= 3) return 'intro'; if (w % 5 === 0) return 'boss'; return ['swarm','armor','fast','mixed'][(w - 4) % 4]; }
+
 // 2. DATABASE: UNITS & ENEMIES
 // VÙNG TẤN CÔNG theo đặc tính (cân bằng v2 — không còn unit rẻ phủ cả map):
 // - Giáp Sĩ: cận chiến ~1 (đỡ đòn)   - Tháp Độc/Thánh Sứ: quầng quanh mình ~2.6-3
@@ -500,23 +512,24 @@ const MAPS = [
 // - Thần Sét: DUY NHẤT bắn TOÀN BẢN ĐỒ & MỌI hàng (đắt 180 -> không spam được)
 const UNITS_DB = {
     miner:   { icon: '⛺', type: 'econ', cost: 50, hp: 300, income: 12, cd: 4.0, color: CFG.colors.econ, name: "Mỏ Vàng", lv3Desc: "Năng suất đào Vàng x2." },
-    knight:  { icon: '🛡️', type: 'melee', cost: 60, hp: 700, dmg: 15, range: 1.2, aspd: 1.2, color: CFG.colors.melee, name: "Giáp Sĩ", lv3Desc: "Phản lại 30% sát thương." },
-    archer:  { icon: '🏹', type: 'linear', pSpeed: 760, cost: 90, hp: 150, dmg: 32, range: 7.0, aspd: 1.0, color: CFG.colors.ranged, name: "Xạ Thủ", lv3Desc: "Đạn Năng lượng xanh: Xuyên thấu mọi địch." },
-    gunner:  { icon: '💣', type: 'gunner', pSpeed: 600, cost: 130, hp: 200, dmg: 60, range: 6.5, aspd: 1.8, color: CFG.colors.gunner, name: "Pháo Thủ", lv3Desc: "Đạn Nổ Chùm: Nổ sát thương diện rộng khi chạm đích." },
-    poison:  { icon: '☠️', type: 'pulse', cost: 120, hp: 250, dmg: 10, range: 2.6, aspd: 1.5, color: CFG.colors.poison, name: "Tháp Độc", lv3Desc: "Tỏa Mộc Độc: Vòng độc rộng hơn và làm chậm địch." },
-    mage:    { icon: '⚡', type: 'laser', cost: 180, hp: 120, dmg: 40, range: 12.0, aspd: 1.6, color: CFG.colors.laser, name: "Thần Sét", lv3Desc: "Sét Tím: Nảy chuỗi sang 2 mục tiêu lân cận." },
-    ice:     { icon: '❄️', type: 'lob', pSpeed: 350, splash: 1.2, cost: 160, hp: 120, dmg: 35, range: 6.0, aspd: 2.0, color: CFG.colors.ice, name: "Băng Thần", lv3Desc: "Bão Tuyết: Nổ rộng gấp đôi, gần như đóng băng địch." },
+    knight:  { icon: '🛡️', type: 'melee', dtype: 'phys', cost: 60, hp: 700, dmg: 15, range: 1.2, aspd: 1.2, color: CFG.colors.melee, name: "Giáp Sĩ", lv3Desc: "Phản lại 30% sát thương." },
+    archer:  { icon: '🏹', type: 'linear', dtype: 'phys', pSpeed: 760, cost: 90, hp: 150, dmg: 32, range: 7.0, aspd: 1.0, color: CFG.colors.ranged, name: "Xạ Thủ", lv3Desc: "Đạn xuyên thấu — bóc khiên Bộ Xương nhanh." },
+    gunner:  { icon: '💣', type: 'gunner', dtype: 'phys', pSpeed: 600, cost: 130, hp: 200, dmg: 60, range: 6.5, aspd: 1.8, color: CFG.colors.gunner, name: "Pháo Thủ", lv3Desc: "Đạn Nổ Chùm: sát thương diện rộng — dọn bầy đàn." },
+    poison:  { icon: '☠️', type: 'pulse', dtype: 'pois', cost: 120, hp: 250, dmg: 10, range: 2.6, aspd: 0.8, color: CFG.colors.poison, name: "Tháp Độc", lv3Desc: "Vòng độc rộng + làm chậm — khắc Sát Thủ né & bóc khiên." },
+    mage:    { icon: '⚡', type: 'laser', dtype: 'magic', cost: 180, hp: 120, dmg: 40, range: 12.0, aspd: 1.6, color: CFG.colors.laser, name: "Thần Sét", lv3Desc: "Sét Tím nảy chuỗi — khắc Orc giáp & Triệu Hồi, bắn mọi hàng." },
+    ice:     { icon: '❄️', type: 'lob', dtype: 'frost', pSpeed: 350, splash: 1.2, cost: 160, hp: 120, dmg: 35, range: 6.0, aspd: 2.0, color: CFG.colors.ice, name: "Băng Thần", lv3Desc: "Bão Tuyết nổ rộng + đóng băng — khắc Sói siêu nhanh." },
     priest:  { icon: '🕊️', type: 'support', cost: 150, hp: 250, dmg: 30, range: 3.0, aspd: 2.0, color: CFG.colors.support, name: "Thánh Sứ", lv3Desc: "Hào quang: Buff +15% Dmg & Tốc độ đánh cho lính kề bên." }
 };
 
 const ENEMIES_DB = [
-    { kind: 'imp',      icon: '👺', hp: 80, spd: 26, dmg: 5, aspd: 1.0, gold: 10, xp: 15, size: 0.6 },
-    { kind: 'orc',      icon: '👹', hp: 350, spd: 18, dmg: 18, aspd: 1.5, gold: 20, xp: 30, size: 0.85, isHeavy: true },
-    { kind: 'wolf',     icon: '🐺', hp: 50, spd: 70, dmg: 8, aspd: 0.8, gold: 8, xp: 20, size: 0.55 },
-    { kind: 'skel',     icon: '💀', hp: 150, spd: 15, dmg: 20, aspd: 1.5, gold: 30, xp: 40, size: 0.8, shieldHits: 3 },
-    { kind: 'summoner', icon: '🧙', hp: 120, spd: 16, dmg: 5, aspd: 2.0, gold: 25, xp: 35, size: 0.7, summons: true },
-    { kind: 'assassin', icon: '🥷', hp: 100, spd: 55, dmg: 25, aspd: 1.0, gold: 25, xp: 35, size: 0.6, isJumping: true, evade: 0.4 },
-    { kind: 'boss',     icon: '👿', hp: 4500, spd: 11, dmg: 70, aspd: 2.0, gold: 300, xp: 600, size: 1.5, isBoss: true }
+    // resist: <1 = KHÁNG loại đó, >1 = YẾU (khắc tinh). evade: chỉ né ĐẠN. shieldHits: chặn N đòn.
+    { kind: 'imp',      icon: '👺', hp: 70,  spd: 30, dmg: 5,  aspd: 1.0, gold: 9,  xp: 15, size: 0.6,  resist: {} },                                            // bầy đàn -> AoE (Pháo/Băng/Độc)
+    { kind: 'orc',      icon: '👹', hp: 420, spd: 16, dmg: 18, aspd: 1.5, gold: 22, xp: 30, size: 0.85, isHeavy: true, resist: { phys: 0.45, frost: 0.6, pois: 0.6, magic: 1.4 } },  // giáp dày -> THẦN SÉT
+    { kind: 'wolf',     icon: '🐺', hp: 60,  spd: 78, dmg: 8,  aspd: 0.8, gold: 9,  xp: 20, size: 0.55, resist: { phys: 0.6, frost: 1.6 } },                       // siêu nhanh -> BĂNG (chậm)
+    { kind: 'skel',     icon: '💀', hp: 150, spd: 16, dmg: 20, aspd: 1.5, gold: 30, xp: 40, size: 0.8,  shieldHits: 3, resist: { frost: 0.7 } },                   // khiên -> đòn NHANH (Xạ Thủ/Độc)
+    { kind: 'summoner', icon: '🧙', hp: 140, spd: 15, dmg: 5,  aspd: 2.0, gold: 25, xp: 35, size: 0.7,  summons: true, resist: { phys: 0.5, magic: 1.5 } },        // triệu hồi -> THẦN SÉT diệt nhanh
+    { kind: 'assassin', icon: '🥷', hp: 120, spd: 60, dmg: 25, aspd: 1.0, gold: 28, xp: 35, size: 0.6,  isJumping: true, evade: 0.55, resist: { phys: 0.45, pois: 1.5, magic: 1.2 } },  // né+nhảy -> ĐỘC/SÉT
+    { kind: 'boss',     icon: '👿', hp: 5200,spd: 11, dmg: 70, aspd: 2.0, gold: 300,xp: 600, size: 1.5, isBoss: true, resist: { phys: 0.5, magic: 0.8, frost: 0.8, pois: 0.8 } }       // cần KẾT HỢP nhiều loại
 ];
 
 const TALENTS_DB = {
@@ -969,7 +982,7 @@ class Unit {
                 let hitAny = false;
                 State.enemies.forEach(e => {
                     if (getDist(this.x, this.y, e.x, e.y) <= s.rng) {
-                        e.takeDmg(s.dmg); Engine.spawnText(e.x, e.y - 20, Math.floor(s.dmg), this.db.color, false); hitAny = true;
+                        e.takeDmg(s.dmg, 'pois', false); Engine.spawnText(e.x, e.y - 20, Math.floor(s.dmg), this.db.color, false); hitAny = true;
                         if (this.level >= 3) { e.slowTimer = 2.0; e.slowAmt = 0.5; }
                     }
                 });
@@ -1007,11 +1020,11 @@ class Unit {
                     let fd = isCrit ? s.dmg * 2 : s.dmg;
 
                     if (this.db.type === 'melee') {
-                        t.takeDmg(fd);
+                        t.takeDmg(fd, 'phys', false);
                         Engine.spawnText(t.x, t.y - 20, Math.floor(fd), '#fff', isCrit);
                         Sound.play('hit');
                         if (this.level >= 3) {
-                            t.takeDmg(fd * 0.3);
+                            t.takeDmg(fd * 0.3, 'phys', false);
                             Engine.spawnParticles(this.x + 20, this.y, '#93c5fd', 10, 50, 3);
                         } else {
                             Engine.spawnParticles(t.x - 10, t.y, '#fff', 5, 40, 2);
@@ -1020,7 +1033,7 @@ class Unit {
                     }
                     else if (this.db.type === 'laser') {
                         let c = this.level >= 3 ? '#c084fc' : this.db.color;
-                        t.takeDmg(fd); Engine.spawnText(t.x, t.y - 20, Math.floor(fd), c, isCrit);
+                        t.takeDmg(fd, 'magic', false); Engine.spawnText(t.x, t.y - 20, Math.floor(fd), c, isCrit);
                         State.beams.push({ x1: this.x, y1: this.y, x2: t.x, y2: t.y, c: c, l: 0.15 });
                         State.particles.push({ x: t.x, y: t.y + 10, type: 'magic', c: c, l: 0.3 });
                         Sound.play('zap');
@@ -1031,7 +1044,7 @@ class Unit {
                                 let nT = null, nD = 150;
                                 for (let e of State.enemies) { if (!hitL.includes(e) && getDist(curT.x, curT.y, e.x, e.y) < nD) { nD = getDist(curT.x, curT.y, e.x, e.y); nT = e; } }
                                 if (nT) {
-                                    nT.takeDmg(fd * 0.7); Engine.spawnText(nT.x, nT.y - 20, Math.floor(fd * 0.7), c, false);
+                                    nT.takeDmg(fd * 0.7, 'magic', false); Engine.spawnText(nT.x, nT.y - 20, Math.floor(fd * 0.7), c, false);
                                     State.beams.push({ x1: curT.x, y1: curT.y, x2: nT.x, y2: nT.y, c: c, l: 0.15 });
                                     State.particles.push({ x: nT.x, y: nT.y + 10, type: 'magic', c: c, l: 0.3 });
                                     curT = nT; hitL.push(nT); chains--;
@@ -1108,13 +1121,19 @@ class Enemy {
             this.x -= spd * dt;
         }
     }
-    takeDmg(amt) {
-        if (this.shield > 0) {
+    // dtype: loại sát thương (phys/magic/frost/pois...); proj: là đạn -> mới bị NÉ
+    takeDmg(amt, dtype, proj) {
+        if (this.shield > 0) {                                  // khiên chặn theo SỐ đòn -> đòn nhanh bóc nhanh
             this.shield--; Engine.spawnText(this.x, this.y - 20, "KENG!", '#94a3b8', false);
             Engine.spawnParticles(this.x, this.y, '#94a3b8', 5, 30, 2);
             return;
         }
-        this.hp -= amt; this.flash = 0.15;
+        if (proj && this.db.evade && Math.random() < this.db.evade) {   // chỉ né ĐẠN (không né phép/độc/cận chiến)
+            Engine.spawnText(this.x, this.y - 20, "Né!", '#94a3b8', false); return;
+        }
+        let r = (this.db.resist && this.db.resist[dtype] != null) ? this.db.resist[dtype] : 1;  // khắc chế
+        this.hp -= amt * r; this.flash = 0.15;
+        if (r < 1 && Math.random() < 0.22) Engine.spawnText(this.x, this.y - 26, "KHÁNG", '#94a3b8', false);   // gợi ý: sai khắc tinh
     }
 }
 
@@ -1132,18 +1151,15 @@ class ProjLin {
 
         for (let e of State.enemies) {
             if (!this.hl.has(e) && Math.abs(e.y - this.y) < 12 && e.x > this.x - 20 && e.x < this.x + 20) {
-                if (e.db.evade && Math.random() < e.db.evade) {
-                    Engine.spawnText(e.x, e.y - 20, "Né!", '#94a3b8', false);
+                if (this.typeId === 'gunner' && this.lv >= 3) {
+                    Engine.spawnParticles(this.x, this.y, '#ef4444', 15, 60, 3);
+                    State.shake += 4; Sound.play('boom');
+                    State.enemies.forEach(en => { if (getDist(this.x, this.y, en.x, en.y) < State.grid.size * 1.5) en.takeDmg(this.d, 'phys', false); });   // nổ chùm: không bị né
+                    this.a = false; break;
                 } else {
-                    if (this.typeId === 'gunner' && this.lv >= 3) {
-                        Engine.spawnParticles(this.x, this.y, '#ef4444', 15, 60, 3);
-                        State.shake += 4; Sound.play('boom');
-                        State.enemies.forEach(en => { if (getDist(this.x, this.y, en.x, en.y) < State.grid.size * 1.5) en.takeDmg(this.d); });
-                    } else {
-                        e.takeDmg(this.d);
-                        Engine.spawnText(e.x, e.y - 20, Math.floor(this.d), '#fff', this.cr);
-                        Engine.spawnParticles(e.x, e.y, this.p ? '#34d399' : this.db.color, 4, 30, 2);
-                    }
+                    e.takeDmg(this.d, 'phys', true);   // đạn thường (phys) -> có thể bị NÉ
+                    Engine.spawnText(e.x, e.y - 20, Math.floor(this.d), '#fff', this.cr);
+                    Engine.spawnParticles(e.x, e.y, this.p ? '#34d399' : this.db.color, 4, 30, 2);
                 }
                 if (this.p) this.hl.add(e); else { this.a = false; break; }
             }
@@ -1179,9 +1195,10 @@ class ProjLob {
 
             State.enemies.forEach(e => {
                 if (getDist(this.x, this.y, e.x, e.y) <= rd) {
-                    if (e.db.evade && Math.random() < e.db.evade) Engine.spawnText(e.x, e.y - 20, "Né!", '#94a3b8', false);
-                    else {
-                        e.takeDmg(this.d); Engine.spawnText(e.x, e.y - 20, Math.floor(this.d), pCol, this.cr);
+                    let before = e.hp;
+                    e.takeDmg(this.d, 'frost', false);                 // nổ băng AoE: không bị né
+                    if (e.hp < before) {                               // chỉ làm chậm nếu thực sự trúng
+                        Engine.spawnText(e.x, e.y - 20, Math.floor(this.d), pCol, this.cr);
                         if (this.typeId === 'ice') { e.slowTimer = isMaxIce ? 3.5 : 1.5; e.slowAmt = isMaxIce ? 0.8 : 0.4; }
                     }
                 }
@@ -1310,12 +1327,10 @@ const Engine = {
 
     buildWave() {
         State.spawn.queue = []; let w = State.wave, hm = Math.pow(1.18, w - 1), count = 10 + Math.round(w * 2.5); State.spawn.total = count;
+        let theme = waveTheme(w), pool = WAVE_THEMES[theme].tids;
         for (let i = 0; i < count; i++) {
-            let r = Math.random(), tid = 0;
-            if (w < 3) tid = r < 0.2 ? 1 : 0;
-            else if (w < 6) { if (r < 0.2) tid = 2; else if (r < 0.4) tid = 1; else if (r < 0.6) tid = 3; }
-            else { if (r < 0.1) tid = 2; else if (r < 0.2) tid = 1; else if (r < 0.3) tid = 4; else if (r < 0.45) tid = 3; else if (r < 0.6) tid = 5; }
-            if (i === count - 1 && w % 5 === 0) tid = 6;
+            let tid = pool[Math.floor(Math.random() * pool.length)];
+            if (i === count - 1 && theme === 'boss') tid = 6;
             State.spawn.queue.push({ d: i * (1.5 - Math.min(0.8, w * 0.04)), db: ENEMIES_DB[tid], m: hm });
         }
     },
@@ -1336,10 +1351,10 @@ const Engine = {
             });
 
             if (State.spawn.isPrep) {
-                State.spawn.timer -= dt; document.getElementById('w-stat').innerText = `CHUẨN BỊ: ${Math.ceil(State.spawn.timer)}s`; document.getElementById('w-bar').style.width = '0%';
+                State.spawn.timer -= dt; document.getElementById('w-stat').innerText = `CHUẨN BỊ · ${WAVE_THEMES[waveTheme(State.wave)].tag}: ${Math.ceil(State.spawn.timer)}s`; document.getElementById('w-bar').style.width = '0%';
                 if (State.spawn.timer <= 0) {
                     State.spawn.isPrep = false; document.getElementById('w-stat').innerText = "ĐANG PHÒNG THỦ";
-                    document.getElementById('call').style.display = 'none'; UI.showMessage(`ĐỢT ${State.wave} BẮT ĐẦU!`); Sound.play('wave'); this.buildWave();
+                    document.getElementById('call').style.display = 'none'; UI.showMessage(WAVE_THEMES[waveTheme(State.wave)].hint, waveTheme(State.wave) === 'boss'); Sound.play('wave'); this.buildWave();
                 }
             } else {
                 let prg = State.spawn.total > 0 ? 1 - ((State.spawn.queue.length + State.enemies.length) / State.spawn.total) : 0;
@@ -1770,7 +1785,7 @@ const Control = {
     castUlt() {
         if (State.ultCd > 0 || !State.running || State.paused) return; State.ultCd = State.ultMax; document.getElementById('ult').classList.add('cd');
         UI.showMessage("THIÊN THẠCH GIÁNG LÂM!", true); State.shake = 40; Sound.play('ult'); vibe([0, 60, 30, 120]);
-        State.enemies.forEach(e => { Engine.spawnParticles(e.x, e.y - 100, '#f97316', 20, 100, 5); setTimeout(() => { if (State.enemies.includes(e)) { e.takeDmg(500); Engine.spawnText(e.x, e.y - 30, "500", '#f97316', true); } }, 300); });
+        State.enemies.forEach(e => { Engine.spawnParticles(e.x, e.y - 100, '#f97316', 20, 100, 5); setTimeout(() => { if (State.enemies.includes(e)) { e.takeDmg(500, 'true', false); Engine.spawnText(e.x, e.y - 30, "500", '#f97316', true); } }, 300); });
     },
     loop(t) {
         let raw = Math.min((t - Engine.lastTime) / 1000, 0.05); Engine.lastTime = t;
@@ -1802,7 +1817,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============ PHIÊN BẢN & TỰ CẬP NHẬT ============
-const GAME_VERSION = '1.7.0';
+const GAME_VERSION = '1.8.0';
 let _updChecking = false;
 
 function setVerLabels() {

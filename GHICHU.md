@@ -124,17 +124,44 @@ phủ mọi lane + sức mạnh người chơi có TRẦN trong khi máu quái t
 > đuôi giảm dần, thua ~đợt 19. Người thật (không hoàn hảo) sẽ gặp thử thách sớm hơn ~đợt 12-16.
 > ⚠️ Sim **lạc quan** (đạn trúng tức thì, nhắm/xây hoàn hảo) → đừng chỉnh khó hơn nữa nếu chưa playtest thật.
 
+### f) HỆ KHẮC CHẾ — chọn đúng tướng + kết hợp mới qua ải (XONG 2026-06-22)
+Biến độ khó thành "dùng đúng tướng khắc từng loại quái, kết hợp mới qua". Kiểm chứng bằng sim:
+**spam Xạ Thủ chết đợt 14, kết hợp đủ loại tới đợt 21** (+7 đợt).
+
+**Cơ chế (trong `Enemy.takeDmg(amt, dtype, proj)`):**
+- Mỗi tướng có `dtype`: phys (Giáp Sĩ/Xạ Thủ/Pháo), magic (Thần Sét), frost (Băng), pois (Tháp Độc).
+- Mỗi quái có `resist{dtype:hệ số}` (<1 = KHÁNG, >1 = YẾU/khắc tinh). Hiện chữ "KHÁNG" khi đánh sai loại.
+- `proj=true` (đạn phys/frost) mới bị **NÉ** (Sát Thủ); magic/độc/cận chiến **không bị né**.
+- Khiên (Bộ Xương) chặn theo **số đòn** → đòn nhanh (Xạ Thủ/Độc) bóc tốt, đòn to chậm phí.
+
+**Khắc tinh từng quái** (xem `ENEMIES_DB.resist`):
+| Quái | Kháng | Khắc tinh (nên dùng) |
+|------|-------|----------------------|
+| 👺 Imp (bầy đàn) | — | AoE: Pháo/Băng/Độc |
+| 👹 Orc (giáp dày) | phys/frost/độc | **THẦN SÉT** (magic ×1.4) |
+| 🐺 Sói (siêu nhanh) | phys | **BĂNG** (frost ×1.6 + làm chậm) |
+| 💀 Bộ Xương (khiên) | frost | **Xạ Thủ/Độc** (đòn nhanh bóc khiên) |
+| 🧙 Triệu Hồi | phys | **THẦN SÉT** (magic ×1.5) |
+| 🥷 Sát Thủ (né+nhảy) | phys | **ĐỘC/SÉT** (không bị né) |
+| 👿 Trùm | tất cả (nhẹ) | **KẾT HỢP** nhiều loại |
+
+**Đợt theo CHỦ ĐỀ** (`WAVE_THEMES` + `waveTheme(w)`): nhập môn → BẦY ĐÀN → GIÁP DÀY → TỐC ĐỘ →
+HỖN HỢP, TRÙM mỗi 5 đợt. HUD hiện tag chủ đề khi chuẩn bị + câu gợi ý khắc tinh khi đợt bắt đầu
+→ người chơi biết nên mang tướng gì.
+> Cân chỉnh resist/chủ đề trong `tools/balance-sim.js` (UNITS/ENEMIES/waveTheme) rồi chép sang game.
+
 ## 5. PHIÊN BẢN / CACHE (nhớ bump khi sửa)
 Khi sửa code muốn người chơi nhận bản mới, **đổi 3 chỗ**:
 1. `sw.js` → `const CACHE = 'kntt-vXX-...'` (tăng số).
 2. `index.html` → `const GAME_VERSION = 'X.Y.Z'`.
 3. `version.json` → cùng version + ghi `notes`.
-- Hiện tại: **CACHE `kntt-v24-balance2`**, **GAME_VERSION `1.7.0`**.
+- Hiện tại: **CACHE `kntt-v25-counters`**, **GAME_VERSION `1.8.0`**.
 
 ## 6. 📋 VIỆC NÊN LÀM TIẾP (TODO)
-- [ ] **Playtest thật** bản cân bằng v2: nếu vẫn dễ → tăng `speedScale` (0.05) hoặc `countPerWave`; nếu khó → giảm.
-      Chỉnh nhanh trong `tools/balance-sim.js` (TUNE/OVERRIDE) để dò số trước, rồi chép sang `index.html`.
-- [ ] Cân nhắc đa dạng hoá lối chơi (hiện vẫn dễ nghiêng về spam Xạ Thủ/DPS tầm xa).
+- [ ] **Playtest thật** hệ khắc chế: đợt GIÁP DÀY/TỐC ĐỘ đầu tiên (đợt ~6-9) có dễ mua kịp Thần Sét/Băng không?
+      Nếu wall người mới → nới resist (vd orc phys 0.45→0.55) hoặc dời chủ đề khó ra sau.
+- [ ] Cân nhắc hiện bảng "khắc tinh" nhỏ trong cửa hàng (icon loại sát thương từng tướng) để người mới học nhanh.
+- [ ] Số damage nổi hiện đang là trước-kháng; có thể đổi sang sau-kháng để phản hồi rõ hơn.
 - [ ] Có thể hiện nhãn "tầm đánh" ngay trong cửa hàng để người chơi biết trước khi mua.
 - [ ] Playtest phần biến đổi tướng theo cấp trên mobile thật (cân chỉnh kích thước vương miện/giáp cho dễ nhìn).
 - [ ] Có thể thêm thay đổi **cách tấn công cảm nhận được ở cấp 2** (hiện gameplay chỉ đổi mạnh ở cấp 3).
