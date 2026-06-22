@@ -166,14 +166,35 @@ Sim v2 nay mô phỏng cả 2 hồ sơ (`run(strat, profile)` với profile 'fre
 | Nội Tại maxed | sụp đợt ~13 | ~17-19 |
 > Vàng giờ chặt cho cả người max (38-412, hết cảnh dư 2699).
 
+### h) NHỊP ĐỘ chậm→bùng nổ + GIÁ LŨY TIẾN (bỏ cap) (XONG 2026-06-22)
+Phản hồi người chơi: chờ tiền mòn mỏi, đợt 1 quái đã tràn cả map, mua được 4 Mỏ Vàng ngay. Sửa:
+- **Giá mua lũy tiến** `unitCost(typeId) = base × 1.11^(số con cùng loại)`: BỎ giới hạn Mỏ Vàng;
+  mỗi con mua thêm đắt hơn con trước → tự chống snowball + khuyến khích đa dạng (hợp hệ khắc chế).
+  Shop hiện giá kế tiếp động.
+- **Nâng cấp đắt hơn**: `base × 1.8^level` (trước 1.7).
+- **Nhịp độ**: số quái `4 + 1.4w + 0.13w²` (đợt1≈9, đợt10≈31, đợt20≈84, cuối >150);
+  giãn cách ra quái `max(0.35, 1.9 - 0.08w)` (đầu ~1.8s rỉ rả → cuối 0.35s lũ lượt).
+- **Thu nhập rộng tay hơn** (bù cho giá lũy tiến, để luôn có cái mua, mạch mượt):
+  vàng đầu 250→**280**, máu thành gốc 100→**150** (người mới sống lâu hơn để học),
+  thưởng đợt `20+8w`, Mỏ Vàng 12→**14**/lần. Máu quái `1.16^w` (đồng bộ sim).
+
+**Sim (node tools/balance-sim.js) — điểm sụp trung bình:**
+| | spam 1 loại | kết hợp khắc chế |
+|--|--|--|
+| Nội Tại mới | ~6-7 | ~10-13 |
+| Nội Tại MAX | ~6 | ~17-23 |
+> Đường cong maxed: đợt 1-3 rò vài con (học), 4-9 ổn định, 10+ căng dần, 17-23 BÙNG NỔ (124-155 quái/đợt).
+> ⚠️ Còn tồn: cuối game (đợt ~17+) khi bàn đầy & full nâng cấp thì vàng lại dư (thiếu chỗ tiêu) — TODO.
+
 ## 5. PHIÊN BẢN / CACHE (nhớ bump khi sửa)
 Khi sửa code muốn người chơi nhận bản mới, **đổi 3 chỗ**:
 1. `sw.js` → `const CACHE = 'kntt-vXX-...'` (tăng số).
 2. `index.html` → `const GAME_VERSION = 'X.Y.Z'`.
 3. `version.json` → cùng version + ghi `notes`.
-- Hiện tại: **CACHE `kntt-v26-meta`**, **GAME_VERSION `1.9.0`**.
+- Hiện tại: **CACHE `kntt-v27-pacing`**, **GAME_VERSION `2.0.0`**.
 
 ## 6. 📋 VIỆC NÊN LÀM TIẾP (TODO)
+- [ ] Sink vàng cuối game (đợt ~17+ bàn đầy thì dư vàng): vd bán/đổi, lính tinh nhuệ giá cao, hoặc nâng cấp cấp 4.
 - [ ] **Playtest thật** hệ khắc chế: đợt GIÁP DÀY/TỐC ĐỘ đầu tiên (đợt ~6-9) có dễ mua kịp Thần Sét/Băng không?
       Nếu wall người mới → nới resist (vd orc phys 0.45→0.55) hoặc dời chủ đề khó ra sau.
 - [ ] Cân nhắc hiện bảng "khắc tinh" nhỏ trong cửa hàng (icon loại sát thương từng tướng) để người mới học nhanh.

@@ -474,7 +474,7 @@ const Storage = {
 
 // 1. GAME CONFIGURATION
 const CFG = {
-    rows: 6, cols: 11, baseHp: 100, startGold: 250, xpBase: 100, maxMiners: 4,
+    rows: 6, cols: 11, baseHp: 150, startGold: 280, xpBase: 100, buyRamp: 1.11,
     colors: {
         econ: '#eab308', melee: '#3b82f6', ranged: '#22c55e',
         gunner: '#f97316', laser: '#06b6d4', ice: '#60a5fa',
@@ -506,6 +506,8 @@ const WAVE_THEMES = {
 function waveTheme(w){ if (w <= 3) return 'intro'; if (w % 5 === 0) return 'boss'; return ['swarm','armor','fast','mixed'][(w - 4) % 4]; }
 // SỨC MẠNH META từ Nội Tại -> quái mạnh lên TƯƠNG ỨNG. Max Nội Tại = đi XA hơn, KHÔNG phải dễ hơn.
 function metaPow(){ const t = State.talents; return 1 + 0.10 * t.d + 0.06 * t.s + 0.06 * t.c; }   // max ≈ ×2.9
+// Giá mua tướng KẾ TIẾP = base × buyRamp^(số con CÙNG LOẠI đang có). Bỏ cap, mỗi con thêm đắt hơn.
+function unitCost(typeId){ const n = State.units.filter(u => u.typeId === typeId).length; return Math.round(UNITS_DB[typeId].cost * Math.pow(CFG.buyRamp, n)); }
 
 // 2. DATABASE: UNITS & ENEMIES
 // VÙNG TẤN CÔNG theo đặc tính (cân bằng v2 — không còn unit rẻ phủ cả map):
@@ -513,7 +515,7 @@ function metaPow(){ const t = State.talents; return 1 + 0.10 * t.d + 0.06 * t.s 
 // - Pháo/Băng: tầm trung theo hàng ~6   - Xạ Thủ: tầm xa nhất theo hàng ~7 (sniper 1 lane)
 // - Thần Sét: DUY NHẤT bắn TOÀN BẢN ĐỒ & MỌI hàng (đắt 180 -> không spam được)
 const UNITS_DB = {
-    miner:   { icon: '⛺', type: 'econ', cost: 50, hp: 300, income: 12, cd: 4.0, color: CFG.colors.econ, name: "Mỏ Vàng", lv3Desc: "Năng suất đào Vàng x2." },
+    miner:   { icon: '⛺', type: 'econ', cost: 50, hp: 300, income: 14, cd: 4.0, color: CFG.colors.econ, name: "Mỏ Vàng", lv3Desc: "Năng suất đào Vàng x2." },
     knight:  { icon: '🛡️', type: 'melee', dtype: 'phys', cost: 60, hp: 700, dmg: 15, range: 1.2, aspd: 1.2, color: CFG.colors.melee, name: "Giáp Sĩ", lv3Desc: "Phản lại 30% sát thương." },
     archer:  { icon: '🏹', type: 'linear', dtype: 'phys', pSpeed: 760, cost: 90, hp: 150, dmg: 32, range: 7.0, aspd: 1.0, color: CFG.colors.ranged, name: "Xạ Thủ", lv3Desc: "Đạn xuyên thấu — bóc khiên Bộ Xương nhanh." },
     gunner:  { icon: '💣', type: 'gunner', dtype: 'phys', pSpeed: 600, cost: 130, hp: 200, dmg: 60, range: 6.5, aspd: 1.8, color: CFG.colors.gunner, name: "Pháo Thủ", lv3Desc: "Đạn Nổ Chùm: sát thương diện rộng — dọn bầy đàn." },
@@ -1329,12 +1331,15 @@ const Engine = {
 
     buildWave() {
         State.spawn.queue = []; let w = State.wave, mp = metaPow();
-        let hm = Math.pow(1.18, w - 1) * mp, count = 10 + Math.round(w * 2.5 * (1 + (mp - 1) * 0.25)); State.spawn.total = count;
+        // NHỊP ĐỘ: màn đầu ÍT & ra CHẬM (thư thả) -> cuối BÙNG NỔ (đông & dồn dập)
+        let hm = Math.pow(1.16, w - 1) * mp;
+        let count = Math.round((4 + w * 1.4 + w * w * 0.13) * (1 + (mp - 1) * 0.25)); State.spawn.total = count;
+        let interval = Math.max(0.35, 1.9 - w * 0.08);
         let theme = waveTheme(w), pool = WAVE_THEMES[theme].tids;
         for (let i = 0; i < count; i++) {
             let tid = pool[Math.floor(Math.random() * pool.length)];
             if (i === count - 1 && theme === 'boss') tid = 6;
-            State.spawn.queue.push({ d: i * (1.5 - Math.min(0.8, w * 0.04)), db: ENEMIES_DB[tid], m: hm });
+            State.spawn.queue.push({ d: i * interval, db: ENEMIES_DB[tid], m: hm });
         }
     },
 
@@ -1374,7 +1379,7 @@ const Engine = {
                     }
                 } else if (State.enemies.length === 0) {
                     State.spawn.isPrep = true; State.spawn.timer = 10; State.wave++; UI.updateDisplay();
-                    document.getElementById('call').style.display = 'block'; let b = 15 + State.wave * 6; State.gold += b; UI.showMessage(`DỌN SẠCH! +${b}🪙`); Sound.play('cleared');
+                    document.getElementById('call').style.display = 'block'; let b = 20 + State.wave * 8; State.gold += b; UI.showMessage(`DỌN SẠCH! +${b}🪙`); Sound.play('cleared');
                 }
             }
 
@@ -1615,9 +1620,8 @@ const Engine = {
                 let u = State.units.find(i => i.col === c && i.row === ro);
                 if (u) { UI.deselectShop(); UI.openUnitModal(u, e.clientX, e.clientY); }
                 else if (State.ui.shopId) {
-                    let db = UNITS_DB[State.ui.shopId];
-                    if (db.type === 'econ' && State.units.filter(un => un.db.type === 'econ').length >= CFG.maxMiners) { UI.showMessage("ĐẠT GIỚI HẠN MỎ VÀNG!", true); UI.deselectShop(); return; }
-                    if (State.gold >= db.cost) { State.gold -= db.cost; State.units.push(new Unit(c, ro, State.ui.shopId, db)); this.spawnParticles(x, y, db.color, 15, 60, 4); Sound.play('build'); vibe(15); UI.deselectShop(); UI.updateDisplay(); }
+                    let db = UNITS_DB[State.ui.shopId], cost = unitCost(State.ui.shopId);
+                    if (State.gold >= cost) { State.gold -= cost; State.units.push(new Unit(c, ro, State.ui.shopId, db)); this.spawnParticles(x, y, db.color, 15, 60, 4); Sound.play('build'); vibe(15); UI.deselectShop(); UI.updateDisplay(); }
                 } else UI.closeUnitModal();
             } else UI.closeUnitModal();
         });
@@ -1636,7 +1640,7 @@ const UI = {
 
         document.querySelectorAll('.m-card').forEach(card => { card.onclick = () => { Sound.play('click'); document.querySelectorAll('.m-card').forEach(x => x.classList.remove('sel')); card.classList.add('sel'); State.mapId = parseInt(card.dataset.m); }; });
         document.getElementById('call').onclick = () => { if (State.spawn.isPrep && State.spawn.timer > 0) { let bonus = Math.floor(State.spawn.timer * 4); State.gold += bonus; State.spawn.timer = 0; Sound.play('coin'); Engine.spawnText(State.ui.goldUiX, State.ui.goldUiY + 30, `+${bonus} Nóng!`, '#fde047', true); } };
-        document.getElementById('b-up').onclick = () => { if (performance.now() - (State.ui.modalAt || 0) < 300) return; let u = State.ui.selUnit; if (!u) return; let c = Math.floor(u.db.cost * Math.pow(1.7, u.level)); if (State.gold >= c && u.level < 3) { State.gold -= c; u.level++; u.hp = u.getStats().hp; Sound.play('upgrade'); vibe(20); Engine.spawnText(u.x, u.y - 20, 'LÊN CẤP', '#fbbf24', true); Engine.spawnParticles(u.x, u.y, '#fbbf24', 20, 70, 4); this.closeUnitModal(); this.updateDisplay(); } };
+        document.getElementById('b-up').onclick = () => { if (performance.now() - (State.ui.modalAt || 0) < 300) return; let u = State.ui.selUnit; if (!u) return; let c = Math.floor(u.db.cost * Math.pow(1.8, u.level)); if (State.gold >= c && u.level < 3) { State.gold -= c; u.level++; u.hp = u.getStats().hp; Sound.play('upgrade'); vibe(20); Engine.spawnText(u.x, u.y - 20, 'LÊN CẤP', '#fbbf24', true); Engine.spawnParticles(u.x, u.y, '#fbbf24', 20, 70, 4); this.closeUnitModal(); this.updateDisplay(); } };
         document.getElementById('b-sell').onclick = () => { if (performance.now() - (State.ui.modalAt || 0) < 300) return; let u = State.ui.selUnit; if (!u) return; let val = Math.floor(u.db.cost * Math.pow(1.5, u.level - 1) * 0.5); State.gold += val; State.units = State.units.filter(i => i !== u); Sound.play('click'); Engine.spawnText(u.x, u.y, `+${val}`, '#fde047', false); Engine.spawnParticles(u.x, u.y, '#94a3b8', 10, 40); this.closeUnitModal(); this.updateDisplay(); };
 
         // Controls cluster
@@ -1664,18 +1668,17 @@ const UI = {
         let container = document.getElementById('shop'); container.innerHTML = '';
         Object.keys(UNITS_DB).forEach(k => {
             let u = UNITS_DB[k]; let div = document.createElement('div'); div.id = `s-${k}`; div.className = 's-btn';
-            div.innerHTML = `<div class="lim" id="l-${k}">${CFG.maxMiners}</div><div class="text-2xl drop-shadow-md mt-1">${u.icon}</div><div class="text-[8px] font-bold mt-0.5 text-center leading-tight" style="color:${u.color}">${u.name}</div><div class="tf font-black text-[10px] text-yellow-400 mb-0.5">${u.cost}</div>`;
-            div.onclick = () => { Sound.resume(); if (State.gold < u.cost) { Sound.play('click'); return; } if (State.ui.shopId === k) this.deselectShop(); else { this.deselectShop(); this.closeUnitModal(); State.ui.shopId = k; div.classList.add('sel'); Sound.play('click'); } }; container.appendChild(div);
+            div.innerHTML = `<div class="lim" id="l-${k}" style="display:none"></div><div class="text-2xl drop-shadow-md mt-1">${u.icon}</div><div class="text-[8px] font-bold mt-0.5 text-center leading-tight" style="color:${u.color}">${u.name}</div><div class="tf font-black text-[10px] text-yellow-400 mb-0.5" id="c-${k}">${u.cost}</div>`;
+            div.onclick = () => { Sound.resume(); if (State.gold < unitCost(k)) { Sound.play('click'); return; } if (State.ui.shopId === k) this.deselectShop(); else { this.deselectShop(); this.closeUnitModal(); State.ui.shopId = k; div.classList.add('sel'); Sound.play('click'); } }; container.appendChild(div);
         });
     },
     updateDisplay() {
         document.getElementById('ui-g').innerText = Math.floor(State.gold); State.maxHp = CFG.baseHp + TALENTS_DB.h.effect(State.talents.h); if (State.hp > State.maxHp) State.hp = State.maxHp;
         document.getElementById('ui-hp').innerText = Math.floor(State.hp); document.getElementById('ui-w').innerText = State.wave; document.getElementById('ui-lv').innerText = State.level; document.getElementById('ui-xp').style.width = `${(State.xp / State.maxXp) * 100}%`;
-        let minerCount = State.units.filter(u => u.db.type === 'econ').length;
         Object.keys(UNITS_DB).forEach(k => {
-            let el = document.getElementById(`s-${k}`), limEl = document.getElementById(`l-${k}`);
-            if (k === 'miner') { limEl.style.display = 'block'; limEl.innerText = `${minerCount}/${CFG.maxMiners}`; if (minerCount >= CFG.maxMiners) { el.classList.add('lck'); if (State.ui.shopId === k) this.deselectShop(); return; } }
-            if (State.gold >= UNITS_DB[k].cost) el.classList.remove('lck'); else { el.classList.add('lck'); if (State.ui.shopId === k) this.deselectShop(); }
+            let el = document.getElementById(`s-${k}`), cEl = document.getElementById(`c-${k}`);
+            let cost = unitCost(k); if (cEl) cEl.innerText = cost;     // giá lũy tiến: cập nhật theo số con đã mua
+            if (State.gold >= cost) el.classList.remove('lck'); else { el.classList.add('lck'); if (State.ui.shopId === k) this.deselectShop(); }
         });
         let badge = document.getElementById('tp-bdg'); if (State.tp > 0) { badge.classList.remove('hidden'); badge.innerText = State.tp; } else badge.classList.add('hidden');
     },
@@ -1687,7 +1690,7 @@ const UI = {
         if (u.level >= 3) { sDesc.classList.remove('hidden'); } else if (u.level === 2) { sDesc.classList.remove('hidden'); } else sDesc.classList.add('hidden');
         let btnUp = document.getElementById('b-up');
         if (u.level >= 3) btnUp.style.display = 'none';
-        else { btnUp.style.display = 'flex'; let cost = Math.floor(u.db.cost * Math.pow(1.7, u.level)); document.getElementById('um-c').innerText = `🪙 ${cost}`; btnUp.className = State.gold >= cost ? 'flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm' : 'flex-1 bg-slate-700 rounded py-1 flex flex-col items-center opacity-50 cursor-not-allowed'; }
+        else { btnUp.style.display = 'flex'; let cost = Math.floor(u.db.cost * Math.pow(1.8, u.level)); document.getElementById('um-c').innerText = `🪙 ${cost}`; btnUp.className = State.gold >= cost ? 'flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm' : 'flex-1 bg-slate-700 rounded py-1 flex flex-col items-center opacity-50 cursor-not-allowed'; }
         document.getElementById('um-s').innerText = `🪙 ${Math.floor(u.db.cost * Math.pow(1.5, u.level - 1) * 0.5)}`;
         State.ui.modalAt = performance.now();      // chống "ghost click" ngay sau khi mở
         modal.classList.remove('hidden');
@@ -1820,7 +1823,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============ PHIÊN BẢN & TỰ CẬP NHẬT ============
-const GAME_VERSION = '1.9.0';
+const GAME_VERSION = '2.0.0';
 let _updChecking = false;
 
 function setVerLabels() {

@@ -17,12 +17,18 @@ const cellX = c => WALL_X + c*GRID + GRID/2;
 const SPAWN_X = WALL_X + COLS*GRID + GRID;
 
 const TUNE = {
-  startGold: 250, baseHp: 100,
+  startGold: 280, baseHp: 150,
   hpScale: 1.16, speedScale: 0.05,
-  countBase: 9, countPerWave: 2.4,
-  wallScale: 0.09, waveBonusBase: 15, waveBonusPer: 6,
-  upgradePow: 1.7, minerCap: 4, minerIncome: 12,
+  wallScale: 0.09, waveBonusBase: 20, waveBonusPer: 8,
+  upgradePow: 1.8,        // nâng cấp đắt hơn
+  buyRamp: 1.11,          // mua thêm 1 tướng (cùng loại) đắt hơn con trước (van chống snowball, bỏ cap)
+  minerIncome: 14,
 };
+// giá mua tướng kế tiếp = base × buyRamp^(số con CÙNG LOẠI đang có)
+function costOf(s, t){ return Math.round(UNITS[t].cost * Math.pow(TUNE.buyRamp, s.units.filter(u=>u.type===t).length)); }
+// NHỊP ĐỘ: màn đầu ÍT & CHẬM (thư thả) -> cuối BÙNG NỔ (đông & dồn dập)
+function waveCount(w){ return Math.round(4 + w*1.4 + w*w*0.13); }      // w1≈6, w10≈31, w20≈84
+function waveInterval(w){ return Math.max(0.35, 1.9 - w*0.08); }       // w1≈1.8s (rỉ rả) -> cuối 0.35s (lũ lượt)
 
 // dtype = loại sát thương; range theo ô (×GRID)
 const UNITS = {
@@ -77,29 +83,30 @@ function aiSpend(s, strat){
   const have=t=>s.units.filter(u=>u.type===t);
   const laneHas=(t,r)=>s.units.some(u=>u.type===t&&u.row===r);
   const occ=(c,r)=>s.units.some(u=>u.col===c&&u.row===r);
-  const buy=(t,c,r)=>{ if(s.gold>=UNITS[t].cost && !occ(c,r)){ s.gold-=UNITS[t].cost; s.units.push({type:t,col:c,row:r,level:1}); return true;} return false; };
-  const up=(u)=>{ const c=Math.floor(UNITS[u.type].cost*Math.pow(TUNE.upgradePow,u.level)); if(u.level<3&&s.gold>=c){ s.gold-=c; u.level++; return true;} return false; };
+  const buy=(t,c,r)=>{ const cost=costOf(s,t); if(s.gold>=cost && !occ(c,r)){ s.gold-=cost; s.units.push({type:t,col:c,row:r,level:1}); return true;} return false; };
+  const up=(u)=>{ const c=Math.round(UNITS[u.type].cost*Math.pow(TUNE.upgradePow,u.level)); if(u.level<3&&s.gold>=c){ s.gold-=c; u.level++; return true;} return false; };
   const nextCell=()=>{ for(let c=3;c<=8;c++) for(let r=0;r<ROWS;r++) if(!occ(c,r)) return [c,r]; return null; };
+  const minerCell=()=>{ const n=have('miner').length; return [Math.floor(n/ROWS), n%ROWS]; };
   // tỉ lệ dàn cân đối (đủ 4 loại sát thương để khắc mọi quái)
   const targets = strat==='mono' ? {archer:60} : {mage:6, ice:5, poison:5, gunner:4, archer:4};
   let g=0;
   while(g++<400){ let act=false;
-    if(have('miner').length<3 && buy('miner',0,have('miner').length)) act=true;
+    if(have('miner').length<3){ const mc=minerCell(); if(buy('miner',mc[0],mc[1]))act=true; }
     else { for(let r=0;r<ROWS;r++){ if(!laneHas('knight',r)&&buy('knight',9,r)){act=true;break;} } } // tuyến đầu chắn
     if(!act){ // chọn loại THIẾU nhất so với tỉ lệ mục tiêu; nếu loại cần nhất chưa đủ tiền -> để dành (không mua bừa)
       const types=Object.keys(targets);
       const need=types.map(t=>({t, deficit:targets[t]-have(t).length})).filter(o=>o.deficit>0).sort((a,b)=>b.deficit-a.deficit);
       if(need.length){ const cell=nextCell();
         if(cell){ const top=need[0];
-          if(s.gold>=UNITS[top.t].cost){ if(buy(top.t,cell[0],cell[1]))act=true; }
-          else { // để dành cho loại cần nhất, trừ khi có loại khác cũng thiếu mà mua được & rẻ hơn nhiều
-            const cheap=need.find(o=>s.gold>=UNITS[o.t].cost && UNITS[o.t].cost<=UNITS[top.t].cost*0.6);
+          if(s.gold>=costOf(s,top.t)){ if(buy(top.t,cell[0],cell[1]))act=true; }
+          else { // để dành cho loại cần nhất, trừ khi loại khác cũng thiếu mà rẻ hơn nhiều
+            const cheap=need.find(o=>s.gold>=costOf(s,o.t) && costOf(s,o.t)<=costOf(s,top.t)*0.6);
             if(cheap && buy(cheap.t,cell[0],cell[1]))act=true;
           }
         }
       }
     }
-    if(!act && have('miner').length<TUNE.minerCap && buy('miner',0,have('miner').length)) act=true;
+    if(!act && s.gold > costOf(s,'miner')*3 && have('miner').length<12){ const mc=minerCell(); if(buy('miner',mc[0],mc[1]))act=true; }
     if(!act){ const order=s.units.filter(u=>UNITS[u.type].type!=='econ').sort((a,b)=>a.level-b.level); for(const u of order){ if(up(u)){act=true;break;} } }
     if(!act) break;
   }
@@ -121,7 +128,7 @@ function pick(theme){ const r=Math.random();
   }
 }
 function buildWave(w, T){ const mp=metaPow(T||{d:0,s:0,h:0,c:0});
-  const hm=Math.pow(TUNE.hpScale,w-1)*mp, count=TUNE.countBase+Math.round(w*TUNE.countPerWave*(1+(mp-1)*0.25)), interval=1.5-Math.min(0.8,w*0.04), theme=waveTheme(w);
+  const hm=Math.pow(TUNE.hpScale,w-1)*mp, count=Math.round(waveCount(w)*(1+(mp-1)*0.25)), interval=waveInterval(w), theme=waveTheme(w);
   const q=[]; for(let i=0;i<count;i++){ let k=pick(theme); if(i===count-1&&theme==='boss')k='boss'; q.push({d:i*interval, db:E[k], m:hm}); }
   return { queue:q, total:count, theme };
 }
