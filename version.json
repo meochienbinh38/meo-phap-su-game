@@ -1,1 +1,1 @@
-{ "version": "3.0.0", "build": "2026-06-22", "notes": "Chuyển sang GAME ĐI MÀN: 12 màn, thắng được Tinh Thạch, cày Tinh Thạch mở khoá tướng ở Cửa Hàng. Độ khó theo MÀN (không theo kỹ năng). Phải mua tướng khắc tinh mới qua màn khó." }
+{ "version": "3.1.0", "build": "2026-06-22", "notes": "Sửa gợi ý khắc chế theo đúng chủ đề từng màn campaign; cập nhật cache PWA để nhận bản mới; bổ sung công cụ mô phỏng cân bằng campaign 12 màn." }
