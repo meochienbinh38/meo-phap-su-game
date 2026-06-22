@@ -197,12 +197,27 @@ Sửa lỗi: Trùm to chiếm 2 ô nhưng chỉ 1 hàng bắn được, và "đi
 > Lưu ý: sim chưa mô phỏng footprint/kỹ năng Trùm (đó là cơ chế, không phải đường cong kinh tế).
 > Trùm giờ MẠNH hơn nhiều ở đợt boss (mỗi 5 đợt) → cần playtest xem có quá gắt không.
 
+### j) HỆ KỸ NĂNG 2 BẢNG: Nội Tại chung + Kỹ năng từng tướng (XONG 2026-06-22)
+Màn "Nội Tại Vĩnh Viễn" giờ có **2 tab** (`openTalents`, biến `UI._talTab`):
+- **🌐 CHUNG**: 4 talent toàn cục cũ (`TALENTS_DB`: Vũ Khí/Cuồng Nộ/Gia Cố/Chí Mạng).
+- **🐱 TỪNG TƯỚNG**: 8 tướng × **3 bậc kỹ năng** (`UNIT_SKILLS`), dồn đủ SP mở khoá từng bậc.
+  Bậc 1-2 cộng số (dmg/máu/tốc/tầm/thu nhập/nổ...), **bậc 3 = kỹ năng "chữ ký"** mở đặc tính cấp 3 ngay từ cấp 1
+  (Xuyên Sớm/Nổ Sớm/Sét Chẻ/Đóng Băng/Độc Tố/Thánh Quang) hoặc buff mạnh (Khiên Gai phản đòn, Khẩn Trương -25% cd đào).
+- Hiệu ứng gom trong `unitSkillBonus(type)` → áp ở `getStats()` + các nhánh combat (ProjLin pierce/expl/splash,
+  ProjLob freeze/slow, laser chain, pulse slow, support aura, melee reflect). Lưu ở `State.unitSkills` (Storage).
+- **SP**: vẫn từ lên cấp (`gainXp` +1 SP/cấp, vĩnh viễn). Bậc kỹ năng giá 2/4/7 SP.
+- **Độ khó scale theo CẢ kỹ năng**: `diffScale() = metaPow() × (1 + 0.02 × tổng_bậc_kỹ_năng)` (max ×~4.3).
+  Dùng thay `metaPow()` ở buildWave + rò rỉ thành. → Cày kỹ năng = đi xa hơn, KHÔNG dễ hơn.
+
+**Sim (đã thêm hồ sơ `godlike` = max hết):** spam<kết-hợp ở mọi mức; kết hợp: mới ~13, cày max ~28 đợt.
+> Núm chỉnh: `0.02` (độ khó/bậc kỹ năng) trong `diffScale`, và giá SP từng bậc trong `UNIT_SKILLS`.
+
 ## 5. PHIÊN BẢN / CACHE (nhớ bump khi sửa)
 Khi sửa code muốn người chơi nhận bản mới, **đổi 3 chỗ**:
 1. `sw.js` → `const CACHE = 'kntt-vXX-...'` (tăng số).
 2. `index.html` → `const GAME_VERSION = 'X.Y.Z'`.
 3. `version.json` → cùng version + ghi `notes`.
-- Hiện tại: **CACHE `kntt-v28-boss`**, **GAME_VERSION `2.1.0`**.
+- Hiện tại: **CACHE `kntt-v29-skills`**, **GAME_VERSION `2.2.0`**.
 
 ## 6. 📋 VIỆC NÊN LÀM TIẾP (TODO)
 - [ ] Sink vàng cuối game (đợt ~17+ bàn đầy thì dư vàng): vd bán/đổi, lính tinh nhuệ giá cao, hoặc nâng cấp cấp 4.

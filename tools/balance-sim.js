@@ -56,17 +56,31 @@ const E = {}; ENEMIES.forEach(e=>E[e.kind]=e);
 
 function talentEffect(T){ return { d:T.d*0.1, s:T.s*0.05, h:T.h*100, c:T.c*0.05 }; }
 
-function newState(profile){ const T = profile==='maxed' ? {d:10,s:10,h:5,c:5} : {d:0,s:0,h:0,c:0};
+function newState(profile){ const T = (profile==='maxed'||profile==='godlike') ? {d:10,s:10,h:5,c:5} : {d:0,s:0,h:0,c:0};
+  const US = profile==='godlike' ? {miner:3,knight:3,archer:3,gunner:3,poison:3,mage:3,ice:3,priest:3} : {};
   return { gold:TUNE.startGold, hp:TUNE.baseHp+T.h*100, maxHp:TUNE.baseHp+T.h*100, wave:0, level:1, xp:0, maxXp:100, sp:0,
-  talents:T, units:[], enemies:[], projs:[], time:0, leaks:0 }; }
+  talents:T, unitSkills:US, units:[], enemies:[], projs:[], time:0, leaks:0 }; }
 
-// SỨC MẠNH META từ Nội Tại -> quái mạnh lên TƯƠNG ỨNG (max nội tại = đi xa hơn, không phải dễ hơn)
-function metaPow(T){ return 1 + 0.10*T.d + 0.06*T.s + 0.06*T.c; }   // max: 1 + 1.0 + 0.6 + 0.3 = 2.9
+// KỸ NĂNG TƯỚNG (mirror index.html) — bậc 1/2 cộng dồn số, bậc 3 = cờ mở khoá đặc tính
+const USK = {
+  miner:[{income:.2},{income:.25},{cdMul:.75}], knight:[{hp:.25},{reflect:.15},{hp:.3,reflect:.2}],
+  archer:[{aspd:.15},{dmg:.2},{earlyPierce:1}], gunner:[{dmg:.2},{splash:.4},{earlyExplode:1}],
+  poison:[{dmg:.25},{range:.25},{earlySlow:1}], mage:[{dmg:.2},{aspd:.15},{earlyChain:1}],
+  ice:[{dmg:.2},{slow:.2},{earlyFreeze:1}], priest:[{dmg:.3},{range:.25},{earlyAura:1}],
+};
+function uskBonus(US,type){ const tiers=USK[type]||[], n=(US&&US[type])||0; let b={dmg:1,hp:1,aspd:1,range:1,income:1,splash:1,cdMul:1,reflect:0,slow:0};
+  for(let i=0;i<n;i++){const t=tiers[i]; if(t.dmg)b.dmg+=t.dmg; if(t.hp)b.hp+=t.hp; if(t.aspd)b.aspd+=t.aspd; if(t.range)b.range+=t.range; if(t.income)b.income+=t.income; if(t.splash)b.splash+=t.splash; if(t.cdMul)b.cdMul*=t.cdMul; if(t.reflect)b.reflect+=t.reflect; if(t.slow)b.slow+=t.slow; if(t.earlyPierce)b.earlyPierce=1; if(t.earlyExplode)b.earlyExplode=1; if(t.earlyChain)b.earlyChain=1; if(t.earlyFreeze)b.earlyFreeze=1; if(t.earlySlow)b.earlySlow=1; if(t.earlyAura)b.earlyAura=1;}
+  return b; }
+function tiersTotal(US){ let n=0; for(const k in (US||{}))n+=US[k]; return n; }
 
-function unitStats(u,T){ const db=UNITS[u.type], lvM=Math.pow(1.4,u.level-1), te=talentEffect(T), dmgM=1+te.d, spdM=1+te.s;
-  if(db.type==='econ') return { inc:Math.floor(db.income*(u.level>=3?2:lvM)), cd:db.cd };
-  if(db.type==='pulse') return { dmg:db.dmg*lvM*dmgM, rng:db.range*GRID*(u.level>=3?1.3:1), aspd:db.aspd/spdM };
-  return { dmg:db.dmg*lvM*dmgM, rng:db.range*GRID, aspd:db.aspd/spdM };
+// SỨC MẠNH META = Nội Tại chung; ĐỘ KHÓ = meta × kỹ năng tướng
+function metaPow(T){ return 1 + 0.10*T.d + 0.06*T.s + 0.06*T.c; }   // max ×2.9
+function diffScale(T,US){ return metaPow(T) * (1 + 0.02*tiersTotal(US)); }
+
+function unitStats(u,T,US){ const db=UNITS[u.type], lvM=Math.pow(1.4,u.level-1), sb=uskBonus(US,u.type), te=talentEffect(T), dmgM=(1+te.d)*sb.dmg, spdM=(1+te.s)*sb.aspd;
+  if(db.type==='econ') return { inc:Math.floor(db.income*(u.level>=3?2:lvM)*sb.income), cd:db.cd*sb.cdMul };
+  if(db.type==='pulse') return { dmg:db.dmg*lvM*dmgM, rng:db.range*GRID*(u.level>=3?1.3:1)*sb.range, aspd:db.aspd/spdM };
+  return { dmg:db.dmg*lvM*dmgM, rng:db.range*GRID*sb.range, aspd:db.aspd/spdM };
 }
 const critMul = T => 1 + (0.1 + talentEffect(T).c);
 
@@ -127,7 +141,7 @@ function pick(theme){ const r=Math.random();
     case 'boss':   return ['imp','orc','wolf','skel'][Math.floor(r*4)];
   }
 }
-function buildWave(w, T){ const mp=metaPow(T||{d:0,s:0,h:0,c:0});
+function buildWave(w, T, US){ const mp=diffScale(T||{d:0,s:0,h:0,c:0}, US||{});
   const hm=Math.pow(TUNE.hpScale,w-1)*mp, count=Math.round(waveCount(w)*(1+(mp-1)*0.25)), interval=waveInterval(w), theme=waveTheme(w);
   const q=[]; for(let i=0;i<count;i++){ let k=pick(theme); if(i===count-1&&theme==='boss')k='boss'; q.push({d:i*interval, db:E[k], m:hm}); }
   return { queue:q, total:count, theme };
@@ -136,17 +150,17 @@ function buildWave(w, T){ const mp=metaPow(T||{d:0,s:0,h:0,c:0});
 function makeEnemy(db,m,w){ return { db, hp:db.hp*m, x:SPAWN_X, row:Math.floor(Math.random()*ROWS), atkCd:0, kb:0, shield:db.shield||0, slowT:0, slowAmt:0, jp:false, summonT:4, spdMul:1+(w-1)*TUNE.speedScale }; }
 
 function fireUnit(s,u,T){
-  const st=unitStats(u,T), db=UNITS[u.type], ux=cellX(u.col), crit=critMul(T), dmg=st.dmg*crit;
+  const US=s.unitSkills, sb=uskBonus(US,u.type), st=unitStats(u,T,US), db=UNITS[u.type], ux=cellX(u.col), crit=critMul(T), dmg=st.dmg*crit;
   const ahead=e=>e.row===u.row && (e.x-ux)>-GRID*0.5 && Math.abs(e.x-ux)<=st.rng;
-  if(db.type==='melee'){ const blk=s.enemies.filter(e=>e.row===u.row&&(e.x-ux)>0&&(e.x-ux)<GRID*0.6).sort((a,b)=>a.x-b.x)[0]; if(blk){ hurt(blk,dmg*(u.level>=3?1.3:1),'phys',false); u._cd=st.aspd; } }
-  else if(db.type==='linear'){ const ts=s.enemies.filter(ahead).sort((a,b)=>a.x-b.x); if(ts.length){ s.projs.push({row:u.row,x:ux,tgt:ts[0],dmg,dtype:'phys',pierce:u.level>=3,speed:760}); u._cd=st.aspd; } }
-  else if(db.type==='gunner'){ const ts=s.enemies.filter(ahead).sort((a,b)=>a.x-b.x); if(ts.length){ s.projs.push({row:u.row,x:ux,tgt:ts[0],dmg,dtype:'phys',splash:u.level>=3?GRID*1.2:0,speed:600}); u._cd=st.aspd; } }
-  else if(db.type==='lob'){ const ts=s.enemies.filter(ahead).sort((a,b)=>a.x-b.x); if(ts.length){ const tg=ts[0],R=GRID*(u.level>=3?2.0:db.splash);
-      s.enemies.forEach(e=>{ if(Math.hypot(e.x-tg.x,(e.row-tg.row)*GRID)<=R){ hurt(e,dmg,'frost',true); e.slowT=u.level>=3?3.5:1.5; e.slowAmt=u.level>=3?0.8:0.4; } }); u._cd=st.aspd; } }
+  if(db.type==='melee'){ const blk=s.enemies.filter(e=>e.row===u.row&&(e.x-ux)>0&&(e.x-ux)<GRID*0.6).sort((a,b)=>a.x-b.x)[0]; if(blk){ const bonus=(u.level>=3?0.3:0)+sb.reflect; hurt(blk,dmg*(1+bonus),'phys',false); u._cd=st.aspd; } }
+  else if(db.type==='linear'){ const ts=s.enemies.filter(ahead).sort((a,b)=>a.x-b.x); if(ts.length){ s.projs.push({row:u.row,x:ux,tgt:ts[0],dmg,dtype:'phys',pierce:(u.level>=3||sb.earlyPierce),speed:760}); u._cd=st.aspd; } }
+  else if(db.type==='gunner'){ const ts=s.enemies.filter(ahead).sort((a,b)=>a.x-b.x); if(ts.length){ const ex=(u.level>=3||sb.earlyExplode); s.projs.push({row:u.row,x:ux,tgt:ts[0],dmg,dtype:'phys',splash:ex?GRID*1.2*(1+sb.splash):0,speed:600}); u._cd=st.aspd; } }
+  else if(db.type==='lob'){ const ts=s.enemies.filter(ahead).sort((a,b)=>a.x-b.x); if(ts.length){ const tg=ts[0],mx=(u.level>=3||sb.earlyFreeze),R=GRID*(mx?2.0:db.splash);
+      s.enemies.forEach(e=>{ if(Math.hypot(e.x-tg.x,(e.row-tg.row)*GRID)<=R){ hurt(e,dmg,'frost',true); e.slowT=mx?3.5:1.5; e.slowAmt=Math.min(0.9,(mx?0.8:0.4)+sb.slow); } }); u._cd=st.aspd; } }
   else if(db.type==='laser'){ const ts=s.enemies.filter(e=>Math.hypot(e.x-ux,(e.row-u.row)*GRID)<=st.rng).sort((a,b)=>a.x-b.x); if(ts.length){ const tg=ts[0]; hurt(tg,dmg,'magic',false);
-      if(u.level>=3){ let ch=2,cur=tg,hl=[tg]; while(ch>0){ const n=s.enemies.filter(e=>!hl.includes(e)&&Math.hypot(e.x-cur.x,(e.row-cur.row)*GRID)<150)[0]; if(!n)break; hurt(n,dmg*0.7,'magic',false); cur=n; hl.push(n); ch--; } }
+      if(u.level>=3||sb.earlyChain){ let ch=2,cur=tg,hl=[tg]; while(ch>0){ const n=s.enemies.filter(e=>!hl.includes(e)&&Math.hypot(e.x-cur.x,(e.row-cur.row)*GRID)<150)[0]; if(!n)break; hurt(n,dmg*0.7,'magic',false); cur=n; hl.push(n); ch--; } }
       u._cd=st.aspd; } }
-  else if(db.type==='pulse'){ const hit=s.enemies.filter(e=>Math.hypot(e.x-ux,(e.row-u.row)*GRID)<=st.rng); if(hit.length){ hit.forEach(e=>{ hurt(e,dmg,'pois',false); if(u.level>=3){e.slowT=2;e.slowAmt=0.5;} }); u._cd=st.aspd; } }
+  else if(db.type==='pulse'){ const hit=s.enemies.filter(e=>Math.hypot(e.x-ux,(e.row-u.row)*GRID)<=st.rng); if(hit.length){ hit.forEach(e=>{ hurt(e,dmg,'pois',false); if(u.level>=3||sb.earlySlow){e.slowT=2;e.slowAmt=0.5;} }); u._cd=st.aspd; } }
 }
 
 function updateEnemy(s,e){
@@ -160,13 +174,13 @@ function updateEnemy(s,e){
 }
 
 function simWave(s,w,strat){
-  const sp=buildWave(w, s.talents); const wallMp=1+(metaPow(s.talents)-1)*0.5; let tL=0; s.leaks=0;
-  let mt=s.units.filter(u=>u.type==='miner').map(u=>unitStats(u,s.talents).cd);
+  const sp=buildWave(w, s.talents, s.unitSkills); const wallMp=1+(diffScale(s.talents,s.unitSkills)-1)*0.5; let tL=0; s.leaks=0;
+  let mt=s.units.filter(u=>u.type==='miner').map(u=>unitStats(u,s.talents,s.unitSkills).cd);
   s.units.forEach(u=>u._cd=Math.random()*0.3);
   while((sp.queue.length>0||s.enemies.length>0)&&tL<600&&s.hp>0){
     tL+=DT; s.time+=DT;
     for(let i=sp.queue.length-1;i>=0;i--){ const it=sp.queue[i]; it.d-=DT; if(it.d<=0){ s.enemies.push(makeEnemy(it.db,it.m,w)); sp.queue.splice(i,1); } }
-    const miners=s.units.filter(u=>u.type==='miner'); miners.forEach((u,i)=>{ mt[i]=(mt[i]??unitStats(u,s.talents).cd)-DT; if(mt[i]<=0){ const st=unitStats(u,s.talents); s.gold+=st.inc; mt[i]=st.cd; } });
+    const miners=s.units.filter(u=>u.type==='miner'); miners.forEach((u,i)=>{ mt[i]=(mt[i]??unitStats(u,s.talents,s.unitSkills).cd)-DT; if(mt[i]<=0){ const st=unitStats(u,s.talents,s.unitSkills); s.gold+=st.inc; mt[i]=st.cd; } });
     for(const u of s.units){ if(UNITS[u.type].type==='econ')continue; u._cd-=DT; if(u._cd>0)continue; fireUnit(s,u,s.talents); }
     for(let i=s.projs.length-1;i>=0;i--){ const pr=s.projs[i],tg=pr.tgt; if(tg._gone||tg.hp<=0){ s.projs.splice(i,1); continue; } pr.x+=pr.speed*DT;
       if(pr.x>=tg.x){ hurt(tg,pr.dmg,pr.dtype,true); if(pr.splash)s.enemies.forEach(e=>{ if(e!==tg&&Math.hypot(e.x-tg.x,(e.row-tg.row)*GRID)<=pr.splash)hurt(e,pr.dmg*0.7,pr.dtype,false); }); if(pr.pierce)s.enemies.forEach(e=>{ if(e!==tg&&e.row===pr.row&&e.x>tg.x)hurt(e,pr.dmg,pr.dtype,true); }); s.projs.splice(i,1); } }
@@ -184,7 +198,7 @@ function comp(s){ const m={}; s.units.forEach(u=>m[u.type]=(m[u.type]||0)+1); re
 
 function run(strat, profile, maxWave=35, verbose=true){
   const s=newState(profile);
-  if(verbose){ console.log(`\n=== ${strat.toUpperCase()} | Nội Tại: ${profile.toUpperCase()} (×${metaPow(s.talents).toFixed(2)} sức mạnh) ===`);
+  if(verbose){ console.log(`\n=== ${strat.toUpperCase()} | ${profile.toUpperCase()} (độ khó ×${diffScale(s.talents,s.unitSkills).toFixed(2)}) ===`);
     console.log(`đợt | chủ đề  | quái | rò rỉ | máuThành | vàng | nhận xét`); console.log('-'.repeat(70)); }
   for(let w=1;w<=maxWave;w++){ s.wave=w; aiSpend(s,strat);
     const r=simWave(s,w,strat);
@@ -195,10 +209,10 @@ function run(strat, profile, maxWave=35, verbose=true){
   if(verbose)console.log(`>>> sống hết ${maxWave} đợt. Quân: ${comp(s)}`); return maxWave+1;
 }
 
-// Người chơi MAX Nội Tại = tình huống thực của bạn (ảnh). Người MỚI = lần đầu chơi.
-run('mono','maxed'); run('balanced','maxed');
-console.log(`\n================ TỔNG HỢP (điểm SỤP) ================`);
-for(const p of ['fresh','maxed']){
-  const m=run('mono',p,35,false), b=run('balanced',p,35,false);
-  console.log(`Nội Tại ${p.padEnd(5)}: spam 1 loại sụp đợt ${String(m).padStart(2)} | kết hợp khắc chế ${b>35?'>35':'sụp đợt '+b}`);
+// godlike = MAX cả Nội Tại chung + MỌI kỹ năng tướng (người chơi cày lâu = tình huống cuối)
+run('balanced','godlike');
+console.log(`\n================ TỔNG HỢP (điểm SỤP, trung bình) ================`);
+for(const p of ['fresh','maxed','godlike']){
+  let mS=0,bS=0,N=4; for(let i=0;i<N;i++){ mS+=run('mono',p,40,false); bS+=run('balanced',p,40,false); }
+  console.log(`${p.padEnd(7)}: spam 1 loại sụp ~đợt ${(mS/N).toFixed(0).padStart(2)} | kết hợp khắc chế ~đợt ${(bS/N).toFixed(0)}`);
 }

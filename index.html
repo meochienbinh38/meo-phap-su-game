@@ -448,13 +448,14 @@ function vibe(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch 
 // ============ STORAGE (lưu nội tại / điểm / kỷ lục) ============
 const Storage = {
     key: 'kntt_v17',
-    data: { talents: { d: 0, s: 0, h: 0, c: 0 }, tp: 0, best: [0, 0, 0], sfx: true, music: false },
+    data: { talents: { d: 0, s: 0, h: 0, c: 0 }, unitSkills: {}, tp: 0, best: [0, 0, 0], sfx: true, music: false },
     load() {
         try {
             const s = localStorage.getItem(this.key);
             if (s) {
                 const p = JSON.parse(s);
                 this.data.talents = Object.assign({ d: 0, s: 0, h: 0, c: 0 }, p.talents || {});
+                this.data.unitSkills = (p.unitSkills && typeof p.unitSkills === 'object') ? p.unitSkills : {};
                 this.data.tp = p.tp || 0;
                 this.data.best = Array.isArray(p.best) ? p.best : [0, 0, 0];
                 this.data.sfx = p.sfx !== false;
@@ -465,6 +466,7 @@ const Storage = {
     },
     sync() {
         this.data.talents = { ...State.talents };
+        this.data.unitSkills = { ...State.unitSkills };
         this.data.tp = State.tp;
         this.data.sfx = Sound.sfxOn;
         this.data.music = Sound.musicOn;
@@ -542,6 +544,51 @@ const TALENTS_DB = {
     h: { name: 'Gia Cố', desc: '+100 Máu nhà', max: 5, effect: (lvl) => lvl * 100, icon: '🧱' },
     c: { name: 'Chí Mạng', desc: '+5% Bạo kích', max: 5, effect: (lvl) => lvl * 0.05, icon: '🎯' }
 };
+
+// KỸ NĂNG TỪNG TƯỚNG — 3 bậc/tướng, nuôi bằng SP (lên cấp). Bậc 3 = kỹ năng "chữ ký" (mở khoá đặc tính cấp 3 ngay từ cấp 1).
+const UNIT_SKILLS = {
+    miner:  [ { n:'Mạch Vàng',  d:'+20% thu nhập',                 cost:2, income:.2 },
+              { n:'Đào Sâu',    d:'+25% thu nhập',                 cost:4, income:.25 },
+              { n:'Khẩn Trương',d:'Đào nhanh hơn 25%',             cost:7, cdMul:.75 } ],
+    knight: [ { n:'Da Dày',     d:'+25% máu',                      cost:2, hp:.25 },
+              { n:'Khiên Gai',  d:'Phản đòn 15% (mọi cấp)',        cost:4, reflect:.15 },
+              { n:'Bất Khuất',  d:'+30% máu, phản đòn mạnh hơn',   cost:7, hp:.3, reflect:.2 } ],
+    archer: [ { n:'Tay Nhanh',  d:'+15% tốc đánh',                 cost:2, aspd:.15 },
+              { n:'Mũi Nhọn',   d:'+20% sát thương',               cost:4, dmg:.2 },
+              { n:'Xuyên Sớm',  d:'Đạn xuyên thấu từ cấp 1',       cost:7, earlyPierce:true } ],
+    gunner: [ { n:'Nòng Lớn',   d:'+20% sát thương',               cost:2, dmg:.2 },
+              { n:'Thuốc Nổ',   d:'+40% bán kính nổ',              cost:4, splash:.4 },
+              { n:'Nổ Sớm',     d:'Nổ chùm từ cấp 1',              cost:7, earlyExplode:true } ],
+    poison: [ { n:'Độc Mạnh',   d:'+25% sát thương',               cost:2, dmg:.25 },
+              { n:'Lan Tỏa',    d:'+25% bán kính',                 cost:4, range:.25 },
+              { n:'Độc Tố',     d:'Làm chậm địch từ cấp 1',        cost:7, earlySlow:true } ],
+    mage:   [ { n:'Tụ Điện',    d:'+20% sát thương',               cost:2, dmg:.2 },
+              { n:'Phóng Nhanh',d:'+15% tốc đánh',                 cost:4, aspd:.15 },
+              { n:'Sét Chẻ',    d:'Nảy chuỗi từ cấp 1',            cost:7, earlyChain:true } ],
+    ice:    [ { n:'Lạnh Buốt',  d:'+20% sát thương',               cost:2, dmg:.2 },
+              { n:'Băng Giá',   d:'Làm chậm mạnh hơn',             cost:4, slow:.2 },
+              { n:'Đóng Băng',  d:'Nổ rộng & đóng băng từ cấp 1',  cost:7, earlyFreeze:true } ],
+    priest: [ { n:'Phúc Lành',  d:'+30% hồi máu',                  cost:2, dmg:.3 },
+              { n:'Ban Phúc',   d:'+25% tầm hỗ trợ',               cost:4, range:.25 },
+              { n:'Thánh Quang',d:'Hào quang buff từ cấp 1',       cost:7, earlyAura:true } ],
+};
+// Cộng dồn hiệu ứng các bậc đã mở của 1 tướng
+function unitSkillBonus(type){
+    const tiers = UNIT_SKILLS[type] || [], n = (State.unitSkills && State.unitSkills[type]) || 0;
+    let b = { dmg:1, hp:1, aspd:1, range:1, income:1, splash:1, cdMul:1, reflect:0, slow:0 };
+    for (let i = 0; i < n; i++) { const t = tiers[i];
+        if (t.dmg) b.dmg += t.dmg; if (t.hp) b.hp += t.hp; if (t.aspd) b.aspd += t.aspd;
+        if (t.range) b.range += t.range; if (t.income) b.income += t.income; if (t.splash) b.splash += t.splash;
+        if (t.cdMul) b.cdMul *= t.cdMul; if (t.reflect) b.reflect += t.reflect; if (t.slow) b.slow += t.slow;
+        if (t.earlyPierce) b.earlyPierce = true; if (t.earlyExplode) b.earlyExplode = true;
+        if (t.earlyChain) b.earlyChain = true; if (t.earlyFreeze) b.earlyFreeze = true;
+        if (t.earlySlow) b.earlySlow = true; if (t.earlyAura) b.earlyAura = true;
+    }
+    return b;
+}
+function skillTiersTotal(){ let n = 0; for (const k in (State.unitSkills||{})) n += State.unitSkills[k]; return n; }
+// Độ khó scale theo TỔNG sức mạnh vĩnh viễn = Nội Tại chung × kỹ năng tướng (đầu tư = đi xa hơn, không dễ hơn)
+function diffScale(){ return metaPow() * (1 + 0.02 * skillTiersTotal()); }
 
 // ============ CHARACTER ART — nhân vật Mèo vẽ & animate bằng code (procedural) ============
 // Cấu hình nghệ thuật từng quân: lông, áo choàng, màu nhấn, mũ, vũ khí, kiểu tấn công.
@@ -924,7 +971,7 @@ const CharArt = {
 const State = {
     running: false, paused: false, speed: 1,
     gold: 0, hp: 0, maxHp: 0, wave: 1, level: 1, xp: 0, maxXp: 0, tp: 0, mapId: 0,
-    talents: { d: 0, s: 0, h: 0, c: 0 },
+    talents: { d: 0, s: 0, h: 0, c: 0 }, unitSkills: {},
     grid: { size: 0, cols: 0, offsetX: 0, offsetY: 0 },
 
     units: [], enemies: [], projs: [], eProjs: [], particles: [], floatTexts: [], beams: [], flyingCoins: [], obstacles: [], weather: [],
@@ -950,12 +997,13 @@ class Unit {
 
     getStats() {
         let lvM = Math.pow(1.4, this.level - 1);
-        let dmgM = 1 + TALENTS_DB.d.effect(State.talents.d) + this.auraDmg;
-        let spdM = 1 + TALENTS_DB.s.effect(State.talents.s) + this.auraSpd;
+        let sb = unitSkillBonus(this.typeId);     // kỹ năng vĩnh viễn của loại tướng này
+        let dmgM = (1 + TALENTS_DB.d.effect(State.talents.d) + this.auraDmg) * sb.dmg;
+        let spdM = (1 + TALENTS_DB.s.effect(State.talents.s) + this.auraSpd) * sb.aspd;
 
-        if (this.db.type === 'econ') return { hp: this.db.hp * lvM, inc: Math.floor(this.db.income * (this.level >= 3 ? 2 : lvM)), cd: this.db.cd };
-        if (this.db.type === 'pulse') return { hp: this.db.hp * lvM, dmg: this.db.dmg * lvM * dmgM, rng: this.db.range * State.grid.size * (this.level >= 3 ? 1.3 : 1), aspd: this.db.aspd / spdM };
-        return { hp: this.db.hp * lvM, dmg: this.db.dmg * lvM * dmgM, rng: this.db.range * State.grid.size, aspd: this.db.aspd / spdM };
+        if (this.db.type === 'econ') return { hp: this.db.hp * lvM * sb.hp, inc: Math.floor(this.db.income * (this.level >= 3 ? 2 : lvM) * sb.income), cd: this.db.cd * sb.cdMul };
+        if (this.db.type === 'pulse') return { hp: this.db.hp * lvM * sb.hp, dmg: this.db.dmg * lvM * dmgM, rng: this.db.range * State.grid.size * (this.level >= 3 ? 1.3 : 1) * sb.range, aspd: this.db.aspd / spdM };
+        return { hp: this.db.hp * lvM * sb.hp, dmg: this.db.dmg * lvM * dmgM, rng: this.db.range * State.grid.size * sb.range, aspd: this.db.aspd / spdM };
     }
 
     takeDamage(amt) {
@@ -987,13 +1035,13 @@ class Unit {
                 State.enemies.forEach(e => {
                     if (getDist(this.x, this.y, e.x, e.y) <= s.rng) {
                         e.takeDmg(s.dmg, 'pois', false); Engine.spawnText(e.x, e.y - 20, Math.floor(s.dmg), this.db.color, false); hitAny = true;
-                        if (this.level >= 3) { e.slowTimer = 2.0; e.slowAmt = 0.5; }
+                        if (this.level >= 3 || unitSkillBonus('poison').earlySlow) { e.slowTimer = 2.0; e.slowAmt = 0.5; }
                     }
                 });
                 if (hitAny) Sound.play('pulse');
             }
             else if (this.db.type === 'support') {
-                if (this.level >= 3) {
+                if (this.level >= 3 || unitSkillBonus('priest').earlyAura) {
                     State.units.forEach(u => { if (u !== this && Math.abs(u.col - this.col) + Math.abs(u.row - this.row) === 1) { u.auraDmg = 0.15; u.auraSpd = 0.15; } });
                 }
                 let tAlly = null, minHpP = 1.0;
@@ -1027,8 +1075,9 @@ class Unit {
                         t.takeDmg(fd, 'phys', false);
                         Engine.spawnText(t.x, t.y - 20, Math.floor(fd), '#fff', isCrit);
                         Sound.play('hit');
-                        if (this.level >= 3) {
-                            t.takeDmg(fd * 0.3, 'phys', false);
+                        let bonusFrac = (this.level >= 3 ? 0.3 : 0) + unitSkillBonus('knight').reflect;   // phản đòn cấp 3 + kỹ năng Khiên Gai
+                        if (bonusFrac > 0) {
+                            t.takeDmg(fd * bonusFrac, 'phys', false);
                             Engine.spawnParticles(this.x + 20, this.y, '#93c5fd', 10, 50, 3);
                         } else {
                             Engine.spawnParticles(t.x - 10, t.y, '#fff', 5, 40, 2);
@@ -1042,7 +1091,7 @@ class Unit {
                         State.particles.push({ x: t.x, y: t.y + 10, type: 'magic', c: c, l: 0.3 });
                         Sound.play('zap');
 
-                        if (this.level >= 3) {
+                        if (this.level >= 3 || unitSkillBonus('mage').earlyChain) {
                             let chains = 2, curT = t, hitL = [t];
                             while (chains > 0) {
                                 let nT = null, nD = 150;
@@ -1176,7 +1225,8 @@ class Enemy {
 class ProjLin {
     constructor(x, y, ty, d, typeId, db, lv, cr) {
         this.x = x; this.y = ty; this.d = d; this.typeId = typeId; this.db = db; this.lv = lv; this.cr = cr;
-        this.p = (this.typeId === 'archer' && lv >= 3);
+        this.p = (this.typeId === 'archer' && (lv >= 3 || unitSkillBonus('archer').earlyPierce));   // xuyên thấu (cấp 3 hoặc kỹ năng Xuyên Sớm)
+        this.expl = (this.typeId === 'gunner' && (lv >= 3 || unitSkillBonus('gunner').earlyExplode)); // nổ chùm (cấp 3 hoặc Nổ Sớm)
         this.hl = new Set(); this.a = true;
     }
     update(dt) {
@@ -1187,10 +1237,11 @@ class ProjLin {
 
         for (let e of State.enemies) {
             if (!this.hl.has(e) && Math.abs(e.y - this.y) < (e.rowSpan || 1) * State.grid.size * 0.5 + 6 && e.x > this.x - 20 && e.x < this.x + 20) {
-                if (this.typeId === 'gunner' && this.lv >= 3) {
+                if (this.expl) {
                     Engine.spawnParticles(this.x, this.y, '#ef4444', 15, 60, 3);
                     State.shake += 4; Sound.play('boom');
-                    State.enemies.forEach(en => { if (getDist(this.x, this.y, en.x, en.y) < State.grid.size * 1.5) en.takeDmg(this.d, 'phys', false); });   // nổ chùm: không bị né
+                    let rd = State.grid.size * 1.5 * (1 + unitSkillBonus('gunner').splash);   // bán kính nổ + kỹ năng Thuốc Nổ
+                    State.enemies.forEach(en => { if (getDist(this.x, this.y, en.x, en.y) < rd) en.takeDmg(this.d, 'phys', false); });   // nổ chùm: không bị né
                     this.a = false; break;
                 } else {
                     e.takeDmg(this.d, 'phys', true);   // đạn thường (phys) -> có thể bị NÉ
@@ -1202,8 +1253,7 @@ class ProjLin {
         }
     }
     draw(ctx) {
-        let isExplosive = (this.typeId === 'gunner' && this.lv >= 3);
-        let col = this.p ? '#34d399' : (isExplosive ? '#ef4444' : this.db.color);
+        let col = this.p ? '#34d399' : (this.expl ? '#ef4444' : this.db.color);
         ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = this.p ? 12 : 8;
         ctx.fillStyle = col;
         ctx.fillRect(this.p ? this.x - 20 : this.x - 10, this.y - 2, this.p ? 30 : 20, 4);
@@ -1222,7 +1272,7 @@ class ProjLob {
         if (this.typeId === 'ice' && this.lv >= 3) Engine.spawnParticles(this.x, this.y - this.ar, '#e0f2fe', 1, 15, 2);
 
         if (dl < 10) {
-            let isMaxIce = (this.typeId === 'ice' && this.lv >= 3);
+            let isMaxIce = (this.typeId === 'ice' && (this.lv >= 3 || unitSkillBonus('ice').earlyFreeze));   // Đóng Băng (cấp 3 hoặc kỹ năng)
             let rd = this.db.splash * State.grid.size * (isMaxIce ? 2.0 : 1);
             let pCol = isMaxIce ? '#e0f2fe' : this.db.color;
 
@@ -1235,7 +1285,7 @@ class ProjLob {
                     e.takeDmg(this.d, 'frost', false);                 // nổ băng AoE: không bị né
                     if (e.hp < before) {                               // chỉ làm chậm nếu thực sự trúng
                         Engine.spawnText(e.x, e.y - 20, Math.floor(this.d), pCol, this.cr);
-                        if (this.typeId === 'ice') { e.slowTimer = isMaxIce ? 3.5 : 1.5; e.slowAmt = isMaxIce ? 0.8 : 0.4; }
+                        if (this.typeId === 'ice') { e.slowTimer = isMaxIce ? 3.5 : 1.5; e.slowAmt = Math.min(0.9, (isMaxIce ? 0.8 : 0.4) + unitSkillBonus('ice').slow); }
                     }
                 }
             });
@@ -1362,7 +1412,7 @@ const Engine = {
     },
 
     buildWave() {
-        State.spawn.queue = []; let w = State.wave, mp = metaPow();
+        State.spawn.queue = []; let w = State.wave, mp = diffScale();
         // NHỊP ĐỘ: màn đầu ÍT & ra CHẬM (thư thả) -> cuối BÙNG NỔ (đông & dồn dập)
         let hm = Math.pow(1.16, w - 1) * mp;
         let count = Math.round((4 + w * 1.4 + w * w * 0.13) * (1 + (mp - 1) * 0.25)); State.spawn.total = count;
@@ -1391,7 +1441,7 @@ const Engine = {
             });
 
             if (State.spawn.isPrep) {
-                State.spawn.timer -= dt; let _mp = metaPow(); document.getElementById('w-stat').innerText = `CHUẨN BỊ · ${WAVE_THEMES[waveTheme(State.wave)].tag}${_mp > 1.3 ? ' · ĐỘ KHÓ ×' + _mp.toFixed(1) : ''}: ${Math.ceil(State.spawn.timer)}s`; document.getElementById('w-bar').style.width = '0%';
+                State.spawn.timer -= dt; let _mp = diffScale(); document.getElementById('w-stat').innerText = `CHUẨN BỊ · ${WAVE_THEMES[waveTheme(State.wave)].tag}${_mp > 1.3 ? ' · ĐỘ KHÓ ×' + _mp.toFixed(1) : ''}: ${Math.ceil(State.spawn.timer)}s`; document.getElementById('w-bar').style.width = '0%';
                 if (State.spawn.timer <= 0) {
                     State.spawn.isPrep = false; document.getElementById('w-stat').innerText = "ĐANG PHÒNG THỦ";
                     document.getElementById('call').style.display = 'none'; UI.showMessage(WAVE_THEMES[waveTheme(State.wave)].hint, waveTheme(State.wave) === 'boss'); Sound.play('wave'); this.buildWave();
@@ -1420,7 +1470,7 @@ const Engine = {
 
             State.enemies.forEach(e => e.update(dt));
             State.enemies = State.enemies.filter(e => {
-                if (e.x < State.grid.offsetX) { let leak = e.db.dmg * (1 + (State.wave - 1) * 0.09) * (1 + (metaPow() - 1) * 0.5); State.hp -= leak; State.shake = 20; UI.showMessage("THÀNH TRÌ BỊ TẤN CÔNG!", true); Sound.play('alarm'); vibe(60); UI.updateDisplay(); if (State.hp <= 0) Control.gameOver(); return false; }
+                if (e.x < State.grid.offsetX) { let leak = e.db.dmg * (1 + (State.wave - 1) * 0.09) * (1 + (diffScale() - 1) * 0.5); State.hp -= leak; State.shake = 20; UI.showMessage("THÀNH TRÌ BỊ TẤN CÔNG!", true); Sound.play('alarm'); vibe(60); UI.updateDisplay(); if (State.hp <= 0) Control.gameOver(); return false; }
                 if (e.hp <= 0) {
                     let g = e.db.gold; this.gainXp(e.db.xp);   // vàng rơi cố định (talent Vũ Khí chỉ tăng sát thương, không tăng vàng)
                     this.spawnText(e.x, e.y, `+${g}`, '#fde047', false); this.spawnFlyingCoin(e.x, e.y, g); this.spawnParticles(e.x, e.y, '#71717a', 15, 60, 3);
@@ -1730,12 +1780,31 @@ const UI = {
     closeUnitModal() { State.ui.selUnit = null; document.getElementById('umod').classList.add('hidden'); },
     openTalents() {
         let modal = document.getElementById('tmod'), container = document.getElementById('t-cont'); container.innerHTML = ''; document.getElementById('tp-d').innerText = State.tp;
-        Object.keys(TALENTS_DB).forEach(k => {
-            let t = TALENTS_DB[k], lv = State.talents[k], canUp = State.tp > 0 && lv < t.max;
-            let d = document.createElement('div'); d.className = 't-row';
-            d.innerHTML = `<div style="display:flex;align-items:center;gap:12px;min-width:0"><div style="font-size:28px;flex:0 0 auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))">${t.icon}</div><div style="min-width:0"><div style="font-size:13px;font-weight:800;color:var(--ink)">${t.name} <span style="font-size:10px;color:var(--indigo);margin-left:4px">Lv.${lv}/${t.max}</span></div><div class="sub" style="font-size:10px;margin-top:2px">${t.desc}</div></div></div><button class="btn ${canUp ? 'btn--indigo' : 'btn--ghost'}" style="width:40px;height:40px;flex:0 0 auto;padding:0;font-size:22px${canUp ? '' : ';opacity:.5;pointer-events:none'}">+</button>`;
-            if (canUp) { d.querySelector('button').onclick = () => { State.tp--; State.talents[k]++; if (k === 'h') State.hp += 100; Sound.play('upgrade'); Storage.sync(); this.updateDisplay(); this.refreshStart(); this.openTalents(); }; } container.appendChild(d);
-        }); modal.classList.remove('hidden');
+        if (!this._talTab) this._talTab = 'common';
+        // thanh tab
+        let bar = document.createElement('div'); bar.style.cssText = 'display:flex;gap:8px;margin-bottom:10px';
+        const mkTab = (id, label) => { let b = document.createElement('button'); b.className = 'btn ' + (this._talTab === id ? 'btn--indigo' : 'btn--ghost'); b.style.cssText = 'flex:1;font-size:12px;padding:8px'; b.innerText = label; b.onclick = () => { this._talTab = id; Sound.play('click'); this.openTalents(); }; return b; };
+        bar.appendChild(mkTab('common', '🌐 CHUNG')); bar.appendChild(mkTab('units', '🐱 TỪNG TƯỚNG')); container.appendChild(bar);
+
+        if (this._talTab === 'common') {
+            Object.keys(TALENTS_DB).forEach(k => {
+                let t = TALENTS_DB[k], lv = State.talents[k], canUp = State.tp > 0 && lv < t.max;
+                let d = document.createElement('div'); d.className = 't-row';
+                d.innerHTML = `<div style="display:flex;align-items:center;gap:12px;min-width:0"><div style="font-size:28px;flex:0 0 auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))">${t.icon}</div><div style="min-width:0"><div style="font-size:13px;font-weight:800;color:var(--ink)">${t.name} <span style="font-size:10px;color:var(--indigo);margin-left:4px">Lv.${lv}/${t.max}</span></div><div class="sub" style="font-size:10px;margin-top:2px">${t.desc}</div></div></div><button class="btn ${canUp ? 'btn--indigo' : 'btn--ghost'}" style="width:40px;height:40px;flex:0 0 auto;padding:0;font-size:22px${canUp ? '' : ';opacity:.5;pointer-events:none'}">+</button>`;
+                if (canUp) { d.querySelector('button').onclick = () => { State.tp--; State.talents[k]++; if (k === 'h') State.hp += 100; Sound.play('upgrade'); Storage.sync(); this.updateDisplay(); this.refreshStart(); this.openTalents(); }; } container.appendChild(d);
+            });
+        } else {
+            // BẢNG TỪNG TƯỚNG: dồn đủ SP mở khoá kỹ năng theo bậc
+            Object.keys(UNIT_SKILLS).forEach(k => {
+                let u = UNITS_DB[k], tiers = UNIT_SKILLS[k], lv = State.unitSkills[k] || 0, next = tiers[lv], canUp = next && State.tp >= next.cost;
+                let pills = tiers.map((tr, i) => `<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:${i < lv ? u.color : 'rgba(255,255,255,.08)'};color:${i < lv ? '#0b1220' : 'var(--dim)'};font-weight:800">${i < lv ? '✓' : i + 1}</span>`).join(' ');
+                let info = next ? `Bậc ${lv + 1}: <b style="color:${u.color}">${next.n}</b> — ${next.d}` : `<span style="color:${u.color}">✓ Đã mở toàn bộ kỹ năng</span>`;
+                let d = document.createElement('div'); d.className = 't-row';
+                d.innerHTML = `<div style="display:flex;align-items:center;gap:12px;min-width:0"><div style="font-size:26px;flex:0 0 auto">${u.icon}</div><div style="min-width:0"><div style="font-size:13px;font-weight:800;color:${u.color}">${u.name} &nbsp;${pills}</div><div class="sub" style="font-size:10px;margin-top:2px">${info}</div></div></div>` + (next ? `<button class="btn ${canUp ? 'btn--indigo' : 'btn--ghost'}" style="min-width:52px;height:40px;flex:0 0 auto;padding:0 8px;font-size:12px;font-weight:800${canUp ? '' : ';opacity:.5;pointer-events:none'}">${next.cost} SP</button>` : '');
+                if (canUp) { d.querySelector('button').onclick = () => { State.tp -= next.cost; State.unitSkills[k] = lv + 1; Sound.play('upgrade'); Storage.sync(); this.updateDisplay(); this.refreshStart(); this.openTalents(); }; } container.appendChild(d);
+            });
+        }
+        modal.classList.remove('hidden');
     },
     showMessage(text, isDanger = false) {
         let el = document.getElementById('msg'), txt = document.getElementById('msg-t'); txt.innerText = text;
@@ -1855,7 +1924,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============ PHIÊN BẢN & TỰ CẬP NHẬT ============
-const GAME_VERSION = '2.1.0';
+const GAME_VERSION = '2.2.0';
 let _updChecking = false;
 
 function setVerLabels() {
@@ -1908,6 +1977,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) chec
 // ============ BOOT ============
 Storage.load();
 State.talents = { ...Storage.data.talents };
+State.unitSkills = { ...Storage.data.unitSkills };
 State.tp = Storage.data.tp;
 Sound.sfxOn = Storage.data.sfx;
 Sound.musicOn = Storage.data.music;

@@ -1,1 +1,1 @@
-{ "version": "2.1.0", "build": "2026-06-22", "notes": "Làm lại chiến đấu Trùm: Trùm chiếm 2 hàng (bắn được từ cả 2 hàng, chặn & đánh tướng cả 2 hàng), thêm kỹ năng Trùm (Giậm Đất AoE+choáng, Triệu Hồi, Cuồng Nộ)." }
+{ "version": "2.2.0", "build": "2026-06-22", "notes": "Hệ kỹ năng 2 bảng: Nội Tại CHUNG + kỹ năng TỪNG TƯỚNG (8 tướng × 3 bậc, mở khoá bằng SP). Độ khó scale theo kỹ năng (cày max = đi xa hơn, không dễ hơn)." }
