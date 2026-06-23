@@ -1,1 +1,1 @@
-{ "version": "3.12.12", "build": "2026-06-23", "notes": "Ép cập nhật gói Cung Thủ Hoá Thần: nạp kỹ năng Vạn Tiễn Xuyên Tâm và làm mới cache PWA." }
+{ "version": "3.12.13", "build": "2026-06-23", "notes": "Thay service worker bằng bản sạch network-first, ép nạp v313-archer-god.js và kỹ năng Vạn Tiễn Xuyên Tâm cho Cung Thủ Hoá Thần." }
