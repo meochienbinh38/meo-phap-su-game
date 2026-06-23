@@ -1,0 +1,209 @@
+/* KNTT v3.12 polish layer
+ * Mục tiêu: sửa các lỗi hoàn thiện nhỏ mà không đụng sâu lõi index.html.
+ */
+(function () {
+  'use strict';
+
+  if (window.__KNTT_V312_POLISH__) return;
+  window.__KNTT_V312_POLISH__ = true;
+
+  const FALLBACK_VERSION = '3.12.0';
+  const VERSION_URL = './version.json';
+
+  function q(id) { return document.getElementById(id); }
+  function safeNum(v, fallback) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  async function readLatestVersion() {
+    try {
+      const res = await fetch(VERSION_URL + '?t=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) throw new Error('version.json HTTP ' + res.status);
+      const data = await res.json();
+      return data && data.version ? String(data.version) : FALLBACK_VERSION;
+    } catch (_) {
+      return FALLBACK_VERSION;
+    }
+  }
+
+  function setVersionLabels(version) {
+    const v = version || FALLBACK_VERSION;
+    window.GAME_VERSION = v;
+    window.KNTT_ACTIVE_VERSION = v;
+
+    const a = q('ver-num');
+    const b = q('ver-num-2');
+    const u = q('upd-ver');
+    if (a) a.innerText = v;
+    if (b) b.innerText = v;
+    if (u && (!u.innerText || u.innerText === '?' || /^3\./.test(u.innerText))) u.innerText = v;
+
+    ['b-update', 'b-update-2'].forEach((id) => {
+      const el = q(id);
+      if (el && /Phiên bản|Kiểm tra/.test(el.textContent || '')) {
+        el.innerHTML = '↪ Phiên bản ' + v + ' · Kiểm tra cập nhật';
+      }
+    });
+  }
+
+  function startVersionGuard() {
+    readLatestVersion().then((version) => {
+      [0, 250, 800, 1400, 2600].forEach((delay) => {
+        setTimeout(() => setVersionLabels(version), delay);
+      });
+    });
+  }
+
+  function buyRamp() {
+    try { return safeNum(CFG && CFG.buyRamp, 1.11); } catch (_) { return 1.11; }
+  }
+
+  function currentUnits() {
+    try { return Array.isArray(State.units) ? State.units : []; } catch (_) { return []; }
+  }
+
+  function inferPurchaseCost(unit, countBefore) {
+    if (!unit || !unit.db) return 0;
+    const n = Math.max(0, safeNum(countBefore, 0));
+    return Math.round(safeNum(unit.db.cost, 0) * Math.pow(buyRamp(), n));
+  }
+
+  function ensureUnitInvestment(unit) {
+    if (!unit || !unit.db) return 0;
+    if (!Number.isFinite(unit.knttInvestedGold)) {
+      const othersBefore = currentUnits().filter((u) => u !== unit && u.typeId === unit.typeId).length;
+      unit.knttInvestedGold = inferPurchaseCost(unit, othersBefore);
+    }
+    return unit.knttInvestedGold;
+  }
+
+  function refundValue(unit) {
+    return Math.max(0, Math.floor(ensureUnitInvestment(unit) * 0.5));
+  }
+
+  function wrapUnitsPush() {
+    try {
+      const units = State && State.units;
+      if (!Array.isArray(units) || units.__knttInvestmentWrapped) return;
+
+      const originalPush = units.push;
+      Object.defineProperty(units, '__knttInvestmentWrapped', { value: true, enumerable: false });
+      units.push = function (...items) {
+        items.forEach((item) => {
+          if (item && item.db && item.typeId && !Number.isFinite(item.knttInvestedGold)) {
+            const countBefore = this.filter((u) => u && u.typeId === item.typeId).length;
+            item.knttInvestedGold = inferPurchaseCost(item, countBefore);
+          }
+        });
+        return originalPush.apply(this, items);
+      };
+    } catch (_) {}
+  }
+
+  function patchControlStart() {
+    try {
+      if (!window.Control && typeof Control === 'undefined') return;
+      const C = window.Control || Control;
+      if (!C || C.__knttInvestmentStartPatched || !C.start) return;
+      C.__knttInvestmentStartPatched = true;
+      const originalStart = C.start.bind(C);
+      C.start = function (...args) {
+        const result = originalStart(...args);
+        wrapUnitsPush();
+        return result;
+      };
+    } catch (_) {}
+  }
+
+  function patchUnitModal() {
+    try {
+      if (typeof UI === 'undefined' || !UI || UI.__knttInvestmentModalPatched) return;
+      UI.__knttInvestmentModalPatched = true;
+      const originalOpen = UI.openUnitModal.bind(UI);
+      UI.openUnitModal = function (unit, x, y) {
+        ensureUnitInvestment(unit);
+        const result = originalOpen(unit, x, y);
+        const sell = q('um-s');
+        if (sell) sell.innerText = '🪙 ' + refundValue(unit);
+        patchModalButtons();
+        return result;
+      };
+    } catch (_) {}
+  }
+
+  function patchModalButtons() {
+    try {
+      const up = q('b-up');
+      if (up && !up.__knttInvestmentPatched) {
+        up.__knttInvestmentPatched = true;
+        const oldUp = up.onclick;
+        up.onclick = function (...args) {
+          const unit = State && State.ui ? State.ui.selUnit : null;
+          const beforeLevel = unit ? unit.level : 0;
+          const cost = unit && typeof upgradeCost === 'function' ? upgradeCost(unit) : 0;
+          const goldBefore = State ? State.gold : 0;
+          const result = oldUp ? oldUp.apply(this, args) : undefined;
+
+          if (unit && unit.level > beforeLevel && goldBefore >= cost) {
+            unit.knttInvestedGold = ensureUnitInvestment(unit) + cost;
+          }
+          return result;
+        };
+      }
+
+      const sell = q('b-sell');
+      if (sell && !sell.__knttInvestmentPatched) {
+        sell.__knttInvestmentPatched = true;
+        sell.onclick = function () {
+          if (performance.now() - ((State && State.ui && State.ui.modalAt) || 0) < 300) return;
+          const unit = State && State.ui ? State.ui.selUnit : null;
+          if (!unit) return;
+
+          const val = refundValue(unit);
+          State.gold += val;
+          State.units = currentUnits().filter((u) => u !== unit);
+          wrapUnitsPush();
+
+          try { if (Sound && Sound.play) Sound.play('click'); } catch (_) {}
+          try { if (Engine && Engine.spawnText) Engine.spawnText(unit.x, unit.y, '+' + val, '#fde047', false); } catch (_) {}
+          try { if (Engine && Engine.spawnParticles) Engine.spawnParticles(unit.x, unit.y, '#94a3b8', 10, 40); } catch (_) {}
+          try { if (UI && UI.closeUnitModal) UI.closeUnitModal(); } catch (_) {}
+          try { if (UI && UI.updateDisplay) UI.updateDisplay(); } catch (_) {}
+        };
+      }
+    } catch (_) {}
+  }
+
+  function patchUpdateButtonCheck() {
+    try {
+      if (typeof window.KNTT_checkUpdate !== 'function') return;
+      const old = window.KNTT_checkUpdate;
+      if (old.__knttPolished) return;
+      const wrapped = async function (manual) {
+        const result = await old(manual);
+        const latest = await readLatestVersion();
+        setVersionLabels(latest);
+        return result;
+      };
+      wrapped.__knttPolished = true;
+      window.KNTT_checkUpdate = wrapped;
+    } catch (_) {}
+  }
+
+  function boot() {
+    startVersionGuard();
+    wrapUnitsPush();
+    patchControlStart();
+    patchUnitModal();
+    patchModalButtons();
+    patchUpdateButtonCheck();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+
+  setTimeout(boot, 300);
+  setTimeout(boot, 1200);
+  setTimeout(boot, 2600);
+})();
