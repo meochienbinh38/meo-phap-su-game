@@ -1,6 +1,6 @@
 /* Service Worker - Kỷ Nguyên Thủ Thành PWA */
-const CACHE = 'kntt-v3114-hard-runtime';
-const SERVED_GAME_VERSION = '3.11.4';
+const CACHE = 'kntt-v3115-reward-summary';
+const SERVED_GAME_VERSION = '3.11.5';
 
 const CORE = [
   './',
@@ -20,10 +20,26 @@ const EXTRA = [
 
 function patchIndexText(text) {
   let out = text;
-  out = out.replace(/const\s+GAME_VERSION\s*=\s*['"][^'"]+['"];/, "const GAME_VERSION = '3.11.4';");
-  out = out.replace(/Phiên bản\s*3\.[0-9.]+\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản 3.11.4 · Kiểm tra cập nhật');
+  out = out.replace(/const\s+GAME_VERSION\s*=\s*['"][^'"]+['"];/, "const GAME_VERSION = '3.11.5';");
+  out = out.replace(/Phiên bản\s*3\.[0-9.]+\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản 3.11.5 · Kiểm tra cập nhật');
+
+  // Các hook này chỉ là điểm nối vào combat gốc. Logic lớn nằm trong v311-runtime.js.
+  out = out
+    .replace("let isCrit = Math.random() < (0.1 + TALENTS_DB.c.effect(State.talents.c));", "let isCrit = Math.random() < (window.KNTT_critChance ? window.KNTT_critChance(this) : (0.1 + TALENTS_DB.c.effect(State.talents.c)));")
+    .replace("let fd = isCrit ? s.dmg * 2 : s.dmg;", "let fd = isCrit ? s.dmg * (window.KNTT_critDmg ? window.KNTT_critDmg(this) : 2) : s.dmg;")
+    .replace("t.takeDmg(fd, 'phys', false);", "t.takeDmg(fd, 'phys', false); if(window.KNTT_onUnitHit) window.KNTT_onUnitHit(this,t,fd,'melee');")
+    .replace("t.takeDmg(fd, 'magic', false); Engine.spawnText(t.x, t.y - 20, Math.floor(fd), c, isCrit);", "t.takeDmg(fd, 'magic', false); if(window.KNTT_onUnitHit) window.KNTT_onUnitHit(this,t,fd,'magic'); Engine.spawnText(t.x, t.y - 20, Math.floor(fd), c, isCrit);")
+    .replace("nT.takeDmg(fd * cdmg, 'magic', false); Engine.spawnText(nT.x, nT.y - 20, Math.floor(fd * cdmg), c, false);", "nT.takeDmg(fd * cdmg, 'magic', false); if(window.KNTT_onUnitHit) window.KNTT_onUnitHit(this,nT,fd*cdmg,'chain'); Engine.spawnText(nT.x, nT.y - 20, Math.floor(fd * cdmg), c, false);")
+    .replace("e.takeDmg(s.dmg, this.db.dtype || 'pois', false); Engine.spawnText(e.x, e.y - 20, Math.floor(s.dmg), this.db.color, false); hitAny = true;", "e.takeDmg(s.dmg, this.db.dtype || 'pois', false); if(window.KNTT_onUnitHit) window.KNTT_onUnitHit(this,e,s.dmg,'pulse'); Engine.spawnText(e.x, e.y - 20, Math.floor(s.dmg), this.db.color, false); hitAny = true;")
+    .replace("e.takeDmg(this.d, this.db.dtype || 'frost', false);                 // nổ AoE: không bị né", "e.takeDmg(this.d, this.db.dtype || 'frost', false); if(window.KNTT_onTypeHit) window.KNTT_onTypeHit(this.typeId,e,this.d,'lob');                 // nổ AoE: không bị né")
+    .replace("State.enemies.forEach(en => { if (getDist(this.x, this.y, en.x, en.y) < rd) en.takeDmg(this.d, this.db.dtype || 'phys', false); });   // nổ chùm: không bị né", "State.enemies.forEach(en => { if (getDist(this.x, this.y, en.x, en.y) < rd) { en.takeDmg(this.d, this.db.dtype || 'phys', false); if(window.KNTT_onTypeHit) window.KNTT_onTypeHit(this.typeId,en,this.d,'expl'); } });   // nổ chùm: không bị né")
+    .replace("e.takeDmg(this.d, this.db.dtype || 'phys', true);   // đạn thường -> có thể bị NÉ", "e.takeDmg(this.d, this.db.dtype || 'phys', true); if(window.KNTT_onTypeHit) window.KNTT_onTypeHit(this.typeId,e,this.d,'proj');   // đạn thường -> có thể bị NÉ")
+    .replace("let rd = State.grid.size * 1.5 * (1 + unitSkillBonus('gunner').splash) * (this.lv >= 4 ? 1.2 : 1);", "let rd = State.grid.size * 1.5 * (1 + unitSkillBonus('gunner').splash) * (this.lv >= 4 ? 1.2 : 1) * (window.KNTT_splashMul ? window.KNTT_splashMul(this) : 1);");
+
   if (!out.includes('v311-runtime.js')) {
-    out = out.replace('</body>', '<script src="v311-runtime.js?v=3.11.4"></script>\n</body>');
+    out = out.replace('</body>', '<script src="v311-runtime.js?v=3.11.5"></script>\n</body>');
+  } else {
+    out = out.replace(/v311-runtime\.js\?v=3\.11\.\d+/g, 'v311-runtime.js?v=3.11.5');
   }
   return out;
 }
