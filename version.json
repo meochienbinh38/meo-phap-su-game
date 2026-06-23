@@ -1,1 +1,1 @@
-{ "version": "3.12.1", "build": "2026-06-23", "notes": "Sửa nút Nâng cấp trong modal tướng: đủ vàng thì tự sáng ngay khi vàng thay đổi, không cần ấn lại tướng." }
+{ "version": "3.12.2", "build": "2026-06-23", "notes": "Sửa nút Nâng cấp tự sáng khi đủ vàng." }
