@@ -1,11 +1,12 @@
 /* Service Worker - Kỷ Nguyên Thủ Thành PWA */
-const CACHE = 'kntt-v3115-reward-summary';
-const SERVED_GAME_VERSION = '3.11.5';
+const CACHE = 'kntt-v3116-profile-system';
+const SERVED_GAME_VERSION = '3.11.6';
 
 const CORE = [
   './',
   './index.html',
   './v311-runtime.js',
+  './v311-profile.js',
   './version.json',
   './manifest.json',
   './icon-192.png',
@@ -20,10 +21,9 @@ const EXTRA = [
 
 function patchIndexText(text) {
   let out = text;
-  out = out.replace(/const\s+GAME_VERSION\s*=\s*['"][^'"]+['"];/, "const GAME_VERSION = '3.11.5';");
-  out = out.replace(/Phiên bản\s*3\.[0-9.]+\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản 3.11.5 · Kiểm tra cập nhật');
+  out = out.replace(/const\s+GAME_VERSION\s*=\s*['"][^'"]+['"];/, "const GAME_VERSION = '3.11.6';");
+  out = out.replace(/Phiên bản\s*3\.[0-9.]+\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản 3.11.6 · Kiểm tra cập nhật');
 
-  // Các hook này chỉ là điểm nối vào combat gốc. Logic lớn nằm trong v311-runtime.js.
   out = out
     .replace("let isCrit = Math.random() < (0.1 + TALENTS_DB.c.effect(State.talents.c));", "let isCrit = Math.random() < (window.KNTT_critChance ? window.KNTT_critChance(this) : (0.1 + TALENTS_DB.c.effect(State.talents.c)));")
     .replace("let fd = isCrit ? s.dmg * 2 : s.dmg;", "let fd = isCrit ? s.dmg * (window.KNTT_critDmg ? window.KNTT_critDmg(this) : 2) : s.dmg;")
@@ -36,11 +36,11 @@ function patchIndexText(text) {
     .replace("e.takeDmg(this.d, this.db.dtype || 'phys', true);   // đạn thường -> có thể bị NÉ", "e.takeDmg(this.d, this.db.dtype || 'phys', true); if(window.KNTT_onTypeHit) window.KNTT_onTypeHit(this.typeId,e,this.d,'proj');   // đạn thường -> có thể bị NÉ")
     .replace("let rd = State.grid.size * 1.5 * (1 + unitSkillBonus('gunner').splash) * (this.lv >= 4 ? 1.2 : 1);", "let rd = State.grid.size * 1.5 * (1 + unitSkillBonus('gunner').splash) * (this.lv >= 4 ? 1.2 : 1) * (window.KNTT_splashMul ? window.KNTT_splashMul(this) : 1);");
 
-  if (!out.includes('v311-runtime.js')) {
-    out = out.replace('</body>', '<script src="v311-runtime.js?v=3.11.5"></script>\n</body>');
-  } else {
-    out = out.replace(/v311-runtime\.js\?v=3\.11\.\d+/g, 'v311-runtime.js?v=3.11.5');
-  }
+  if (!out.includes('v311-runtime.js')) out = out.replace('</body>', '<script src="v311-runtime.js?v=3.11.6"></script>\n</body>');
+  else out = out.replace(/v311-runtime\.js\?v=3\.11\.\d+/g, 'v311-runtime.js?v=3.11.6');
+
+  if (!out.includes('v311-profile.js')) out = out.replace('</body>', '<script src="v311-profile.js?v=3.11.6"></script>\n</body>');
+  else out = out.replace(/v311-profile\.js\?v=3\.11\.\d+/g, 'v311-profile.js?v=3.11.6');
   return out;
 }
 
