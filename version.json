@@ -1,1 +1,1 @@
-{ "version": "3.12.4", "build": "2026-06-23", "notes": "Sửa nút Nâng cấp bằng cách đọc trực tiếp vàng và giá trên màn hình." }
+{ "version": "3.12.5", "build": "2026-06-23", "notes": "Sửa đúng lỗi UI: modal tướng tự refresh trong updateDisplay và sau khi mở tướng." }
