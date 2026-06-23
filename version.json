@@ -1,1 +1,1 @@
-{ "version": "3.11.2", "build": "2026-06-23", "notes": "Bước 3 hệ Ngũ Hành: thêm chiêu Hóa Thần riêng trong combat. Pháo Thủ có Thiên Pháo, Xạ Thủ có Thần Tiễn, Thần Sét có Phán Quyết, Băng có Cực Hàn, Độc có Dịch Thần, Cổ Mộc có Rễ Thần, Phong Linh có Thiên Phong." }
+{ "version": "3.11.3", "build": "2026-06-23", "notes": "Sửa hồi quy giao diện màn hình chính sau khi thêm Ngũ Hành: khôi phục fit một màn hình, cập nhật đúng số phiên bản hiển thị, giữ hiệu ứng hệ và Hóa Thần đã thêm." }
