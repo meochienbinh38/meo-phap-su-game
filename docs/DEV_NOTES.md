@@ -82,6 +82,27 @@ File này dùng để ghi lại từng batch sửa game, tránh sửa rải rác
 3. Giữ modal mở, đợi vàng tăng.
 4. Khi đủ tiền, nút `Nâng cấp` phải tự sáng trong tối đa khoảng 0.2 giây.
 
+## 2026-06-23 — Batch 1.3: Inline refresh cho nút Nâng cấp
+
+### Đã làm
+
+- Sửa `sw.js` để chèn trực tiếp script `kntt-inline-upgrade-refresh` vào HTML trả về cho game.
+- Script inline này chạy trong trang game, kiểm tra `State.gold`, `State.ui.selUnit`, `upgradeCost()` và cập nhật nút `b-up` mỗi 120ms.
+- Không còn phụ thuộc riêng vào `v312-polish.js` cho lỗi nút nâng cấp.
+- Tăng `version.json` lên `3.12.3`.
+
+### Lý do sửa
+
+- Ảnh test bản `3.12.2` cho thấy version đã lên nhưng nút vẫn không sáng, nghĩa là bản vá ngoài chưa chạm đúng DOM/luồng đang chạy.
+- Dòng xử lý được chèn thẳng vào HTML do service worker trả về, cùng cơ chế đã cập nhật đúng nhãn phiên bản.
+
+### Cần test thủ công
+
+1. Cập nhật lên `3.12.3`.
+2. Vào trận, mở chi tiết một tướng chưa đủ tiền nâng cấp.
+3. Giữ modal mở, đợi vàng tăng vượt giá nâng cấp.
+4. Nút `Nâng cấp` phải sáng ngay; nếu không sáng, cần sửa trực tiếp `index.html` thay vì vá qua service worker.
+
 ## Việc nên làm tiếp
 
 1. Cố định logic lưới 11 cột để cân bằng không lệch giữa điện thoại/tablet/desktop.
