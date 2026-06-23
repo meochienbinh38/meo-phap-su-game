@@ -1,1 +1,1 @@
-{ "version": "3.12.9", "build": "2026-06-23", "notes": "Thêm bảng thông báo thưởng cuối trận: thắng màn sẽ hiện bảng thưởng trước, bấm Thoát về menu mới quay ra menu chính." }
+{ "version": "3.12.10", "build": "2026-06-23", "notes": "Rút gọn bảng thưởng cuối trận: chỉ hiện tổng kim cương nhận được và tổng kinh nghiệm nhận được." }
