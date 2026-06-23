@@ -1,6 +1,6 @@
 /* KNTT Version Sync
- * Mục tiêu: version.json là nguồn sự thật duy nhất cho phiên bản mới nhất.
- * GAME_VERSION trong index.html là phiên bản code đang chạy.
+ * version.json là nguồn sự thật duy nhất cho số phiên bản hiển thị.
+ * GAME_VERSION trong index.html chỉ là hằng cũ, không dùng để ghi nhãn UI nữa.
  */
 (function () {
   'use strict';
@@ -12,7 +12,7 @@
   function qs(id) { return document.getElementById(id); }
   function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
-  function getCurrentAppVersion() {
+  function getBundledAppVersion() {
     try {
       if (typeof GAME_VERSION !== 'undefined' && GAME_VERSION) return String(GAME_VERSION);
     } catch (_) {}
@@ -160,8 +160,8 @@
     const info = await readVersionInfo(700);
     const latest = info.version || getLatestVersionFromUi() || FALLBACK_VERSION;
     setUpdateBarVersion(latest);
+    setVisibleVersion(latest);
 
-    // Chốt thoát: dù service worker/caches bị treo thì vẫn phải reload, không được kẹt nút.
     const watchdog = setTimeout(() => navigateToFreshApp(latest), 2200);
 
     await Promise.race([
@@ -176,14 +176,17 @@
   async function checkUpdateFromSingleSource(manual) {
     const info = await readVersionInfo(1200);
     const latest = info.version || FALLBACK_VERSION;
-    const current = getCurrentAppVersion();
+    const bundled = getBundledAppVersion();
 
+    // Quan trọng: nhãn UI luôn theo version.json, không theo GAME_VERSION cũ trong index.html.
     setUpdateBarVersion(latest);
-    setVisibleVersion(current);
-    window.KNTT_ACTIVE_VERSION = current;
+    setVisibleVersion(latest);
+    window.KNTT_ACTIVE_VERSION = latest;
 
-    if (latest !== current) {
-      showUpdateBar(latest);
+    if (latest !== bundled) {
+      // Nếu người dùng bấm thủ công mà chỉ lệch số hiển thị, không ép báo cập nhật liên tục.
+      // Nút cập nhật chỉ cần hiện khi app tự phát hiện thật sự đang có bản mới qua version.json.
+      if (!manual) showUpdateBar(latest);
       return;
     }
 
@@ -209,13 +212,16 @@
   }
 
   async function initVersionSync() {
-    const current = getCurrentAppVersion();
-    window.KNTT_ACTIVE_VERSION = current;
-    setVisibleVersion(current);
+    const bundled = getBundledAppVersion();
+    window.KNTT_BUNDLED_VERSION = bundled;
 
     const info = await readVersionInfo(1200);
     const latest = info.version || FALLBACK_VERSION;
+
+    // Sửa lỗi chính: vừa mở app là nhãn phiên bản phải theo version.json.
+    window.KNTT_ACTIVE_VERSION = latest;
     setUpdateBarVersion(latest);
+    setVisibleVersion(latest);
 
     const updateBtn = qs('b-do-update');
     if (updateBtn) updateBtn.onclick = hardUpdate;
