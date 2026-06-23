@@ -2,7 +2,7 @@
  * Version source of truth: version.json
  */
 const VERSION_URL = './version.json';
-const FALLBACK_VERSION = '3.11.7';
+const FALLBACK_VERSION = '3.11.8';
 const CACHE_PREFIX = 'kntt-cache-';
 const VERSION_TTL_MS = 30 * 1000;
 
@@ -90,8 +90,11 @@ function patchIndexText(text, version) {
   // Đồng bộ hằng version trong index từ version.json.
   out = out.replace(/const\s+GAME_VERSION\s*=\s*['"][^'"]+['"];/, "const GAME_VERSION = '" + v + "';");
 
-  // Đồng bộ nhãn hiển thị phiên bản.
-  out = out.replace(/Phiên bản\s*[^<·]+?\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản ' + v + ' · Kiểm tra cập nhật');
+  // Đồng bộ nhãn hiển thị phiên bản trong cả modal và nút dưới Xuất quân.
+  out = out.replace(/<span\s+id=["']ver-num["'][^>]*>[^<]*<\/span>/g, '<span id="ver-num">' + v + '</span>');
+  out = out.replace(/<span\s+id=["']ver-num-2["'][^>]*>[^<]*<\/span>/g, '<span id="ver-num-2">' + v + '</span>');
+  out = out.replace(/Phiên bản\s*3(?:\.[0-9]+)+\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản ' + v + ' · Kiểm tra cập nhật');
+  out = out.replace(/Phiên bản\s*<span\s+id=["']ver-num-2["'][^>]*>[^<]*<\/span>\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản <span id="ver-num-2">' + v + '</span> · Kiểm tra cập nhật');
 
   // Hook các bản vá runtime/profile theo version hiện tại.
   if (!out.includes('v311-runtime.js')) {
@@ -116,8 +119,8 @@ function patchIndexText(text, version) {
   return out;
 }
 
-async function fetchPatchedIndex(req, options = {}) {
-  const info = await readVersionInfo({ force: !!options.forceVersion });
+async function fetchPatchedIndex(req) {
+  const info = await readVersionInfo({ force: true });
   const version = info.version || FALLBACK_VERSION;
   const res = await fetch(req || './index.html', { cache: 'no-store' });
   const text = await res.text();
@@ -133,7 +136,7 @@ async function fetchPatchedIndex(req, options = {}) {
 
 async function putPatchedIndex(cache) {
   try {
-    const patched = await fetchPatchedIndex('./index.html', { forceVersion: true });
+    const patched = await fetchPatchedIndex('./index.html');
     await cache.put('./index.html', patched.clone());
     await cache.put('./', patched.clone());
   } catch (_) {}
@@ -221,7 +224,7 @@ self.addEventListener('fetch', (e) => {
       const info = await readVersionInfo({ force: true });
       const cache = await caches.open(cacheName(info.version));
       try {
-        const patched = await fetchPatchedIndex(req, { forceVersion: true });
+        const patched = await fetchPatchedIndex(req);
         await cache.put('./index.html', patched.clone());
         await cache.put('./', patched.clone());
         return patched;
