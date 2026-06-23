@@ -1,6 +1,6 @@
 /* Service Worker - Kỷ Nguyên Thủ Thành PWA */
-const CACHE = 'kntt-v381-speed-09';
-const SERVED_GAME_VERSION = '3.8.1';
+const CACHE = 'kntt-v382-upgrade-button';
+const SERVED_GAME_VERSION = '3.8.2';
 
 const CORE = [
   './',
@@ -17,14 +17,14 @@ const EXTRA = [
 ];
 
 const PERF_PATCH_SCRIPT = `
-/* perf-v381: adaptive effect budget + FPS telemetry */
+/* perf-v382: adaptive effect budget + FPS telemetry */
 (function(){
   if (typeof Engine === 'undefined' || typeof State === 'undefined' || typeof Control === 'undefined') return;
-  if (window.__KNTT_PERF_V381__) return;
-  window.__KNTT_PERF_V381__ = true;
+  if (window.__KNTT_PERF_V382__) return;
+  window.__KNTT_PERF_V382__ = true;
 
   const PERF = window.KNTT_PERF = {
-    version: '3.8.1',
+    version: '3.8.2',
     fps: 60,
     low: false,
     particleHigh: 150,
@@ -112,6 +112,73 @@ const PERF_PATCH_SCRIPT = `
 })();
 `;
 
+const UPGRADE_BUTTON_PATCH_SCRIPT = `
+/* upgrade-button-v382: nút nâng cấp tự sáng khi đủ tiền */
+(function(){
+  if (typeof UI === 'undefined' || typeof State === 'undefined' || typeof Engine === 'undefined') return;
+  if (window.__KNTT_UPGRADE_BUTTON_V382__) return;
+  window.__KNTT_UPGRADE_BUTTON_V382__ = true;
+
+  let lastKey = '';
+
+  function refreshUpgradeButton() {
+    try {
+      const u = State.ui && State.ui.selUnit;
+      const modal = document.getElementById('umod');
+      const btnUp = document.getElementById('b-up');
+      if (!u || !modal || modal.classList.contains('hidden') || !btnUp) { lastKey = ''; return; }
+
+      const maxLv = maxUnitLevel(u.typeId);
+      if (u.level >= maxLv) {
+        if (btnUp.style.display !== 'none') btnUp.style.display = 'none';
+        lastKey = 'max';
+        return;
+      }
+
+      const cost = upgradeCost(u);
+      const canUp = State.gold >= cost;
+      const key = [u.typeId, u.level, Math.floor(State.gold), cost, canUp ? 1 : 0].join('|');
+      if (key === lastKey) return;
+      lastKey = key;
+
+      btnUp.style.display = 'flex';
+      const costEl = document.getElementById('um-c');
+      if (costEl) costEl.innerText = '🪙 ' + cost + (u.level === 3 ? ' · Hoá Thần' : '');
+      btnUp.className = canUp
+        ? 'flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm'
+        : 'flex-1 bg-slate-700 rounded py-1 flex flex-col items-center opacity-50 cursor-not-allowed';
+    } catch (_) {}
+  }
+
+  const _updateDisplay = UI.updateDisplay && UI.updateDisplay.bind(UI);
+  if (_updateDisplay) {
+    UI.updateDisplay = function() {
+      const result = _updateDisplay();
+      refreshUpgradeButton();
+      return result;
+    };
+  }
+
+  const _openUnitModal = UI.openUnitModal && UI.openUnitModal.bind(UI);
+  if (_openUnitModal) {
+    UI.openUnitModal = function() {
+      const result = _openUnitModal.apply(UI, arguments);
+      lastKey = '';
+      refreshUpgradeButton();
+      return result;
+    };
+  }
+
+  const _draw = Engine.draw && Engine.draw.bind(Engine);
+  if (_draw) {
+    Engine.draw = function() {
+      refreshUpgradeButton();
+      return _draw();
+    };
+  }
+})();
+`;
+
 function patchIndexText(text) {
   let out = text
     .replace(/const GAME_VERSION = '[^']+';/, `const GAME_VERSION = '${SERVED_GAME_VERSION}';`)
@@ -140,7 +207,8 @@ function patchIndexText(text) {
       "UI.showMessage(WAVE_THEMES[_th].hint, _th === 'boss'); Sound.play('wave'); this.buildWave();"
     );
 
-  if (!out.includes('perf-v381')) out = out.replace('// ============ BOOT ============', `${PERF_PATCH_SCRIPT}\n// ============ BOOT ============`);
+  if (!out.includes('perf-v382')) out = out.replace('// ============ BOOT ============', `${PERF_PATCH_SCRIPT}\n// ============ BOOT ============`);
+  if (!out.includes('upgrade-button-v382')) out = out.replace('// ============ BOOT ============', `${UPGRADE_BUTTON_PATCH_SCRIPT}\n// ============ BOOT ============`);
   return out;
 }
 
