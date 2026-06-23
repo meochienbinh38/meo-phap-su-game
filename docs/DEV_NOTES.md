@@ -59,6 +59,29 @@ File này dùng để ghi lại từng batch sửa game, tránh sửa rải rác
 3. Khi đủ vàng, nút `Nâng cấp` phải tự sáng, không cần ấn lại tướng.
 4. Bấm nâng cấp ngay khi nút sáng để kiểm tra vẫn trừ đúng vàng và cập nhật cấp.
 
+## 2026-06-23 — Batch 1.2: Watcher cho nút Nâng cấp
+
+### Đã làm
+
+- Sửa mạnh `v312-polish.js` bằng watcher 200ms khi modal tướng đang mở.
+- Watcher kiểm tra trực tiếp `State.gold`, tướng đang chọn và giá nâng cấp.
+- Set style trực tiếp cho nút `Nâng cấp`, không chỉ đổi class Tailwind:
+  - đủ vàng: nền xanh sáng, viền xanh, glow nhẹ;
+  - chưa đủ vàng: nền xám, mờ.
+- Tăng `version.json` lên `3.12.2`.
+
+### Lý do sửa
+
+- Bản 3.12.1 chỉ dựa vào `UI.updateDisplay()`, nhưng thực tế có luồng vàng/animation không làm modal đổi trạng thái đúng lúc.
+- Watcher giúp nút tự sáng dù vàng tăng từ bất kỳ nguồn nào trong khi bảng chi tiết tướng đang mở.
+
+### Cần test thủ công
+
+1. Cập nhật lên `3.12.2`.
+2. Vào trận, mở chi tiết một tướng chưa đủ tiền nâng cấp.
+3. Giữ modal mở, đợi vàng tăng.
+4. Khi đủ tiền, nút `Nâng cấp` phải tự sáng trong tối đa khoảng 0.2 giây.
+
 ## Việc nên làm tiếp
 
 1. Cố định logic lưới 11 cột để cân bằng không lệch giữa điện thoại/tablet/desktop.
