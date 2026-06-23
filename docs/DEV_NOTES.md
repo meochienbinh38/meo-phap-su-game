@@ -131,6 +131,32 @@ File này dùng để ghi lại từng batch sửa game, tránh sửa rải rác
 3. Giữ modal mở, đợi vàng tăng.
 4. Khi vàng hiển thị trên HUD lớn hơn hoặc bằng giá nâng cấp trong modal, nút `Nâng cấp` phải sáng.
 
+## 2026-06-23 — Batch 1.5: Refresh modal tướng ngay trong luồng UI
+
+### Đã làm
+
+- Sửa `sw.js` để vá trực tiếp source `index.html` trước khi trả về trình duyệt.
+- Thêm method `refreshUnitModal()` vào object `UI` của game.
+- Gọi `this.refreshUnitModal()` ngay trong `UI.updateDisplay()`.
+- Gọi lại `this.refreshUnitModal()` sau khi mở modal tướng.
+- Khi refresh, nút `Nâng cấp` được dựng lại từ `State.gold`, `upgradeCost(u)` và cấp hiện tại của tướng.
+- Reset inline style cũ của nút trước khi set class mới để tránh các lớp vá trước giữ trạng thái mờ.
+- Tăng `version.json` lên `3.12.5`.
+
+### Lý do sửa
+
+- Lỗi gốc không phải so sánh vàng, mà là modal tướng không render lại khi vàng thay đổi.
+- Bằng chứng: ấn ra ngoài rồi ấn lại tướng thì nút sáng, tức là `openUnitModal()` tính đúng nhưng chỉ chạy lúc mở lại modal.
+- Vì vậy cần đưa refresh modal vào chính `UI.updateDisplay()` thay vì watcher ngoài.
+
+### Cần test thủ công
+
+1. Cập nhật lên `3.12.5`.
+2. Vào trận, mở chi tiết một tướng khi chưa đủ tiền nâng cấp.
+3. Giữ nguyên modal mở.
+4. Đợi vàng tăng đến đủ tiền.
+5. Nút `Nâng cấp` phải tự đổi trạng thái mà không cần ấn ra ngoài rồi ấn lại tướng.
+
 ## Việc nên làm tiếp
 
 1. Cố định logic lưới 11 cột để cân bằng không lệch giữa điện thoại/tablet/desktop.
