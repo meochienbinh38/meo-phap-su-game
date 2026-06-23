@@ -1,7 +1,7 @@
 /* KNTT PWA service worker
- * v3.12.13: clean network-first updater, injects extension layers directly.
+ * v3.13.0: clean network-first updater, injects extension layers directly.
  */
-const SW_BUILD = '3.12.13';
+const SW_BUILD = '3.13.0';
 const CACHE_PREFIX = 'kntt-cache-';
 const CACHE_NAME = CACHE_PREFIX + SW_BUILD;
 
