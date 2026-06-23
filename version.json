@@ -1,1 +1,1 @@
-{ "version": "3.11.4", "build": "2026-06-23", "notes": "Ổn định cập nhật: chuyển logic Ngũ Hành/Hóa Thần sang file runtime riêng v311-runtime.js, service worker nạp module cố định và sửa số phiên bản shell để tránh báo cập nhật lặp lại." }
+{ "version": "3.11.5", "build": "2026-06-23", "notes": "Bước 4 nhân phẩm: quái chết nhận EXP ngẫu nhiên, quái/boss có tỉ lệ rơi kim cương, nối lại hook hiệu ứng Ngũ Hành vào combat, thêm bảng tổng kết trận sau khi qua màn." }
