@@ -1,1 +1,1 @@
-{ "version": "3.12.7", "build": "2026-06-23", "notes": "Sửa sâu service worker: network-first, chèn hotfix refresh popup tướng trực tiếp, nút nâng cấp tự sáng khi đủ tiền." }
+{ "version": "3.12.8", "build": "2026-06-23", "notes": "Sửa lỗi Cửa Hàng Tướng và Nội Tại bị màn hình chính lấp: modal được đưa lên lớp cao hơn và hiển thị đúng trên mobile/PWA." }
