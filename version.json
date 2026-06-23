@@ -1,1 +1,1 @@
-{ "version": "3.8.1", "build": "2026-06-23", "notes": "Điều chỉnh nhịp chơi: tốc độ thường còn 0.9x để dễ quan sát hơn; nút tua nhanh chuyển sang 1.5x; vòng lặp dùng nhân thời gian thực thay vì lặp số nguyên." }
+{ "version": "3.8.2", "build": "2026-06-23", "notes": "Sửa nút nâng cấp tướng: khi đang mở bảng tướng, nút nâng cấp tự cập nhật sáng/tối theo số vàng hiện có, không cần bấm lại vào tướng." }
