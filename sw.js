@@ -2,8 +2,9 @@
  * Version source of truth: version.json
  */
 const VERSION_URL = './version.json';
-const FALLBACK_VERSION = '3.11.6';
+const FALLBACK_VERSION = '3.11.7';
 const CACHE_PREFIX = 'kntt-cache-';
+const VERSION_TTL_MS = 30 * 1000;
 
 const CORE_STATIC = [
   './manifest.json',
@@ -12,7 +13,8 @@ const CORE_STATIC = [
   './icon-maskable.png',
   './v311-runtime.js',
   './v311-profile.js',
-  './version-sync.js'
+  './version-sync.js',
+  './version.json'
 ];
 
 const EXTRA = [
@@ -20,6 +22,8 @@ const EXTRA = [
   'https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Oswald:wght@500;700;900&display=swap'
 ];
 
+let cachedVersionInfo = null;
+let cachedVersionAt = 0;
 let versionInfoPromise = null;
 
 function safeVersion(v) {
@@ -30,19 +34,53 @@ function cacheName(version) {
   return CACHE_PREFIX + safeVersion(version);
 }
 
-async function readVersionInfo() {
-  if (!versionInfoPromise) {
-    versionInfoPromise = (async () => {
-      try {
-        const res = await fetch(VERSION_URL + '?t=' + Date.now(), { cache: 'no-store' });
-        if (!res.ok) throw new Error('version.json HTTP ' + res.status);
-        const data = await res.json();
-        if (data && data.version) return data;
-      } catch (_) {}
-      return { version: FALLBACK_VERSION, build: '', notes: '' };
-    })();
+function normalizeVersionInfo(data) {
+  if (data && data.version) {
+    return {
+      version: String(data.version),
+      build: data.build || '',
+      notes: data.notes || ''
+    };
   }
-  return versionInfoPromise;
+  return { version: FALLBACK_VERSION, build: '', notes: '' };
+}
+
+async function readVersionInfo(options = {}) {
+  const force = !!options.force;
+  const now = Date.now();
+
+  if (!force && cachedVersionInfo && (now - cachedVersionAt) < VERSION_TTL_MS) {
+    return cachedVersionInfo;
+  }
+
+  if (!force && versionInfoPromise) return versionInfoPromise;
+
+  const promise = (async () => {
+    try {
+      const res = await fetch(VERSION_URL + '?t=' + now, { cache: 'no-store' });
+      if (!res.ok) throw new Error('version.json HTTP ' + res.status);
+      const data = await res.json();
+      cachedVersionInfo = normalizeVersionInfo(data);
+      cachedVersionAt = Date.now();
+      return cachedVersionInfo;
+    } catch (_) {
+      if (cachedVersionInfo) return cachedVersionInfo;
+      cachedVersionInfo = normalizeVersionInfo(null);
+      cachedVersionAt = Date.now();
+      return cachedVersionInfo;
+    } finally {
+      if (versionInfoPromise === promise) versionInfoPromise = null;
+    }
+  })();
+
+  if (!force) versionInfoPromise = promise;
+  return promise;
+}
+
+function resetVersionMemory() {
+  cachedVersionInfo = null;
+  cachedVersionAt = 0;
+  versionInfoPromise = null;
 }
 
 function patchIndexText(text, version) {
@@ -53,33 +91,33 @@ function patchIndexText(text, version) {
   out = out.replace(/const\s+GAME_VERSION\s*=\s*['"][^'"]+['"];/, "const GAME_VERSION = '" + v + "';");
 
   // Đồng bộ nhãn hiển thị phiên bản.
-  out = out.replace(/Phiên bản\s*3\.[0-9.]+\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản ' + v + ' · Kiểm tra cập nhật');
+  out = out.replace(/Phiên bản\s*[^<·]+?\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản ' + v + ' · Kiểm tra cập nhật');
 
   // Hook các bản vá runtime/profile theo version hiện tại.
   if (!out.includes('v311-runtime.js')) {
     out = out.replace('</body>', '<script src="v311-runtime.js?v=' + v + '"></script>\n</body>');
   } else {
-    out = out.replace(/v311-runtime\.js\?v=[0-9.]+/g, 'v311-runtime.js?v=' + v);
+    out = out.replace(/v311-runtime\.js\?v=[^"']+/g, 'v311-runtime.js?v=' + v);
   }
 
   if (!out.includes('v311-profile.js')) {
     out = out.replace('</body>', '<script src="v311-profile.js?v=' + v + '"></script>\n</body>');
   } else {
-    out = out.replace(/v311-profile\.js\?v=[0-9.]+/g, 'v311-profile.js?v=' + v);
+    out = out.replace(/v311-profile\.js\?v=[^"']+/g, 'v311-profile.js?v=' + v);
   }
 
   // File này ghi đè handler cập nhật để clear cache + reload cache-bust.
   if (!out.includes('version-sync.js')) {
     out = out.replace('</body>', '<script src="version-sync.js?v=' + v + '"></script>\n</body>');
   } else {
-    out = out.replace(/version-sync\.js\?v=[0-9.]+/g, 'version-sync.js?v=' + v);
+    out = out.replace(/version-sync\.js\?v=[^"']+/g, 'version-sync.js?v=' + v);
   }
 
   return out;
 }
 
-async function fetchPatchedIndex(req) {
-  const info = await readVersionInfo();
+async function fetchPatchedIndex(req, options = {}) {
+  const info = await readVersionInfo({ force: !!options.forceVersion });
   const version = info.version || FALLBACK_VERSION;
   const res = await fetch(req || './index.html', { cache: 'no-store' });
   const text = await res.text();
@@ -95,7 +133,7 @@ async function fetchPatchedIndex(req) {
 
 async function putPatchedIndex(cache) {
   try {
-    const patched = await fetchPatchedIndex('./index.html');
+    const patched = await fetchPatchedIndex('./index.html', { forceVersion: true });
     await cache.put('./index.html', patched.clone());
     await cache.put('./', patched.clone());
   } catch (_) {}
@@ -103,12 +141,12 @@ async function putPatchedIndex(cache) {
 
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
-    const info = await readVersionInfo();
+    const info = await readVersionInfo({ force: true });
     const cache = await caches.open(cacheName(info.version));
 
     await Promise.all(CORE_STATIC.map(async (url) => {
       try {
-        const res = await fetch(url, { cache: 'no-store' });
+        const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(info.version), { cache: 'no-store' });
         if (res && (res.status === 200 || res.type === 'opaque')) await cache.put(url, res.clone());
       } catch (_) {}
     }));
@@ -127,7 +165,7 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
-    const info = await readVersionInfo();
+    const info = await readVersionInfo({ force: true });
     const keep = cacheName(info.version);
     const keys = await caches.keys();
     await Promise.all(keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== keep).map((k) => caches.delete(k)));
@@ -142,8 +180,10 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('message', (e) => {
   const type = e && e.data && e.data.type;
+  if (type === 'REFRESH_VERSION') resetVersionMemory();
   if (type === 'SKIP_WAITING') self.skipWaiting();
   if (type === 'CLEAR_KNTT_CACHE') {
+    resetVersionMemory();
     e.waitUntil((async () => {
       const keys = await caches.keys();
       await Promise.all(keys.map((k) => caches.delete(k)));
@@ -157,20 +197,31 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
 
   if (url.pathname.endsWith('/version.json')) {
-    e.respondWith(fetch(req, { cache: 'no-store' }).catch(async () => {
-      const info = await readVersionInfo();
-      return new Response(JSON.stringify(info), { headers: { 'Content-Type': 'application/json' } });
-    }));
+    e.respondWith((async () => {
+      try {
+        const res = await fetch(req, { cache: 'no-store' });
+        if (res && res.ok) {
+          res.clone().json().then((data) => {
+            cachedVersionInfo = normalizeVersionInfo(data);
+            cachedVersionAt = Date.now();
+          }).catch(() => {});
+        }
+        return res;
+      } catch (_) {
+        const info = await readVersionInfo({ force: true });
+        return new Response(JSON.stringify(info), { headers: { 'Content-Type': 'application/json' } });
+      }
+    })());
     return;
   }
 
   const isIndex = req.mode === 'navigate' || url.pathname.endsWith('/index.html') || url.pathname.endsWith('/meo-phap-su-game/');
   if (isIndex) {
     e.respondWith((async () => {
-      const info = await readVersionInfo();
+      const info = await readVersionInfo({ force: true });
       const cache = await caches.open(cacheName(info.version));
       try {
-        const patched = await fetchPatchedIndex(req);
+        const patched = await fetchPatchedIndex(req, { forceVersion: true });
         await cache.put('./index.html', patched.clone());
         await cache.put('./', patched.clone());
         return patched;
