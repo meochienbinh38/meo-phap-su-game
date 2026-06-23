@@ -1,1 +1,1 @@
-{ "version": "3.11.8", "build": "2026-06-23", "notes": "Tăng tín hiệu cập nhật PWA và sửa nút cập nhật cưỡng bức: không chờ service worker vô hạn, xoá cache rồi reload bằng URL chống cache." }
+{ "version": "3.11.9", "build": "2026-06-23", "notes": "Sửa triệt để số phiên bản dưới nút Xuất quân: service worker vá cả v311-runtime.js để GAME_VER không còn kéo UI về 3.11.5." }
