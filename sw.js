@@ -1,7 +1,7 @@
 /* Service Worker - Kỷ Nguyên Thủ Thành PWA
- * v3.12.7: network-first + direct modal refresh hotfix.
+ * v3.12.8: modal stack fix + network-first + direct modal refresh hotfix.
  */
-const SW_BUILD = '3.12.7';
+const SW_BUILD = '3.12.8';
 const VERSION_URL = './version.json';
 const CACHE_PREFIX = 'kntt-cache-';
 
@@ -41,20 +41,32 @@ async function readVersionInfo() {
   }
 }
 
+function escReg(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function patchScriptTag(out, fileName) {
   const src = fileName + '?v=' + encodeURIComponent(SW_BUILD);
-  const escaped = fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(escaped + '(?:\\?v=[^"\']*)?', 'g');
-
+  const re = new RegExp(escReg(fileName) + '(?:\\?v=[^"\']*)?', 'g');
   if (out.includes(fileName)) return out.replace(re, src);
   return out.replace('</body>', '<script src="' + src + '"></script>\n</body>');
 }
 
+function modalStackFixCss() {
+  return '<style id="kntt-modal-stack-fix-v3128">\n' +
+    '#tmod,#hmod{position:absolute!important;inset:0!important;z-index:220!important;background:rgba(4,8,18,.92)!important;backdrop-filter:blur(5px)!important;align-items:center!important;justify-content:center!important;padding:10px!important;}\n' +
+    '#tmod.hidden,#hmod.hidden{display:none!important;}\n' +
+    '#tmod:not(.hidden),#hmod:not(.hidden){display:flex!important;}\n' +
+    '#tmod .ov-card,#hmod .ov-card{width:min(520px,94vw)!important;max-width:min(520px,94vw)!important;max-height:88vh!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;}\n' +
+    '#t-cont,#h-cont{min-height:0!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;}\n' +
+    '</style>';
+}
+
 function directModalRefreshScript() {
-  return '<script id="kntt-direct-modal-refresh-v3127">\n' +
+  return '<script id="kntt-direct-modal-refresh-v3128">\n' +
     '(function(){\n' +
-    '  if(window.__KNTT_DIRECT_MODAL_REFRESH_V3127__) return;\n' +
-    '  window.__KNTT_DIRECT_MODAL_REFRESH_V3127__ = true;\n' +
+    '  if(window.__KNTT_DIRECT_MODAL_REFRESH_V3128__) return;\n' +
+    '  window.__KNTT_DIRECT_MODAL_REFRESH_V3128__ = true;\n' +
     '  function q(id){ return document.getElementById(id); }\n' +
     '  function modalOpen(){ var m=q("umod"); return !!m && !m.classList.contains("hidden"); }\n' +
     '  function selectedUnit(){ try { return (typeof State!=="undefined" && State.ui) ? State.ui.selUnit : null; } catch(e){ return null; } }\n' +
@@ -96,8 +108,8 @@ function directModalRefreshScript() {
     '  }\n' +
     '  function patchUI(){\n' +
     '    try {\n' +
-    '      if(typeof UI === "undefined" || !UI || UI.__knttDirectModalRefresh3127) return;\n' +
-    '      UI.__knttDirectModalRefresh3127 = true;\n' +
+    '      if(typeof UI === "undefined" || !UI || UI.__knttDirectModalRefresh3128) return;\n' +
+    '      UI.__knttDirectModalRefresh3128 = true;\n' +
     '      if(UI.updateDisplay){ var oldUpdate = UI.updateDisplay.bind(UI); UI.updateDisplay = function(){ var r = oldUpdate.apply(UI, arguments); refreshUnitModal(); return r; }; }\n' +
     '      if(UI.openUnitModal){ var oldOpen = UI.openUnitModal.bind(UI); UI.openUnitModal = function(){ var r = oldOpen.apply(UI, arguments); setTimeout(refreshUnitModal, 0); setTimeout(refreshUnitModal, 80); setTimeout(refreshUnitModal, 180); return r; }; }\n' +
     '    } catch(e){}\n' +
@@ -122,7 +134,10 @@ function patchIndexText(text) {
   out = patchScriptTag(out, 'version-sync.js');
   out = patchScriptTag(out, 'v312-polish.js');
 
-  if (!out.includes('kntt-direct-modal-refresh-v3127')) {
+  if (!out.includes('kntt-modal-stack-fix-v3128')) {
+    out = out.replace('</head>', modalStackFixCss() + '\n</head>');
+  }
+  if (!out.includes('kntt-direct-modal-refresh-v3128')) {
     out = out.replace('</body>', directModalRefreshScript() + '\n</body>');
   }
   return out;
