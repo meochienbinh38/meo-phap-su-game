@@ -1,1 +1,1 @@
-{ "version": "3.10.1", "build": "2026-06-23", "notes": "Sửa màn hình chính fit một màn hình: bỏ cuộn toàn trang ở menu, thu gọn header/logo, cố định nút Xuất Quân/Cửa hàng/Nội tại; chỉ danh sách màn được cuộn riêng." }
+{ "version": "3.11.0", "build": "2026-06-23", "notes": "Bước 1 hệ Ngũ Hành: thêm nút Luyện Hệ bằng kim cương, lưu cấp hệ theo từng tướng, hệ chính/phụ/lệch có hiệu lực khác nhau; Xạ Thủ/Kim tăng crit, Pháo Thủ/Hỏa tăng nổ lan, Mộc/Thủy/Thổ bắt đầu ảnh hưởng chỉ số theo chất tướng." }
