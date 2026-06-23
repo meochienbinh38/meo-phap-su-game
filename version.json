@@ -1,1 +1,1 @@
-{ "version": "3.11.9", "build": "2026-06-23", "notes": "Sửa triệt để số phiên bản dưới nút Xuất quân: service worker vá cả v311-runtime.js để GAME_VER không còn kéo UI về 3.11.5." }
+{ "version": "3.12.0", "build": "2026-06-23", "notes": "Batch hoàn thiện 1: thêm v312-polish.js, chống ghi đè version từ runtime và sửa logic bán quân theo tổng vàng đã đầu tư." }
