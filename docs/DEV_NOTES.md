@@ -34,7 +34,32 @@ File này dùng để ghi lại từng batch sửa game, tránh sửa rải rác
 5. Nâng cấp quân rồi bán, tiền bán phải tăng theo tổng đầu tư.
 6. Qua/thua trận, kiểm tra lưu tiến trình không bị mất.
 
-### Việc nên làm tiếp
+## 2026-06-23 — Batch 1.1: Refresh nút Nâng cấp trong modal tướng
+
+### Đã làm
+
+- Sửa `v312-polish.js` để modal tướng tự cập nhật trạng thái nút `Nâng cấp` mỗi khi `UI.updateDisplay()` chạy.
+- Khi vàng tăng trong lúc modal đang mở, nút nâng cấp sẽ tự chuyển từ trạng thái xám sang sáng nếu đã đủ vàng.
+- Đồng bộ lại các nhãn trong modal đang mở:
+  - cấp hiện tại;
+  - giá nâng cấp;
+  - tiền bán theo `knttInvestedGold`;
+  - trạng thái sáng/tắt của nút nâng cấp.
+- Tăng `version.json` lên `3.12.1`.
+
+### Lý do sửa
+
+- Trước đó `UI.openUnitModal()` chỉ tính trạng thái nút nâng cấp tại thời điểm ấn vào tướng.
+- Khi vàng tăng sau đó, HUD/shop được cập nhật nhưng modal tướng không được refresh, nên người chơi phải ấn lại tướng thì nút mới sáng.
+
+### Cần test thủ công
+
+1. Vào trận và mở chi tiết một tướng chưa đủ tiền nâng cấp.
+2. Giữ modal mở, đợi vàng tăng từ Mỏ Vàng hoặc giết quái.
+3. Khi đủ vàng, nút `Nâng cấp` phải tự sáng, không cần ấn lại tướng.
+4. Bấm nâng cấp ngay khi nút sáng để kiểm tra vẫn trừ đúng vàng và cập nhật cấp.
+
+## Việc nên làm tiếp
 
 1. Cố định logic lưới 11 cột để cân bằng không lệch giữa điện thoại/tablet/desktop.
 2. Dọn source-of-truth version thật sự: bỏ hardcode version khỏi `index.html`, `v311-runtime.js`, `v311-profile.js` nếu có thể chỉnh trực tiếp lõi.
