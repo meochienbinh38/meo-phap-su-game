@@ -2,7 +2,7 @@
  * Version source of truth: version.json
  */
 const VERSION_URL = './version.json';
-const FALLBACK_VERSION = '3.11.9';
+const FALLBACK_VERSION = '3.12.0';
 const CACHE_PREFIX = 'kntt-cache-';
 const VERSION_TTL_MS = 30 * 1000;
 
@@ -14,6 +14,7 @@ const CORE_STATIC = [
   './v311-runtime.js',
   './v311-profile.js',
   './version-sync.js',
+  './v312-polish.js',
   './version.json'
 ];
 
@@ -83,6 +84,15 @@ function resetVersionMemory() {
   versionInfoPromise = null;
 }
 
+function patchScript(out, fileName, version) {
+  const v = version || FALLBACK_VERSION;
+  const re = new RegExp(fileName.replace('.', '\\.') + '\\?v=[^"\\']+', 'g');
+  if (!out.includes(fileName)) {
+    return out.replace('</body>', '<script src="' + fileName + '?v=' + v + '"></script>\n</body>');
+  }
+  return out.replace(re, fileName + '?v=' + v);
+}
+
 function patchIndexText(text, version) {
   let out = text;
   const v = version || FALLBACK_VERSION;
@@ -93,23 +103,10 @@ function patchIndexText(text, version) {
   out = out.replace(/Phiên bản\s*3(?:\.[0-9]+)+\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản ' + v + ' · Kiểm tra cập nhật');
   out = out.replace(/Phiên bản\s*<span\s+id=["']ver-num-2["'][^>]*>[^<]*<\/span>\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản <span id="ver-num-2">' + v + '</span> · Kiểm tra cập nhật');
 
-  if (!out.includes('v311-runtime.js')) {
-    out = out.replace('</body>', '<script src="v311-runtime.js?v=' + v + '"></script>\n</body>');
-  } else {
-    out = out.replace(/v311-runtime\.js\?v=[^"']+/g, 'v311-runtime.js?v=' + v);
-  }
-
-  if (!out.includes('v311-profile.js')) {
-    out = out.replace('</body>', '<script src="v311-profile.js?v=' + v + '"></script>\n</body>');
-  } else {
-    out = out.replace(/v311-profile\.js\?v=[^"']+/g, 'v311-profile.js?v=' + v);
-  }
-
-  if (!out.includes('version-sync.js')) {
-    out = out.replace('</body>', '<script src="version-sync.js?v=' + v + '"></script>\n</body>');
-  } else {
-    out = out.replace(/version-sync\.js\?v=[^"']+/g, 'version-sync.js?v=' + v);
-  }
+  out = patchScript(out, 'v311-runtime.js', v);
+  out = patchScript(out, 'v311-profile.js', v);
+  out = patchScript(out, 'version-sync.js', v);
+  out = patchScript(out, 'v312-polish.js', v);
 
   return out;
 }
@@ -118,9 +115,9 @@ function patchRuntimeText(text, version) {
   const v = version || FALLBACK_VERSION;
   let out = text;
 
-  // Lỗi chính: v311-runtime.js tự ép dòng dưới Xuất quân về 3.11.5.
+  // Lỗi cũ: v311-runtime.js tự ép dòng dưới Xuất quân về phiên bản hardcode.
   out = out.replace(/const\s+GAME_VER\s*=\s*['"][^'"]+['"];/, "const GAME_VER = '" + v + "';");
-  out = out.replace(/window\.GAME_VERSION\s*=\s*GAME_VER;/g, "window.GAME_VERSION = GAME_VER;");
+  out = out.replace(/window\.GAME_VERSION\s*=\s*GAME_VER;/g, 'window.GAME_VERSION = GAME_VER;');
 
   return out;
 }
