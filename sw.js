@@ -2,7 +2,7 @@
  * Version source of truth: version.json
  */
 const VERSION_URL = './version.json';
-const FALLBACK_VERSION = '3.11.8';
+const FALLBACK_VERSION = '3.11.9';
 const CACHE_PREFIX = 'kntt-cache-';
 const VERSION_TTL_MS = 30 * 1000;
 
@@ -87,16 +87,12 @@ function patchIndexText(text, version) {
   let out = text;
   const v = version || FALLBACK_VERSION;
 
-  // Đồng bộ hằng version trong index từ version.json.
   out = out.replace(/const\s+GAME_VERSION\s*=\s*['"][^'"]+['"];/, "const GAME_VERSION = '" + v + "';");
-
-  // Đồng bộ nhãn hiển thị phiên bản trong cả modal và nút dưới Xuất quân.
   out = out.replace(/<span\s+id=["']ver-num["'][^>]*>[^<]*<\/span>/g, '<span id="ver-num">' + v + '</span>');
   out = out.replace(/<span\s+id=["']ver-num-2["'][^>]*>[^<]*<\/span>/g, '<span id="ver-num-2">' + v + '</span>');
   out = out.replace(/Phiên bản\s*3(?:\.[0-9]+)+\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản ' + v + ' · Kiểm tra cập nhật');
   out = out.replace(/Phiên bản\s*<span\s+id=["']ver-num-2["'][^>]*>[^<]*<\/span>\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản <span id="ver-num-2">' + v + '</span> · Kiểm tra cập nhật');
 
-  // Hook các bản vá runtime/profile theo version hiện tại.
   if (!out.includes('v311-runtime.js')) {
     out = out.replace('</body>', '<script src="v311-runtime.js?v=' + v + '"></script>\n</body>');
   } else {
@@ -109,12 +105,22 @@ function patchIndexText(text, version) {
     out = out.replace(/v311-profile\.js\?v=[^"']+/g, 'v311-profile.js?v=' + v);
   }
 
-  // File này ghi đè handler cập nhật để clear cache + reload cache-bust.
   if (!out.includes('version-sync.js')) {
     out = out.replace('</body>', '<script src="version-sync.js?v=' + v + '"></script>\n</body>');
   } else {
     out = out.replace(/version-sync\.js\?v=[^"']+/g, 'version-sync.js?v=' + v);
   }
+
+  return out;
+}
+
+function patchRuntimeText(text, version) {
+  const v = version || FALLBACK_VERSION;
+  let out = text;
+
+  // Lỗi chính: v311-runtime.js tự ép dòng dưới Xuất quân về 3.11.5.
+  out = out.replace(/const\s+GAME_VER\s*=\s*['"][^'"]+['"];/, "const GAME_VER = '" + v + "';");
+  out = out.replace(/window\.GAME_VERSION\s*=\s*GAME_VER;/g, "window.GAME_VERSION = GAME_VER;");
 
   return out;
 }
@@ -129,6 +135,21 @@ async function fetchPatchedIndex(req) {
     statusText: res.statusText,
     headers: {
       'Content-Type': 'text/html; charset=UTF-8',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
+    }
+  });
+}
+
+async function fetchPatchedRuntime(req) {
+  const info = await readVersionInfo({ force: true });
+  const version = info.version || FALLBACK_VERSION;
+  const res = await fetch(req, { cache: 'no-store' });
+  const text = await res.text();
+  return new Response(patchRuntimeText(text, version), {
+    status: res.status,
+    statusText: res.statusText,
+    headers: {
+      'Content-Type': 'application/javascript; charset=UTF-8',
       'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
     }
   });
@@ -213,6 +234,21 @@ self.addEventListener('fetch', (e) => {
       } catch (_) {
         const info = await readVersionInfo({ force: true });
         return new Response(JSON.stringify(info), { headers: { 'Content-Type': 'application/json' } });
+      }
+    })());
+    return;
+  }
+
+  if (url.pathname.endsWith('/v311-runtime.js')) {
+    e.respondWith((async () => {
+      const info = await readVersionInfo({ force: true });
+      const cache = await caches.open(cacheName(info.version));
+      try {
+        const patched = await fetchPatchedRuntime(req);
+        await cache.put(req, patched.clone());
+        return patched;
+      } catch (_) {
+        return (await cache.match(req, { ignoreSearch: true })) || Response.error();
       }
     })());
     return;
