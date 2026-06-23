@@ -1,196 +1,25 @@
 /* Service Worker - Kỷ Nguyên Thủ Thành PWA */
-const CACHE = 'kntt-v390-profile-progression';
-const SERVED_GAME_VERSION = '3.9.0';
+const CACHE = 'kntt-v391-profile-progression-fix';
+const SERVED_GAME_VERSION = '3.9.1';
 
-const CORE = [
-  './',
-  './index.html',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
-  './icon-maskable.png'
-];
-
+const CORE = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-maskable.png'];
 const EXTRA = [
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Oswald:wght@500;700;900&display=swap'
 ];
 
-const PERF_PATCH_SCRIPT = `
-/* perf-v390: adaptive effect budget + FPS telemetry */
+const ALL_PATCH_SCRIPT = `
+/* kntt-v391: profile + persistent level/exp + economy + speed + upgrade button */
 (function(){
-  if (typeof Engine === 'undefined' || typeof State === 'undefined' || typeof Control === 'undefined') return;
-  if (window.__KNTT_PERF_V390__) return;
-  window.__KNTT_PERF_V390__ = true;
-
-  const PERF = window.KNTT_PERF = {
-    version: '3.9.0',
-    fps: 60,
-    low: false,
-    particleHigh: 150,
-    particleLow: 70,
-    textHigh: 32,
-    textLow: 16,
-    coinHigh: 24,
-    coinLow: 10,
-    beamHigh: 22,
-    beamLow: 10
-  };
-
-  function capArray(arr, max) {
-    if (arr && arr.length > max) arr.splice(0, arr.length - max);
-  }
-
-  const _spawnParticles = Engine.spawnParticles && Engine.spawnParticles.bind(Engine);
-  if (_spawnParticles) {
-    Engine.spawnParticles = function(x, y, c, n, spd, sz) {
-      const max = PERF.low ? PERF.particleLow : PERF.particleHigh;
-      if (State.particles && State.particles.length >= max) return;
-      const nn = PERF.low ? Math.min(3, Math.ceil((n || 1) * 0.22)) : Math.min(n || 1, 10);
-      return _spawnParticles(x, y, c, nn, PERF.low ? spd * 0.65 : spd, PERF.low ? Math.max(1, (sz || 3) * 0.8) : sz);
-    };
-  }
-
-  const _spawnText = Engine.spawnText && Engine.spawnText.bind(Engine);
-  if (_spawnText) {
-    Engine.spawnText = function(x, y, t, c, cr) {
-      const max = PERF.low ? PERF.textLow : PERF.textHigh;
-      if (State.floatTexts && State.floatTexts.length >= max) return;
-      return _spawnText(x, y, t, c, cr);
-    };
-  }
-
-  const _spawnFlyingCoin = Engine.spawnFlyingCoin && Engine.spawnFlyingCoin.bind(Engine);
-  if (_spawnFlyingCoin) {
-    Engine.spawnFlyingCoin = function(x, y, v) {
-      const max = PERF.low ? PERF.coinLow : PERF.coinHigh;
-      if (State.flyingCoins && State.flyingCoins.length >= max) return;
-      return _spawnFlyingCoin(x, y, v);
-    };
-  }
-
-  const _draw = Engine.draw && Engine.draw.bind(Engine);
-  if (_draw) {
-    Engine.draw = function() {
-      capArray(State.particles, PERF.low ? PERF.particleLow : PERF.particleHigh);
-      capArray(State.floatTexts, PERF.low ? PERF.textLow : PERF.textHigh);
-      capArray(State.flyingCoins, PERF.low ? PERF.coinLow : PERF.coinHigh);
-      capArray(State.beams, PERF.low ? PERF.beamLow : PERF.beamHigh);
-      return _draw();
-    };
-  }
-
-  const _initMap = Engine.initMap && Engine.initMap.bind(Engine);
-  if (_initMap) {
-    Engine.initMap = function() {
-      const r = _initMap();
-      if (State.weather && State.weather.length > 18) State.weather.length = 18;
-      return r;
-    };
-  }
-
-  const _loop = Control.loop && Control.loop.bind(Control);
-  if (_loop) {
-    let last = 0, acc = 0, frames = 0;
-    Control.loop = function(t) {
-      if (last) {
-        const dt = t - last;
-        if (dt > 0) {
-          acc += dt; frames++;
-          if (acc >= 900) {
-            PERF.fps = Math.round(frames * 1000 / acc);
-            const crowd = (State.units ? State.units.length : 0) + (State.enemies ? State.enemies.length : 0) + (State.projs ? State.projs.length : 0);
-            PERF.low = PERF.fps < 48 || crowd > 70;
-            acc = 0; frames = 0;
-          }
-        }
-      }
-      last = t;
-      return _loop(t);
-    };
-  }
-})();
-`;
-
-const UPGRADE_BUTTON_PATCH_SCRIPT = `
-/* upgrade-button-v390: nút nâng cấp tự sáng khi đủ tiền */
-(function(){
-  if (typeof UI === 'undefined' || typeof State === 'undefined' || typeof Engine === 'undefined') return;
-  if (window.__KNTT_UPGRADE_BUTTON_V390__) return;
-  window.__KNTT_UPGRADE_BUTTON_V390__ = true;
-
-  let lastKey = '';
-
-  function refreshUpgradeButton() {
-    try {
-      const u = State.ui && State.ui.selUnit;
-      const modal = document.getElementById('umod');
-      const btnUp = document.getElementById('b-up');
-      if (!u || !modal || modal.classList.contains('hidden') || !btnUp) { lastKey = ''; return; }
-
-      const maxLv = maxUnitLevel(u.typeId);
-      if (u.level >= maxLv) {
-        if (btnUp.style.display !== 'none') btnUp.style.display = 'none';
-        lastKey = 'max';
-        return;
-      }
-
-      const cost = upgradeCost(u);
-      const canUp = State.gold >= cost;
-      const key = [u.typeId, u.level, Math.floor(State.gold), cost, canUp ? 1 : 0].join('|');
-      if (key === lastKey) return;
-      lastKey = key;
-
-      btnUp.style.display = 'flex';
-      const costEl = document.getElementById('um-c');
-      if (costEl) costEl.innerText = '🪙 ' + cost + (u.level === 3 ? ' · Hoá Thần' : '');
-      btnUp.className = canUp
-        ? 'flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm'
-        : 'flex-1 bg-slate-700 rounded py-1 flex flex-col items-center opacity-50 cursor-not-allowed';
-    } catch (_) {}
-  }
-
-  const _updateDisplay = UI.updateDisplay && UI.updateDisplay.bind(UI);
-  if (_updateDisplay) {
-    UI.updateDisplay = function() {
-      const result = _updateDisplay();
-      refreshUpgradeButton();
-      return result;
-    };
-  }
-
-  const _openUnitModal = UI.openUnitModal && UI.openUnitModal.bind(UI);
-  if (_openUnitModal) {
-    UI.openUnitModal = function() {
-      const result = _openUnitModal.apply(UI, arguments);
-      lastKey = '';
-      refreshUpgradeButton();
-      return result;
-    };
-  }
-
-  const _draw = Engine.draw && Engine.draw.bind(Engine);
-  if (_draw) {
-    Engine.draw = function() {
-      refreshUpgradeButton();
-      return _draw();
-    };
-  }
-})();
-`;
-
-const PROGRESSION_PATCH_SCRIPT = `
-/* progression-v390: hồ sơ người chơi + cấp/EXP/Kim cương cày lại */
-(function(){
-  if (typeof Storage === 'undefined' || typeof State === 'undefined' || typeof Engine === 'undefined' || typeof UI === 'undefined') return;
-  if (window.__KNTT_PROGRESSION_V390__) return;
-  window.__KNTT_PROGRESSION_V390__ = true;
+  if (window.__KNTT_PATCH_V391__) return;
+  if (typeof Storage === 'undefined' || typeof State === 'undefined' || typeof Engine === 'undefined' || typeof UI === 'undefined' || typeof Control === 'undefined') return;
+  window.__KNTT_PATCH_V391__ = true;
 
   const AVATARS = ['🐱','🧙','🛡️','🏹','⚡','❄️','🌿','🌪️','👑','🐯','🦊','🐲'];
   let selectedAvatar = null;
   let lastSaveAt = 0;
 
-  function readRawProfile() {
+  function readStoredProfile() {
     try {
       const raw = localStorage.getItem(Storage.key);
       if (!raw) return null;
@@ -199,34 +28,53 @@ const PROGRESSION_PATCH_SCRIPT = `
     } catch (_) { return null; }
   }
 
-  function playerXpNeed(level) {
-    level = Math.max(1, Number(level) || 1);
+  function xpNeed(level) {
+    level = Math.max(1, Math.floor(Number(level) || 1));
     return Math.floor(120 + Math.pow(level, 1.62) * 82 + level * 18);
   }
 
   function ensureProfile() {
-    const old = readRawProfile() || (Storage.data && Storage.data.profile) || {};
-    const p = Object.assign({
-      name: 'Tân Thủ',
-      avatar: '🐱',
-      level: 1,
-      xp: 0,
-      totalXp: 0,
-      createdAt: new Date().toISOString()
-    }, old);
-    p.name = String(p.name || 'Tân Thủ').slice(0, 18);
+    const old = (Storage.data && Storage.data.profile) || readStoredProfile() || {};
+    const p = Object.assign({ name: 'Tân Thủ', avatar: '🐱', level: 1, xp: 0, totalXp: 0, createdAt: new Date().toISOString() }, old);
+    p.name = String(p.name || 'Tân Thủ').trim().slice(0, 18) || 'Tân Thủ';
     p.avatar = AVATARS.includes(p.avatar) ? p.avatar : '🐱';
     p.level = Math.max(1, Math.floor(Number(p.level) || 1));
     p.xp = Math.max(0, Math.floor(Number(p.xp) || 0));
     p.totalXp = Math.max(0, Math.floor(Number(p.totalXp) || 0));
-    if (p.xp >= playerXpNeed(p.level)) {
-      while (p.xp >= playerXpNeed(p.level)) { p.xp -= playerXpNeed(p.level); p.level++; }
-    }
+    while (p.xp >= xpNeed(p.level)) { p.xp -= xpNeed(p.level); p.level++; }
     Storage.data.profile = p;
     return p;
   }
 
-  window.playerXpNeed = playerXpNeed;
+  function syncStateFromProfile() {
+    const p = ensureProfile();
+    State.level = p.level;
+    State.xp = p.xp;
+    State.maxXp = xpNeed(p.level);
+  }
+
+  function directSync() {
+    try {
+      if (State.talents) Storage.data.talents = Object.assign({}, State.talents);
+      if (State.unitSkills) Storage.data.unitSkills = Object.assign({}, State.unitSkills);
+      if (typeof State.tp === 'number') Storage.data.tp = State.tp;
+      if (typeof Sound !== 'undefined') { Storage.data.sfx = Sound.sfxOn; Storage.data.music = Sound.musicOn; }
+      ensureProfile();
+      localStorage.setItem(Storage.key, JSON.stringify(Storage.data));
+    } catch (_) {}
+  }
+
+  const _load = Storage.load && Storage.load.bind(Storage);
+  Storage.load = function() {
+    const d = _load ? _load() : Storage.data;
+    const stored = readStoredProfile();
+    if (stored) Storage.data.profile = stored;
+    ensureProfile();
+    return d;
+  };
+  Storage.sync = directSync;
+
+  window.playerXpNeed = xpNeed;
   window.calcEnemyXp = function(e) {
     try {
       const base = Math.max(1, (e && e.db && e.db.xp) || 1);
@@ -248,89 +96,56 @@ const PROGRESSION_PATCH_SCRIPT = `
     return first ? reward : Math.max(3, Math.round(reward * 0.15));
   };
 
-  const _load = Storage.load && Storage.load.bind(Storage);
-  if (_load) {
-    Storage.load = function() {
-      const d = _load();
-      ensureProfile();
-      return d;
-    };
-  }
-
-  const _sync = Storage.sync && Storage.sync.bind(Storage);
-  if (_sync) {
-    Storage.sync = function() {
-      ensureProfile();
-      return _sync();
-    };
-  }
-
-  function syncStateFromProfile() {
-    const p = ensureProfile();
-    State.level = p.level;
-    State.xp = p.xp;
-    State.maxXp = playerXpNeed(p.level);
-  }
-
-  const _gainXp = Engine.gainXp && Engine.gainXp.bind(Engine);
   Engine.gainXp = function(amount) {
     amount = Math.max(0, Math.round(Number(amount) || 0));
-    if (!amount) return;
+    if (!amount) return 0;
     const p = ensureProfile();
     p.xp += amount;
     p.totalXp += amount;
-
-    let leveled = 0;
+    let levelUps = 0;
     let spGain = 0;
-    while (p.xp >= playerXpNeed(p.level)) {
-      p.xp -= playerXpNeed(p.level);
+    while (p.xp >= xpNeed(p.level)) {
+      p.xp -= xpNeed(p.level);
       p.level++;
-      leveled++;
+      levelUps++;
       spGain += (p.level % 5 === 0) ? 2 : 1;
     }
-
     if (spGain > 0) State.tp += spGain;
     Storage.data.profile = p;
     syncStateFromProfile();
-
-    if (leveled > 0) {
+    if (levelUps > 0) {
       UI.showMessage('CẤP ' + p.level + '! +' + spGain + ' SP');
       try { Sound.play('upgrade'); vibe([0, 30, 20, 70]); } catch (_) {}
     }
-
     UI.updateDisplay();
     const now = performance.now();
-    if (leveled > 0 || now - lastSaveAt > 1000) {
-      lastSaveAt = now;
-      Storage.sync();
-    }
+    if (levelUps > 0 || now - lastSaveAt > 1000) { lastSaveAt = now; directSync(); }
     return amount;
   };
 
-  const _updateDisplay = UI.updateDisplay && UI.updateDisplay.bind(UI);
-  if (_updateDisplay) {
-    UI.updateDisplay = function() {
-      syncStateFromProfile();
-      const r = _updateDisplay();
-      renderProfileCard();
-      return r;
-    };
-  }
-
-  const _refreshStart = UI.refreshStart && UI.refreshStart.bind(UI);
-  if (_refreshStart) {
-    UI.refreshStart = function() {
-      syncStateFromProfile();
-      const r = _refreshStart();
-      renderProfileCard();
-      return r;
-    };
+  function refreshUpgradeButton() {
+    try {
+      const u = State.ui && State.ui.selUnit;
+      const modal = document.getElementById('umod');
+      const btnUp = document.getElementById('b-up');
+      if (!u || !modal || modal.classList.contains('hidden') || !btnUp) return;
+      const maxLv = maxUnitLevel(u.typeId);
+      if (u.level >= maxLv) { btnUp.style.display = 'none'; return; }
+      const cost = upgradeCost(u);
+      const canUp = State.gold >= cost;
+      btnUp.style.display = 'flex';
+      const costEl = document.getElementById('um-c');
+      if (costEl) costEl.innerText = '🪙 ' + cost + (u.level === 3 ? ' · Hoá Thần' : '');
+      btnUp.className = canUp
+        ? 'flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm'
+        : 'flex-1 bg-slate-700 rounded py-1 flex flex-col items-center opacity-50 cursor-not-allowed';
+    } catch (_) {}
   }
 
   function injectProfileCss() {
-    if (document.getElementById('profile-v390-css')) return;
+    if (document.getElementById('profile-v391-css')) return;
     const st = document.createElement('style');
-    st.id = 'profile-v390-css';
+    st.id = 'profile-v391-css';
     st.textContent = '#profile-card{background:linear-gradient(180deg,rgba(15,23,42,.95),rgba(2,6,23,.95));border:1px solid rgba(148,163,184,.25);border-radius:12px;padding:9px;margin-bottom:8px;box-shadow:0 8px 20px rgba(0,0,0,.35)}#profile-card .p-row{display:flex;align-items:center;gap:8px}#profile-card .p-av{width:38px;height:38px;border-radius:12px;background:#111827;border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:24px}#profile-card .p-name{font-weight:900;color:#fff;font-size:13px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#profile-card .p-sub{font-size:9px;color:#94a3b8;margin-top:2px}#profile-card .p-xp{height:6px;border-radius:999px;background:#111827;overflow:hidden;margin-top:7px;border:1px solid rgba(255,255,255,.08)}#profile-card .p-xp>div{height:100%;background:linear-gradient(90deg,#38bdf8,#a78bfa);width:0%}#profile-card .p-btn{margin-top:7px;width:100%;height:24px;border-radius:8px;border:1px solid rgba(56,189,248,.45);background:rgba(14,165,233,.14);color:#bae6fd;font-size:10px;font-weight:900}#prof-modal{position:fixed;inset:0;z-index:140;background:rgba(2,6,23,.86);display:none;align-items:center;justify-content:center;padding:12px}#prof-modal.show{display:flex}#prof-box{width:min(420px,94vw);background:#0f172a;border:1px solid #334155;border-radius:16px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.75)}#prof-name-input{width:100%;background:#020617;border:1px solid #334155;border-radius:10px;color:#fff;padding:10px;font-weight:800;outline:none}#prof-avatars{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:12px 0}#prof-avatars button{height:42px;border-radius:10px;background:#020617;border:1px solid #334155;font-size:24px}#prof-avatars button.sel{border-color:#38bdf8;box-shadow:0 0 14px rgba(56,189,248,.4);background:#0c4a6e}.prof-actions{display:flex;gap:8px}.prof-actions button{flex:1;border-radius:10px;padding:10px;font-weight:900}.prof-save{background:#2563eb;color:#fff;border:1px solid #60a5fa}.prof-close{background:#1e293b;color:#cbd5e1;border:1px solid #475569}';
     document.head.appendChild(st);
   }
@@ -357,12 +172,7 @@ const PROGRESSION_PATCH_SCRIPT = `
       modal.querySelector('#prof-cancel').onclick = function(){ modal.classList.remove('show'); };
       modal.querySelector('#prof-save').onclick = saveProfileModal;
       const grid = modal.querySelector('#prof-avatars');
-      AVATARS.forEach(function(a){
-        const b = document.createElement('button');
-        b.textContent = a;
-        b.onclick = function(){ selectedAvatar = a; renderAvatarChoices(); };
-        grid.appendChild(b);
-      });
+      AVATARS.forEach(function(a){ const b = document.createElement('button'); b.textContent = a; b.onclick = function(){ selectedAvatar = a; renderAvatarChoices(); }; grid.appendChild(b); });
     }
   }
 
@@ -389,7 +199,7 @@ const PROGRESSION_PATCH_SCRIPT = `
     p.name = String((input && input.value) || p.name || 'Tân Thủ').trim().slice(0, 18) || 'Tân Thủ';
     p.avatar = AVATARS.includes(selectedAvatar) ? selectedAvatar : p.avatar;
     Storage.data.profile = p;
-    Storage.sync();
+    directSync();
     renderProfileCard();
     const modal = document.getElementById('prof-modal');
     if (modal) modal.classList.remove('show');
@@ -399,7 +209,7 @@ const PROGRESSION_PATCH_SCRIPT = `
   function renderProfileCard() {
     ensureProfileUi();
     const p = ensureProfile();
-    const need = playerXpNeed(p.level);
+    const need = xpNeed(p.level);
     const pct = Math.max(0, Math.min(100, (p.xp / need) * 100));
     const av = document.getElementById('prof-av'); if (av) av.textContent = p.avatar;
     const name = document.getElementById('prof-name'); if (name) name.textContent = p.name;
@@ -408,7 +218,16 @@ const PROGRESSION_PATCH_SCRIPT = `
     const bar = document.getElementById('prof-xpbar'); if (bar) bar.style.width = pct + '%';
   }
 
-  window.KNTTProfile = { ensure: ensureProfile, open: openProfileModal, render: renderProfileCard, xpNeed: playerXpNeed };
+  const _updateDisplay = UI.updateDisplay && UI.updateDisplay.bind(UI);
+  UI.updateDisplay = function() { syncStateFromProfile(); const r = _updateDisplay ? _updateDisplay() : undefined; refreshUpgradeButton(); renderProfileCard(); return r; };
+  const _refreshStart = UI.refreshStart && UI.refreshStart.bind(UI);
+  UI.refreshStart = function() { syncStateFromProfile(); const r = _refreshStart ? _refreshStart() : undefined; renderProfileCard(); return r; };
+  const _openUnitModal = UI.openUnitModal && UI.openUnitModal.bind(UI);
+  if (_openUnitModal) UI.openUnitModal = function() { const r = _openUnitModal.apply(UI, arguments); refreshUpgradeButton(); return r; };
+  const _draw = Engine.draw && Engine.draw.bind(Engine);
+  if (_draw) Engine.draw = function() { refreshUpgradeButton(); return _draw(); };
+
+  window.KNTTProfile = { ensure: ensureProfile, open: openProfileModal, render: renderProfileCard, xpNeed: xpNeed };
   setTimeout(function(){ ensureProfile(); syncStateFromProfile(); renderProfileCard(); }, 0);
 })();
 `;
@@ -457,9 +276,7 @@ function patchIndexText(text) {
       "UI.showMessage(WAVE_THEMES[_th].hint, _th === 'boss'); Sound.play('wave'); this.buildWave();"
     );
 
-  if (!out.includes('perf-v390')) out = out.replace('// ============ BOOT ============', `${PERF_PATCH_SCRIPT}\n// ============ BOOT ============`);
-  if (!out.includes('upgrade-button-v390')) out = out.replace('// ============ BOOT ============', `${UPGRADE_BUTTON_PATCH_SCRIPT}\n// ============ BOOT ============`);
-  if (!out.includes('progression-v390')) out = out.replace('// ============ BOOT ============', `${PROGRESSION_PATCH_SCRIPT}\n// ============ BOOT ============`);
+  if (!out.includes('__KNTT_PATCH_V391__')) out = out.replace('// ============ BOOT ============', `${ALL_PATCH_SCRIPT}\n// ============ BOOT ============`);
   return out;
 }
 
@@ -469,10 +286,7 @@ async function patchIndexResponse(res) {
   return new Response(patchIndexText(text), {
     status: res.status,
     statusText: res.statusText,
-    headers: {
-      'Content-Type': 'text/html; charset=UTF-8',
-      'Cache-Control': 'no-store'
-    }
+    headers: { 'Content-Type': 'text/html; charset=UTF-8', 'Cache-Control': 'no-store' }
   });
 }
 
@@ -482,7 +296,7 @@ async function cachePatchedIndex(cache) {
     const patched = await patchIndexResponse(res);
     await cache.put('./index.html', patched.clone());
     await cache.put('./', patched.clone());
-  } catch (_) { /* cache.addAll fallback is enough */ }
+  } catch (_) {}
 }
 
 self.addEventListener('install', (e) => {
@@ -491,10 +305,7 @@ self.addEventListener('install', (e) => {
     await cache.addAll(CORE);
     await cachePatchedIndex(cache);
     await Promise.all(EXTRA.map(async (url) => {
-      try {
-        const res = await fetch(url, { mode: 'no-cors' });
-        await cache.put(url, res);
-      } catch (_) {}
+      try { const res = await fetch(url, { mode: 'no-cors' }); await cache.put(url, res); } catch (_) {}
     }));
     self.skipWaiting();
   })());
