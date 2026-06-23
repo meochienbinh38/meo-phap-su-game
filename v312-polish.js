@@ -7,7 +7,7 @@
   if (window.__KNTT_V312_POLISH__) return;
   window.__KNTT_V312_POLISH__ = true;
 
-  const FALLBACK_VERSION = '3.12.0';
+  const FALLBACK_VERSION = '3.12.1';
   const VERSION_URL = './version.json';
 
   function q(id) { return document.getElementById(id); }
@@ -101,6 +101,50 @@
     } catch (_) {}
   }
 
+  function selectedUnit() {
+    try { return State && State.ui ? State.ui.selUnit : null; } catch (_) { return null; }
+  }
+
+  function maxLevelOf(unit) {
+    try { return typeof maxUnitLevel === 'function' ? maxUnitLevel(unit.typeId) : 3; } catch (_) { return 3; }
+  }
+
+  function upgradeCostOf(unit) {
+    try { return typeof upgradeCost === 'function' ? upgradeCost(unit) : 0; } catch (_) { return 0; }
+  }
+
+  function refreshUnitModalAffordance() {
+    try {
+      const unit = selectedUnit();
+      if (!unit) return;
+
+      const up = q('b-up');
+      const sell = q('um-s');
+      const costLabel = q('um-c');
+      const levelLabel = q('um-lv');
+      const maxLv = maxLevelOf(unit);
+      const gold = safeNum(State && State.gold, 0);
+
+      if (levelLabel) levelLabel.innerText = unit.level;
+      if (sell) sell.innerText = '🪙 ' + refundValue(unit);
+
+      if (!up) return;
+      if (unit.level >= maxLv) {
+        up.style.display = 'none';
+        return;
+      }
+
+      const cost = upgradeCostOf(unit);
+      up.style.display = 'flex';
+      if (costLabel) costLabel.innerText = '🪙 ' + cost + (unit.level === 3 ? ' · Hoá Thần' : '');
+
+      const canUpgrade = gold >= cost;
+      up.className = canUpgrade
+        ? 'flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm'
+        : 'flex-1 bg-slate-700 rounded py-1 flex flex-col items-center opacity-50 cursor-not-allowed';
+    } catch (_) {}
+  }
+
   function patchControlStart() {
     try {
       if (!window.Control && typeof Control === 'undefined') return;
@@ -124,9 +168,21 @@
       UI.openUnitModal = function (unit, x, y) {
         ensureUnitInvestment(unit);
         const result = originalOpen(unit, x, y);
-        const sell = q('um-s');
-        if (sell) sell.innerText = '🪙 ' + refundValue(unit);
+        refreshUnitModalAffordance();
         patchModalButtons();
+        return result;
+      };
+    } catch (_) {}
+  }
+
+  function patchUiUpdateDisplay() {
+    try {
+      if (typeof UI === 'undefined' || !UI || UI.__knttModalRefreshPatched || !UI.updateDisplay) return;
+      UI.__knttModalRefreshPatched = true;
+      const originalUpdate = UI.updateDisplay.bind(UI);
+      UI.updateDisplay = function (...args) {
+        const result = originalUpdate(...args);
+        refreshUnitModalAffordance();
         return result;
       };
     } catch (_) {}
@@ -139,15 +195,16 @@
         up.__knttInvestmentPatched = true;
         const oldUp = up.onclick;
         up.onclick = function (...args) {
-          const unit = State && State.ui ? State.ui.selUnit : null;
+          const unit = selectedUnit();
           const beforeLevel = unit ? unit.level : 0;
-          const cost = unit && typeof upgradeCost === 'function' ? upgradeCost(unit) : 0;
-          const goldBefore = State ? State.gold : 0;
+          const cost = unit ? upgradeCostOf(unit) : 0;
+          const goldBefore = safeNum(State && State.gold, 0);
           const result = oldUp ? oldUp.apply(this, args) : undefined;
 
           if (unit && unit.level > beforeLevel && goldBefore >= cost) {
             unit.knttInvestedGold = ensureUnitInvestment(unit) + cost;
           }
+          refreshUnitModalAffordance();
           return result;
         };
       }
@@ -157,7 +214,7 @@
         sell.__knttInvestmentPatched = true;
         sell.onclick = function () {
           if (performance.now() - ((State && State.ui && State.ui.modalAt) || 0) < 300) return;
-          const unit = State && State.ui ? State.ui.selUnit : null;
+          const unit = selectedUnit();
           if (!unit) return;
 
           const val = refundValue(unit);
@@ -196,8 +253,10 @@
     wrapUnitsPush();
     patchControlStart();
     patchUnitModal();
+    patchUiUpdateDisplay();
     patchModalButtons();
     patchUpdateButtonCheck();
+    refreshUnitModalAffordance();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
