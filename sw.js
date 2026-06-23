@@ -2,7 +2,7 @@
  * Version source of truth: version.json
  */
 const VERSION_URL = './version.json';
-const FALLBACK_VERSION = '3.12.3';
+const FALLBACK_VERSION = '3.12.5';
 const CACHE_PREFIX = 'kntt-cache-';
 const VERSION_TTL_MS = 30 * 1000;
 
@@ -145,6 +145,38 @@ function patchInlineUpgradeRefresh(out, version) {
   return out.replace('</body>', inlineUpgradeRefreshScript(version) + '\n</body>');
 }
 
+function patchUpgradeModalCore(out) {
+  if (!out.includes('refreshUnitModal() {')) {
+    const refreshMethod = [
+      '    refreshUnitModal() {',
+      "        let u = State.ui.selUnit, modal = document.getElementById('umod');",
+      "        if (!u || !modal || modal.classList.contains('hidden')) return;",
+      "        document.getElementById('um-lv').innerText = u.level;",
+      "        let sDesc = document.getElementById('um-desc');",
+      "        if (sDesc) { sDesc.innerText = u.level >= 4 ? 'HOÁ THẦN: chỉ số tăng mạnh, kỹ năng tối thượng được cường hoá.' : (hasGodForm(u.typeId) ? `${u.db.lv3Desc} · Đủ kỹ năng: có thể Hoá Thần cấp 4.` : u.db.lv3Desc); if (u.level >= 2) sDesc.classList.remove('hidden'); else sDesc.classList.add('hidden'); }",
+      "        let btnUp = document.getElementById('b-up');",
+      "        let maxLv = maxUnitLevel(u.typeId);",
+      "        if (u.level >= maxLv) { btnUp.style.display = 'none'; }",
+      "        else { btnUp.removeAttribute('style'); btnUp.style.display = 'flex'; let cost = upgradeCost(u); document.getElementById('um-c').innerText = `🪙 ${cost}${u.level === 3 ? ' · Hoá Thần' : ''}`; btnUp.className = State.gold >= cost ? 'flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm' : 'flex-1 bg-slate-700 rounded py-1 flex flex-col items-center opacity-50 cursor-not-allowed'; }",
+      "        document.getElementById('um-s').innerText = `🪙 ${Math.floor(u.db.cost * Math.pow(1.5, u.level - 1) * 0.5)}`;",
+      '    },'
+    ].join('\n');
+    out = out.replace('    openUnitModal(u, x, y) {', refreshMethod + '\n    openUnitModal(u, x, y) {');
+  }
+
+  out = out.replace(
+    "        let badge = document.getElementById('tp-bdg'); if (State.tp > 0) { badge.classList.remove('hidden'); badge.innerText = State.tp; } else badge.classList.add('hidden');\n    },",
+    "        let badge = document.getElementById('tp-bdg'); if (State.tp > 0) { badge.classList.remove('hidden'); badge.innerText = State.tp; } else badge.classList.add('hidden');\n        this.refreshUnitModal();\n    },"
+  );
+
+  out = out.replace(
+    "        modal.classList.remove('hidden');\n    },",
+    "        modal.classList.remove('hidden'); this.refreshUnitModal();\n    },"
+  );
+
+  return out;
+}
+
 function patchIndexText(text, version) {
   let out = text;
   const v = version || FALLBACK_VERSION;
@@ -155,6 +187,7 @@ function patchIndexText(text, version) {
   out = out.replace(/Phiên bản\s*3(?:\.[0-9]+)+\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản ' + v + ' · Kiểm tra cập nhật');
   out = out.replace(/Phiên bản\s*<span\s+id=["']ver-num-2["'][^>]*>[^<]*<\/span>\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản <span id="ver-num-2">' + v + '</span> · Kiểm tra cập nhật');
 
+  out = patchUpgradeModalCore(out);
   out = patchScript(out, 'v311-runtime.js', v);
   out = patchScript(out, 'v311-profile.js', v);
   out = patchScript(out, 'version-sync.js', v);
