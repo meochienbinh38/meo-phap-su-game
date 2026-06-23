@@ -103,6 +103,34 @@ File này dùng để ghi lại từng batch sửa game, tránh sửa rải rác
 3. Giữ modal mở, đợi vàng tăng vượt giá nâng cấp.
 4. Nút `Nâng cấp` phải sáng ngay; nếu không sáng, cần sửa trực tiếp `index.html` thay vì vá qua service worker.
 
+## 2026-06-23 — Batch 1.4: DOM-only cho nút Nâng cấp
+
+### Đã làm
+
+- Đè lại `v312-polish.js` bằng bản gọn hơn và ít phụ thuộc hơn.
+- Watcher hiện đọc trực tiếp từ DOM:
+  - vàng hiện tại: `#ui-g`;
+  - giá nâng cấp: `#um-c`;
+  - nút nâng cấp: `#b-up`.
+- Nếu vàng hiển thị trên màn hình lớn hơn hoặc bằng giá nâng cấp đang hiển thị trong modal, nút sẽ tự sáng.
+- Vẫn giữ các vá đang cần:
+  - đồng bộ nhãn version;
+  - tiền bán theo `knttInvestedGold`;
+  - bọc lại thao tác bán/nâng cấp để cập nhật đầu tư vàng.
+- Tăng `version.json` lên `3.12.4`.
+
+### Lý do sửa
+
+- Các bản trước dựa vào `State`/`UI` trong file vá ngoài nên có thể không chạm đúng biến nội bộ hoặc bị luồng lõi ghi đè.
+- DOM-only dùng chính số vàng và giá đang hiển thị trên màn hình, nên đúng với trường hợp ảnh test: vàng `144`, giá nâng cấp `90` thì nút phải sáng.
+
+### Cần test thủ công
+
+1. Cập nhật lên `3.12.4`.
+2. Vào trận, mở chi tiết tướng khi chưa đủ tiền nâng cấp.
+3. Giữ modal mở, đợi vàng tăng.
+4. Khi vàng hiển thị trên HUD lớn hơn hoặc bằng giá nâng cấp trong modal, nút `Nâng cấp` phải sáng.
+
 ## Việc nên làm tiếp
 
 1. Cố định logic lưới 11 cột để cân bằng không lệch giữa điện thoại/tablet/desktop.
