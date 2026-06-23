@@ -6,7 +6,7 @@
   'use strict';
 
   const VERSION_URL = './version.json';
-  const FALLBACK_VERSION = '3.12.11';
+  const FALLBACK_VERSION = '3.13.0';
   let updateStarted = false;
 
   function qs(id) { return document.getElementById(id); }
