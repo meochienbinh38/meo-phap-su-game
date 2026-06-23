@@ -1,1 +1,1 @@
-{ "version": "3.12.3", "build": "2026-06-23", "notes": "Sửa trực tiếp nút Nâng cấp bằng script inline trong HTML do service worker trả về." }
+{ "version": "3.12.4", "build": "2026-06-23", "notes": "Sửa nút Nâng cấp bằng cách đọc trực tiếp vàng và giá trên màn hình." }
