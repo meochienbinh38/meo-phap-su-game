@@ -1,1 +1,1 @@
-{ "version": "3.9.2", "build": "2026-06-23", "notes": "Sửa lỗi giao diện hồ sơ làm lấp Cửa hàng/Nội tại; thu gọn thẻ hồ sơ; thêm nút Tạo hồ sơ mới / Chơi lại từ đầu để reset tiến trình, kim cương, cấp, nội tại và tướng đã mở." }
+{ "version": "3.10.0", "build": "2026-06-23", "notes": "Thiết kế lại nền tảng UI: chuẩn hóa modal Nội tại/Cửa hàng theo header cố định, tab cố định, content cuộn; thu gọn hồ sơ và màn chọn màn; giữ tốc độ 0.9x; giữ cơ chế cấp/EXP/kim cương và reset hồ sơ." }
