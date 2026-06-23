@@ -157,6 +157,45 @@ File này dùng để ghi lại từng batch sửa game, tránh sửa rải rác
 4. Đợi vàng tăng đến đủ tiền.
 5. Nút `Nâng cấp` phải tự đổi trạng thái mà không cần ấn ra ngoài rồi ấn lại tướng.
 
+## 2026-06-23 — Batch 2: Combat feel Xạ Thủ và Thần Sét
+
+### Đã làm
+
+- Sửa `v313-archer-god.js` thành lớp combat feel tổng quát hơn.
+- Xạ Thủ đổi hướng từ một vệt đạn đơn sang **Liên Châu Tiễn**:
+  - mỗi phát bắn hiển thị thành một chùm 2/3/4/5 mũi tên tuỳ cấp;
+  - mỗi mũi tên gây một phần sát thương, giúp cảm giác bắn nhanh và bóc khiên tốt hơn;
+  - cấp 2 trở lên bắn dày hơn, cấp 3/có kỹ năng chữ ký có màu vàng và xuyên tốt hơn;
+  - Hoá Thần vẫn giữ kỹ năng **Vạn Tiễn Xuyên Tâm** nhưng kích hoạt tiết chế hơn để không quá loạn.
+- Xạ Thủ được tăng tốc đánh theo cấp:
+  - cấp 2 nhanh hơn;
+  - cấp 3 nhanh rõ;
+  - cấp 4 rất nhanh.
+- Thần Sét được tăng sát thương theo cấp để đúng vai trò tướng đắt/khắc giáp dày.
+- Thần Sét đổi cảm giác chiêu thành **Lôi Động Cửu Thiên**:
+  - các beam sét chuyển điểm bắt đầu lên phía trên màn hình;
+  - hiệu ứng nhìn như thiên lôi giáng xuống mục tiêu;
+  - có text `LÔI ĐỘNG CỬU THIÊN` theo nhịp để không spam quá nhiều.
+- Cập nhật tên/mô tả kỹ năng Xạ Thủ và Thần Sét trong `UNITS_DB`/`UNIT_SKILLS`.
+- Tăng `version.json` lên `3.13.0`.
+
+### Lý do sửa
+
+- Người chơi kỳ vọng Cung/Xạ Thủ là tướng có tốc đánh và mưa tên, không phải chỉ một vệt đạn đơn.
+- Thần Sét dùng hiệu ứng kéo ngang chưa đúng cảm giác “thần/pháp sư gọi thiên lôi”.
+- Nâng cấp tướng cần thay đổi cảm nhận nhìn thấy được: cung thủ bắn dồn hơn, thần sét giáng sét mạnh hơn.
+
+### Cần test thủ công
+
+1. Cập nhật lên `3.13.0`.
+2. Vào trận, đặt Xạ Thủ cấp 1/2/3 nếu đủ vàng và quan sát:
+   - số mũi tên trong mỗi loạt phải tăng theo cấp;
+   - tốc độ bắn phải nhanh hơn khi nâng cấp.
+3. Đặt Thần Sét, nâng cấp rồi quan sát:
+   - sát thương hiển thị phải cao hơn rõ;
+   - tia sét phải giáng từ trên xuống mục tiêu, không còn chủ yếu kéo ngang từ tướng sang quái.
+4. Kiểm tra màn có nhiều quái/khiên để xem Xạ Thủ bóc khiên nhanh hơn nhưng không quá mất cân bằng.
+
 ## Việc nên làm tiếp
 
 1. Cố định logic lưới 11 cột để cân bằng không lệch giữa điện thoại/tablet/desktop.
