@@ -1,5 +1,5 @@
 /* KNTT v3.12 polish layer
- * Mục tiêu: sửa các lỗi hoàn thiện nhỏ mà không đụng sâu lõi index.html.
+ * Các vá nhỏ không đụng sâu index.html.
  */
 (function () {
   'use strict';
@@ -7,12 +7,12 @@
   if (window.__KNTT_V312_POLISH__) return;
   window.__KNTT_V312_POLISH__ = true;
 
-  const FALLBACK_VERSION = '3.12.2';
+  const FALLBACK_VERSION = '3.12.4';
   const VERSION_URL = './version.json';
 
   function q(id) { return document.getElementById(id); }
-  function safeNum(v, fallback) {
-    const n = Number(v);
+  function num(v, fallback) {
+    const n = Number(String(v == null ? '' : v).replace(/[^0-9.-]/g, ''));
     return Number.isFinite(n) ? n : fallback;
   }
 
@@ -49,24 +49,21 @@
 
   function startVersionGuard() {
     readLatestVersion().then((version) => {
-      [0, 250, 800, 1400, 2600].forEach((delay) => {
-        setTimeout(() => setVersionLabels(version), delay);
-      });
+      [0, 250, 800, 1400, 2600].forEach((delay) => setTimeout(() => setVersionLabels(version), delay));
     });
-  }
-
-  function buyRamp() {
-    try { return safeNum(CFG && CFG.buyRamp, 1.11); } catch (_) { return 1.11; }
   }
 
   function currentUnits() {
     try { return Array.isArray(State.units) ? State.units : []; } catch (_) { return []; }
   }
 
+  function buyRamp() {
+    try { return num(CFG && CFG.buyRamp, 1.11); } catch (_) { return 1.11; }
+  }
+
   function inferPurchaseCost(unit, countBefore) {
     if (!unit || !unit.db) return 0;
-    const n = Math.max(0, safeNum(countBefore, 0));
-    return Math.round(safeNum(unit.db.cost, 0) * Math.pow(buyRamp(), n));
+    return Math.round(num(unit.db.cost, 0) * Math.pow(buyRamp(), Math.max(0, num(countBefore, 0))));
   }
 
   function ensureUnitInvestment(unit) {
@@ -86,7 +83,6 @@
     try {
       const units = State && State.units;
       if (!Array.isArray(units) || units.__knttInvestmentWrapped) return;
-
       const originalPush = units.push;
       Object.defineProperty(units, '__knttInvestmentWrapped', { value: true, enumerable: false });
       units.push = function (...items) {
@@ -101,117 +97,49 @@
     } catch (_) {}
   }
 
-  function selectedUnit() {
-    try { return State && State.ui ? State.ui.selUnit : null; } catch (_) { return null; }
-  }
-
-  function maxLevelOf(unit) {
-    try { return typeof maxUnitLevel === 'function' ? maxUnitLevel(unit.typeId) : 3; } catch (_) { return 3; }
-  }
-
-  function upgradeCostOf(unit) {
-    try { return typeof upgradeCost === 'function' ? upgradeCost(unit) : 0; } catch (_) { return 0; }
-  }
-
-  function isUnitModalOpen() {
+  function modalOpen() {
     const modal = q('umod');
     return !!modal && !modal.classList.contains('hidden');
   }
 
-  function applyUpgradeButtonVisual(btn, canUpgrade) {
-    if (!btn) return;
-    btn.className = canUpgrade
-      ? 'flex-1 rounded py-1 flex flex-col items-center border shadow-sm'
-      : 'flex-1 rounded py-1 flex flex-col items-center cursor-not-allowed';
+  function setUpgradeVisual(canUpgrade) {
+    const btn = q('b-up');
+    if (!btn || !modalOpen()) return;
+
     btn.style.display = 'flex';
-    btn.style.opacity = canUpgrade ? '1' : '0.45';
-    btn.style.filter = canUpgrade ? 'brightness(1.18)' : 'brightness(0.72)';
     btn.style.pointerEvents = 'auto';
+    btn.style.opacity = canUpgrade ? '1' : '0.45';
+    btn.style.filter = canUpgrade ? 'brightness(1.25)' : 'brightness(0.72)';
+    btn.style.background = canUpgrade ? 'linear-gradient(#38bdf8,#1d4ed8)' : '#334155';
     btn.style.borderColor = canUpgrade ? '#60a5fa' : '#475569';
-    btn.style.background = canUpgrade
-      ? 'linear-gradient(#38bdf8, #1d4ed8)'
-      : '#334155';
-    btn.style.boxShadow = canUpgrade
-      ? '0 0 16px rgba(56,189,248,.45), inset 0 1px 0 rgba(255,255,255,.18)'
-      : 'none';
+    btn.style.boxShadow = canUpgrade ? '0 0 18px rgba(56,189,248,.6), inset 0 1px 0 rgba(255,255,255,.18)' : 'none';
+    btn.style.color = '#fff';
     btn.dataset.canUpgrade = canUpgrade ? '1' : '0';
+
+    btn.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-slate-700');
+    if (!canUpgrade) btn.classList.add('cursor-not-allowed');
   }
 
-  function refreshUnitModalAffordance() {
+  function refreshUpgradeButtonByDom() {
     try {
-      const unit = selectedUnit();
-      if (!unit || !isUnitModalOpen()) return;
+      const btn = q('b-up');
+      const goldEl = q('ui-g');
+      const costEl = q('um-c');
+      if (!btn || !goldEl || !costEl || !modalOpen()) return;
 
-      const up = q('b-up');
+      const cost = num(costEl.innerText || costEl.textContent, NaN);
+      const gold = num(goldEl.innerText || goldEl.textContent, 0);
+      if (!Number.isFinite(cost) || cost <= 0) return;
+
+      setUpgradeVisual(gold >= cost);
+    } catch (_) {}
+  }
+
+  function refreshSellLabel() {
+    try {
+      const unit = State && State.ui ? State.ui.selUnit : null;
       const sell = q('um-s');
-      const costLabel = q('um-c');
-      const levelLabel = q('um-lv');
-      const maxLv = maxLevelOf(unit);
-      const gold = safeNum(State && State.gold, 0);
-
-      if (levelLabel) levelLabel.innerText = unit.level;
-      if (sell) sell.innerText = '🪙 ' + refundValue(unit);
-
-      if (!up) return;
-      if (unit.level >= maxLv) {
-        up.style.display = 'none';
-        return;
-      }
-
-      const cost = upgradeCostOf(unit);
-      if (costLabel) costLabel.innerText = '🪙 ' + cost + (unit.level === 3 ? ' · Hoá Thần' : '');
-      applyUpgradeButtonVisual(up, gold >= cost);
-    } catch (_) {}
-  }
-
-  function startModalWatcher() {
-    if (window.__KNTT_UPGRADE_MODAL_WATCHER__) return;
-    window.__KNTT_UPGRADE_MODAL_WATCHER__ = true;
-    setInterval(refreshUnitModalAffordance, 200);
-  }
-
-  function patchControlStart() {
-    try {
-      if (!window.Control && typeof Control === 'undefined') return;
-      const C = window.Control || Control;
-      if (!C || C.__knttInvestmentStartPatched || !C.start) return;
-      C.__knttInvestmentStartPatched = true;
-      const originalStart = C.start.bind(C);
-      C.start = function (...args) {
-        const result = originalStart(...args);
-        wrapUnitsPush();
-        startModalWatcher();
-        return result;
-      };
-    } catch (_) {}
-  }
-
-  function patchUnitModal() {
-    try {
-      if (typeof UI === 'undefined' || !UI || UI.__knttInvestmentModalPatched) return;
-      UI.__knttInvestmentModalPatched = true;
-      const originalOpen = UI.openUnitModal.bind(UI);
-      UI.openUnitModal = function (unit, x, y) {
-        ensureUnitInvestment(unit);
-        const result = originalOpen(unit, x, y);
-        patchModalButtons();
-        refreshUnitModalAffordance();
-        startModalWatcher();
-        return result;
-      };
-    } catch (_) {}
-  }
-
-  function patchUiUpdateDisplay() {
-    try {
-      if (typeof UI === 'undefined' || !UI || UI.__knttModalRefreshPatched || !UI.updateDisplay) return;
-      UI.__knttModalRefreshPatched = true;
-      const originalUpdate = UI.updateDisplay.bind(UI);
-      UI.updateDisplay = function (...args) {
-        const result = originalUpdate(...args);
-        refreshUnitModalAffordance();
-        return result;
-      };
+      if (unit && sell) sell.innerText = '🪙 ' + refundValue(unit);
     } catch (_) {}
   }
 
@@ -222,16 +150,15 @@
         up.__knttInvestmentPatched = true;
         const oldUp = up.onclick;
         up.onclick = function (...args) {
-          const unit = selectedUnit();
+          const unit = State && State.ui ? State.ui.selUnit : null;
           const beforeLevel = unit ? unit.level : 0;
-          const cost = unit ? upgradeCostOf(unit) : 0;
-          const goldBefore = safeNum(State && State.gold, 0);
+          const cost = unit && typeof upgradeCost === 'function' ? upgradeCost(unit) : 0;
+          const goldBefore = State ? State.gold : 0;
           const result = oldUp ? oldUp.apply(this, args) : undefined;
-
           if (unit && unit.level > beforeLevel && goldBefore >= cost) {
             unit.knttInvestedGold = ensureUnitInvestment(unit) + cost;
           }
-          refreshUnitModalAffordance();
+          setTimeout(refreshUpgradeButtonByDom, 0);
           return result;
         };
       }
@@ -241,14 +168,12 @@
         sell.__knttInvestmentPatched = true;
         sell.onclick = function () {
           if (performance.now() - ((State && State.ui && State.ui.modalAt) || 0) < 300) return;
-          const unit = selectedUnit();
+          const unit = State && State.ui ? State.ui.selUnit : null;
           if (!unit) return;
-
           const val = refundValue(unit);
           State.gold += val;
           State.units = currentUnits().filter((u) => u !== unit);
           wrapUnitsPush();
-
           try { if (Sound && Sound.play) Sound.play('click'); } catch (_) {}
           try { if (Engine && Engine.spawnText) Engine.spawnText(unit.x, unit.y, '+' + val, '#fde047', false); } catch (_) {}
           try { if (Engine && Engine.spawnParticles) Engine.spawnParticles(unit.x, unit.y, '#94a3b8', 10, 40); } catch (_) {}
@@ -259,37 +184,57 @@
     } catch (_) {}
   }
 
-  function patchUpdateButtonCheck() {
+  function patchCoreHooks() {
     try {
-      if (typeof window.KNTT_checkUpdate !== 'function') return;
-      const old = window.KNTT_checkUpdate;
-      if (old.__knttPolished) return;
-      const wrapped = async function (manual) {
-        const result = await old(manual);
-        const latest = await readLatestVersion();
-        setVersionLabels(latest);
-        return result;
-      };
-      wrapped.__knttPolished = true;
-      window.KNTT_checkUpdate = wrapped;
+      if (typeof Control !== 'undefined' && Control && !Control.__knttInvestmentStartPatched && Control.start) {
+        Control.__knttInvestmentStartPatched = true;
+        const originalStart = Control.start.bind(Control);
+        Control.start = function (...args) {
+          const result = originalStart(...args);
+          wrapUnitsPush();
+          return result;
+        };
+      }
+
+      if (typeof UI !== 'undefined' && UI && !UI.__knttPolishPatched) {
+        UI.__knttPolishPatched = true;
+        if (UI.openUnitModal) {
+          const oldOpen = UI.openUnitModal.bind(UI);
+          UI.openUnitModal = function (...args) {
+            const result = oldOpen(...args);
+            refreshSellLabel();
+            patchModalButtons();
+            refreshUpgradeButtonByDom();
+            return result;
+          };
+        }
+        if (UI.updateDisplay) {
+          const oldUpdate = UI.updateDisplay.bind(UI);
+          UI.updateDisplay = function (...args) {
+            const result = oldUpdate(...args);
+            refreshSellLabel();
+            refreshUpgradeButtonByDom();
+            return result;
+          };
+        }
+      }
     } catch (_) {}
   }
 
   function boot() {
     startVersionGuard();
     wrapUnitsPush();
-    patchControlStart();
-    patchUnitModal();
-    patchUiUpdateDisplay();
+    patchCoreHooks();
     patchModalButtons();
-    patchUpdateButtonCheck();
-    startModalWatcher();
-    refreshUnitModalAffordance();
+    refreshSellLabel();
+    refreshUpgradeButtonByDom();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 
+  setInterval(refreshUpgradeButtonByDom, 100);
+  setInterval(patchCoreHooks, 500);
   setTimeout(boot, 300);
   setTimeout(boot, 1200);
   setTimeout(boot, 2600);
