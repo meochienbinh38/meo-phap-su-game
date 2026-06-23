@@ -6,13 +6,28 @@
   'use strict';
 
   const VERSION_URL = './version.json';
-  const FALLBACK_VERSION = '3.12.10';
+  const FALLBACK_VERSION = '3.12.11';
   let updateStarted = false;
 
   function qs(id) { return document.getElementById(id); }
   function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
   function clean(v) { return String(v || '').trim().replace(/^v/i, ''); }
   function sameVersion(a, b) { return !!clean(a) && !!clean(b) && clean(a) === clean(b); }
+
+  function loadScriptOnce(id, src) {
+    try {
+      if (document.getElementById(id)) return;
+      const s = document.createElement('script');
+      s.id = id;
+      s.src = src + (src.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(window.KNTT_ACTIVE_VERSION || FALLBACK_VERSION) + '&t=' + Date.now();
+      s.async = false;
+      document.body.appendChild(s);
+    } catch (_) {}
+  }
+
+  function loadFeatureLayers() {
+    loadScriptOnce('kntt-archer-god-313-loader', './v313-archer-god.js');
+  }
 
   function getVisibleVersion() {
     const label = qs('ver-num-2') || qs('ver-num');
@@ -220,6 +235,7 @@
     setUpdateBarVersion(latest);
     setVisibleVersion(latest);
     window.KNTT_ACTIVE_VERSION = latest;
+    loadFeatureLayers();
 
     const needsUpdate = !sameVersion(latest, bundled) && !sameVersion(latest, visibleBefore);
     if (needsUpdate) {
@@ -242,6 +258,7 @@
     setUpdateBarVersion(latest);
     setVisibleVersion(latest);
     window.KNTT_ACTIVE_VERSION = latest;
+    loadFeatureLayers();
 
     const updateBtn = qs('b-do-update');
     if (updateBtn) updateBtn.onclick = hardUpdate;
