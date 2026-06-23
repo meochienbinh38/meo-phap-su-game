@@ -7,7 +7,7 @@
   if (window.__KNTT_V312_POLISH__) return;
   window.__KNTT_V312_POLISH__ = true;
 
-  const FALLBACK_VERSION = '3.12.9';
+  const FALLBACK_VERSION = '3.12.10';
   const VERSION_URL = './version.json';
 
   function q(id) { return document.getElementById(id); }
@@ -166,6 +166,42 @@
     } catch (_) {}
   }
 
+  function resetRoundSummary() {
+    try {
+      if (typeof State !== 'undefined') State.knttRoundSummary = { xp: 0 };
+    } catch (_) {}
+  }
+
+  function roundSummary() {
+    try {
+      if (!State.knttRoundSummary) resetRoundSummary();
+      return State.knttRoundSummary || { xp: 0 };
+    } catch (_) {
+      return { xp: 0 };
+    }
+  }
+
+  function battleStatsSafe() {
+    try { return State.knttBattle || {}; } catch (_) { return {}; }
+  }
+
+  function patchXpTracker() {
+    try {
+      if (typeof Engine === 'undefined' || !Engine || !Engine.gainXp || Engine.__knttXpTrackerPatched) return;
+      Engine.__knttXpTrackerPatched = true;
+      const oldGainXp = Engine.gainXp.bind(Engine);
+      Engine.gainXp = function (amount) {
+        try {
+          const n = Number(amount);
+          if (Number.isFinite(n) && n > 0 && typeof State !== 'undefined' && State.running) {
+            roundSummary().xp += Math.round(n);
+          }
+        } catch (_) {}
+        return oldGainXp.apply(Engine, arguments);
+      };
+    } catch (_) {}
+  }
+
   function ensureEndRewardCss() {
     if (q('kntt-end-reward-css')) return;
     const style = document.createElement('style');
@@ -176,7 +212,9 @@
       .kntt-reward-card{width:min(430px,92vw);border-radius:18px;border:1px solid rgba(251,191,36,.55);background:linear-gradient(180deg,#172033,#08111f);box-shadow:0 18px 50px rgba(0,0,0,.75),0 0 30px rgba(251,191,36,.18);padding:18px;text-align:center;color:#eaf1ff;animation:knttRewardIn .24s ease-out}
       .kntt-reward-title{font-family:Oswald,sans-serif;font-size:24px;letter-spacing:.12em;font-weight:900;text-transform:uppercase;color:#fbbf24;text-shadow:0 0 14px rgba(251,191,36,.35)}
       .kntt-reward-stage{margin-top:6px;font-size:13px;font-weight:800;color:#cbd5e1}
-      .kntt-reward-amount{margin:14px auto 8px;padding:14px;border-radius:15px;background:rgba(251,191,36,.09);border:1px solid rgba(251,191,36,.3);font-family:Oswald,sans-serif;font-size:32px;font-weight:900;color:#fde047}
+      .kntt-reward-totals{margin:14px auto 10px;display:flex;flex-direction:column;gap:8px}
+      .kntt-reward-line{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;background:rgba(15,23,42,.72);border:1px solid rgba(148,163,184,.22);font-size:13px;font-weight:800;color:#cbd5e1}
+      .kntt-reward-line b{font-family:Oswald,sans-serif;font-size:24px;color:#fde047;white-space:nowrap}
       .kntt-reward-note{font-size:11px;color:#94a3b8;line-height:1.45;margin:8px 0 14px}
       .kntt-reward-btn{width:100%;border:1px solid #38bdf8;border-radius:13px;padding:12px;background:linear-gradient(135deg,#0ea5e9,#2563eb);color:#fff;font-family:Oswald,sans-serif;font-size:16px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 0 18px rgba(56,189,248,.35)}
       .kntt-reward-btn:active{transform:scale(.97)}
@@ -199,8 +237,11 @@
         <div style="font-size:34px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.5))">🏆</div>
         <div class="kntt-reward-title" id="kntt-r-title">Qua màn</div>
         <div class="kntt-reward-stage" id="kntt-r-stage">Màn</div>
-        <div class="kntt-reward-amount" id="kntt-r-amount">+0 💎</div>
-        <div class="kntt-reward-note" id="kntt-r-note">Thưởng đã được cộng vào tài khoản.</div>
+        <div class="kntt-reward-totals">
+          <div class="kntt-reward-line"><span>Tổng kim cương</span><b id="kntt-r-gems">+0 💎</b></div>
+          <div class="kntt-reward-line"><span>Tổng kinh nghiệm</span><b id="kntt-r-xp">+0 EXP</b></div>
+        </div>
+        <div class="kntt-reward-note" id="kntt-r-note">Phần thưởng đã được cộng vào tài khoản.</div>
         <button class="kntt-reward-btn" id="kntt-r-exit">Thoát về menu</button>
       </div>`;
     stage.appendChild(modal);
@@ -212,15 +253,18 @@
       const modal = ensureEndRewardModal();
       const title = q('kntt-r-title');
       const stage = q('kntt-r-stage');
-      const amount = q('kntt-r-amount');
+      const gems = q('kntt-r-gems');
+      const xp = q('kntt-r-xp');
       const note = q('kntt-r-note');
       const exit = q('kntt-r-exit');
-      const reward = Math.max(0, Math.round(payload.reward || 0));
+      const totalGems = Math.max(0, Math.round(payload.totalGems || 0));
+      const totalXp = Math.max(0, Math.round(payload.totalXp || 0));
 
       if (title) title.innerText = payload.first ? '🎉 Qua màn lần đầu!' : 'Qua màn';
       if (stage) stage.innerText = payload.stageName || 'Màn đã hoàn thành';
-      if (amount) amount.innerText = '+' + reward + ' 💎 Tinh Thạch';
-      if (note) note.innerText = payload.first ? 'Mở màn mới thành công. Thưởng đã được cộng vào tài khoản.' : 'Chơi lại màn đã qua nên nhận thưởng cày giảm còn 30%.';
+      if (gems) gems.innerText = '+' + totalGems + ' 💎';
+      if (xp) xp.innerText = '+' + totalXp + ' EXP';
+      if (note) note.innerText = 'Tổng kết phần thưởng trận này.';
 
       if (exit) {
         exit.onclick = function () {
@@ -252,6 +296,11 @@
       let reward = Number(stageData.reward || 0) * (first ? 1 : 0.3);
       reward = Math.round(reward);
 
+      const stats = battleStatsSafe();
+      const totalDropGems = Number(stats.enemyGems || 0) + Number(stats.bossGems || 0);
+      const totalGems = reward + totalDropGems;
+      const totalXp = Number(roundSummary().xp || stats.randomXp || 0);
+
       Storage.data.gems = Number(Storage.data.gems || 0) + reward;
       if (stageIdx + 1 > Number(Storage.data.stageProg || 0)) Storage.data.stageProg = stageIdx + 1;
       if (Storage && Storage.sync) Storage.sync();
@@ -274,12 +323,12 @@
         if (t) t.innerText = first ? '🎉 Qua màn lần đầu!' : 'Qua màn';
       }
       const gw = q('g-wav');
-      if (gw) gw.innerHTML = `${stageData.n || 'Màn đã hoàn thành'}<div style="font-size:15px;color:var(--gold);margin-top:6px">+${reward} 💎 Tinh Thạch</div>`;
+      if (gw) gw.innerHTML = `${stageData.n || 'Màn đã hoàn thành'}<div style="font-size:14px;color:var(--gold);margin-top:6px">+${totalGems} 💎 · +${totalXp} EXP</div>`;
       const bs = q('b-start');
       if (bs) bs.innerText = 'CHƠI TIẾP';
       if (pmod) pmod.classList.remove('show');
 
-      showEndRewardModal({ first, reward, stageName: stageData.n || 'Màn đã hoàn thành' });
+      showEndRewardModal({ first, reward, totalGems, totalXp, stageName: stageData.n || 'Màn đã hoàn thành' });
     } catch (err) {
       try { console.warn('KNTT reward modal fallback', err); } catch (_) {}
     }
@@ -328,12 +377,17 @@
 
   function patchCoreHooks() {
     try {
+      patchXpTracker();
+
       if (typeof Control !== 'undefined' && Control && !Control.__knttInvestmentStartPatched && Control.start) {
         Control.__knttInvestmentStartPatched = true;
         const originalStart = Control.start.bind(Control);
         Control.start = function (...args) {
+          resetRoundSummary();
           const result = originalStart(...args);
+          resetRoundSummary();
           wrapUnitsPush();
+          patchXpTracker();
           const reward = q('kntt-end-reward');
           if (reward) reward.classList.add('hidden');
           return result;
