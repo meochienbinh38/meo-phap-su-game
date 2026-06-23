@@ -1,1 +1,1 @@
-{ "version": "3.11.5", "build": "2026-06-23", "notes": "Bước 4 nhân phẩm: quái chết nhận EXP ngẫu nhiên, quái/boss có tỉ lệ rơi kim cương, nối lại hook hiệu ứng Ngũ Hành vào combat, thêm bảng tổng kết trận sau khi qua màn." }
+{ "version": "3.11.6", "build": "2026-06-23", "notes": "Thêm Hồ sơ nhân vật: tên, avatar, nút Hồ sơ, tạo hồ sơ mới từ màn 1, chuyển nhiều hồ sơ với tiến trình lưu riêng." }
