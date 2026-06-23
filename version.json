@@ -1,1 +1,1 @@
-{ "version": "3.12.5", "build": "2026-06-23", "notes": "Sửa đúng lỗi UI: modal tướng tự refresh trong updateDisplay và sau khi mở tướng." }
+{ "version": "3.12.6", "build": "2026-06-23", "notes": "Bản sửa trực tiếp Main: nút nâng cấp tướng tự sáng ngay khi đủ tiền trong popup mobile/PWA." }
