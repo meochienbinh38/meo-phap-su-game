@@ -6,9 +6,11 @@
   'use strict';
 
   const VERSION_URL = './version.json';
-  const FALLBACK_VERSION = '3.11.7';
+  const FALLBACK_VERSION = '3.11.8';
+  let updateStarted = false;
 
   function qs(id) { return document.getElementById(id); }
+  function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
   function getCurrentAppVersion() {
     try {
@@ -23,14 +25,27 @@
     return text && text !== '—' ? text : FALLBACK_VERSION;
   }
 
-  async function readVersionInfo() {
-    try {
+  function getLatestVersionFromUi() {
+    const inBar = qs('upd-ver');
+    const text = inBar && inBar.innerText ? inBar.innerText.trim() : '';
+    return text && text !== '?' ? text : FALLBACK_VERSION;
+  }
+
+  async function readVersionInfo(timeoutMs) {
+    const request = (async () => {
       const res = await fetch(VERSION_URL + '?t=' + Date.now(), { cache: 'no-store' });
       if (!res.ok) throw new Error('version.json HTTP ' + res.status);
       const data = await res.json();
       if (data && data.version) return data;
-    } catch (_) {}
-    return { version: FALLBACK_VERSION, build: '', notes: '' };
+      throw new Error('version.json missing version');
+    })();
+
+    if (!timeoutMs) return request.catch(() => ({ version: getLatestVersionFromUi(), build: '', notes: '' }));
+
+    return Promise.race([
+      request,
+      sleep(timeoutMs).then(() => ({ version: getLatestVersionFromUi(), build: '', notes: '' }))
+    ]).catch(() => ({ version: getLatestVersionFromUi(), build: '', notes: '' }));
   }
 
   function setTextIfExists(id, value) {
@@ -77,84 +92,89 @@
     } catch (_) {}
   }
 
-  async function waitForControllerChange(timeoutMs) {
-    if (!('serviceWorker' in navigator)) return false;
-
-    return await new Promise((resolve) => {
-      let done = false;
-      const finish = (value) => {
-        if (done) return;
-        done = true;
-        navigator.serviceWorker.removeEventListener('controllerchange', onChange);
-        clearTimeout(timer);
-        resolve(value);
-      };
-      const onChange = () => finish(true);
-      const timer = setTimeout(() => finish(false), timeoutMs);
-
-      navigator.serviceWorker.addEventListener('controllerchange', onChange);
-    });
-  }
-
-  async function refreshServiceWorker() {
+  async function refreshServiceWorkerFast() {
     if (!('serviceWorker' in navigator)) return;
 
     try {
       postToController({ type: 'REFRESH_VERSION' });
       postToController({ type: 'CLEAR_KNTT_CACHE' });
 
-      const reg = await navigator.serviceWorker.getRegistration();
+      const reg = await Promise.race([
+        navigator.serviceWorker.getRegistration(),
+        sleep(700).then(() => null)
+      ]);
       if (!reg) return;
 
-      const controllerChange = waitForControllerChange(3000);
-      const updatedReg = await reg.update();
+      if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
 
-      const waiting = updatedReg.waiting || reg.waiting;
+      const updatedReg = await Promise.race([
+        reg.update(),
+        sleep(1000).then(() => reg)
+      ]);
+
+      const waiting = (updatedReg && updatedReg.waiting) || reg.waiting;
       if (waiting) waiting.postMessage({ type: 'SKIP_WAITING' });
 
-      const installing = updatedReg.installing || reg.installing;
+      const installing = (updatedReg && updatedReg.installing) || reg.installing;
       if (installing) {
-        await new Promise((resolve) => {
-          const timer = setTimeout(resolve, 3000);
-          installing.addEventListener('statechange', () => {
-            if (installing.state === 'installed' || installing.state === 'activated') {
-              clearTimeout(timer);
-              const next = updatedReg.waiting || reg.waiting;
-              if (next) next.postMessage({ type: 'SKIP_WAITING' });
-              resolve();
-            }
-          });
-        });
+        await Promise.race([
+          new Promise((resolve) => {
+            installing.addEventListener('statechange', () => {
+              if (installing.state === 'installed' || installing.state === 'activated') {
+                const next = (updatedReg && updatedReg.waiting) || reg.waiting;
+                if (next) next.postMessage({ type: 'SKIP_WAITING' });
+                resolve();
+              }
+            });
+          }),
+          sleep(1000)
+        ]);
       }
-
-      await controllerChange;
     } catch (_) {}
   }
 
+  function buildCacheBustUrl(version) {
+    const url = new URL(location.href);
+    url.searchParams.set('v', version || FALLBACK_VERSION);
+    url.searchParams.set('t', Date.now().toString());
+    url.hash = '';
+    return url.toString();
+  }
+
+  function navigateToFreshApp(version) {
+    const target = buildCacheBustUrl(version);
+    try { location.replace(target); }
+    catch (_) { location.href = target; }
+  }
+
   async function hardUpdate() {
+    if (updateStarted) return;
+    updateStarted = true;
+
     const btn = qs('b-do-update');
     if (btn) {
       btn.disabled = true;
       btn.innerText = 'Đang cập nhật...';
     }
 
-    const info = await readVersionInfo();
-    const latest = info.version || FALLBACK_VERSION;
+    const info = await readVersionInfo(700);
+    const latest = info.version || getLatestVersionFromUi() || FALLBACK_VERSION;
     setUpdateBarVersion(latest);
 
-    await refreshServiceWorker();
-    await clearAllAppCaches();
+    // Chốt thoát: dù service worker/caches bị treo thì vẫn phải reload, không được kẹt nút.
+    const watchdog = setTimeout(() => navigateToFreshApp(latest), 2200);
 
-    try { sessionStorage.setItem('kntt_updated_to', latest); } catch (_) {}
+    await Promise.race([
+      Promise.allSettled([refreshServiceWorkerFast(), clearAllAppCaches()]),
+      sleep(1600)
+    ]);
 
-    const url = new URL(location.href);
-    url.searchParams.set('v', latest);
-    url.searchParams.set('t', Date.now().toString());
-    location.replace(url.toString());
+    clearTimeout(watchdog);
+    navigateToFreshApp(latest);
   }
 
   async function checkUpdateFromSingleSource(manual) {
-    const info = await readVersionInfo();
+    const info = await readVersionInfo(1200);
     const latest = info.version || FALLBACK_VERSION;
     const current = getCurrentAppVersion();
 
@@ -193,7 +213,7 @@
     window.KNTT_ACTIVE_VERSION = current;
     setVisibleVersion(current);
 
-    const info = await readVersionInfo();
+    const info = await readVersionInfo(1200);
     const latest = info.version || FALLBACK_VERSION;
     setUpdateBarVersion(latest);
 
@@ -210,11 +230,6 @@
 
     window.KNTT_hardUpdate = hardUpdate;
     window.KNTT_checkUpdate = checkUpdateFromSingleSource;
-
-    try {
-      const done = sessionStorage.getItem('kntt_updated_to');
-      if (done && done === current) sessionStorage.removeItem('kntt_updated_to');
-    } catch (_) {}
   }
 
   if (document.readyState === 'loading') {
