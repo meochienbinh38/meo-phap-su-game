@@ -1,10 +1,9 @@
 /* Service Worker - Kỷ Nguyên Thủ Thành PWA
- * Version source of truth: version.json
+ * v3.12.7: network-first + direct modal refresh hotfix.
  */
+const SW_BUILD = '3.12.7';
 const VERSION_URL = './version.json';
-const FALLBACK_VERSION = '3.12.5';
 const CACHE_PREFIX = 'kntt-cache-';
-const VERSION_TTL_MS = 30 * 1000;
 
 const CORE_STATIC = [
   './manifest.json',
@@ -23,199 +22,131 @@ const EXTRA = [
   'https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Oswald:wght@500;700;900&display=swap'
 ];
 
-let cachedVersionInfo = null;
-let cachedVersionAt = 0;
-let versionInfoPromise = null;
-
-function safeVersion(v) {
-  return String(v || FALLBACK_VERSION).replace(/[^a-zA-Z0-9_.-]/g, '-');
-}
-
 function cacheName(version) {
-  return CACHE_PREFIX + safeVersion(version);
+  return CACHE_PREFIX + String(version || SW_BUILD).replace(/[^a-zA-Z0-9_.-]/g, '-');
 }
 
-function normalizeVersionInfo(data) {
-  if (data && data.version) {
+async function readVersionInfo() {
+  try {
+    const res = await fetch(VERSION_URL + '?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('version.json HTTP ' + res.status);
+    const data = await res.json();
     return {
-      version: String(data.version),
-      build: data.build || '',
-      notes: data.notes || ''
+      version: String((data && data.version) || SW_BUILD),
+      build: (data && data.build) || '',
+      notes: (data && data.notes) || ''
     };
+  } catch (_) {
+    return { version: SW_BUILD, build: '', notes: '' };
   }
-  return { version: FALLBACK_VERSION, build: '', notes: '' };
 }
 
-async function readVersionInfo(options = {}) {
-  const force = !!options.force;
-  const now = Date.now();
+function patchScriptTag(out, fileName) {
+  const src = fileName + '?v=' + encodeURIComponent(SW_BUILD);
+  const escaped = fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(escaped + '(?:\\?v=[^"\']*)?', 'g');
 
-  if (!force && cachedVersionInfo && (now - cachedVersionAt) < VERSION_TTL_MS) {
-    return cachedVersionInfo;
-  }
-
-  if (!force && versionInfoPromise) return versionInfoPromise;
-
-  const promise = (async () => {
-    try {
-      const res = await fetch(VERSION_URL + '?t=' + now, { cache: 'no-store' });
-      if (!res.ok) throw new Error('version.json HTTP ' + res.status);
-      const data = await res.json();
-      cachedVersionInfo = normalizeVersionInfo(data);
-      cachedVersionAt = Date.now();
-      return cachedVersionInfo;
-    } catch (_) {
-      if (cachedVersionInfo) return cachedVersionInfo;
-      cachedVersionInfo = normalizeVersionInfo(null);
-      cachedVersionAt = Date.now();
-      return cachedVersionInfo;
-    } finally {
-      if (versionInfoPromise === promise) versionInfoPromise = null;
-    }
-  })();
-
-  if (!force) versionInfoPromise = promise;
-  return promise;
+  if (out.includes(fileName)) return out.replace(re, src);
+  return out.replace('</body>', '<script src="' + src + '"></script>\n</body>');
 }
 
-function resetVersionMemory() {
-  cachedVersionInfo = null;
-  cachedVersionAt = 0;
-  versionInfoPromise = null;
-}
-
-function patchScript(out, fileName, version) {
-  const v = version || FALLBACK_VERSION;
-  const re = new RegExp(fileName.replace('.', '\\.') + '\\?v=[^"\\']+', 'g');
-  if (!out.includes(fileName)) {
-    return out.replace('</body>', '<script src="' + fileName + '?v=' + v + '"></script>\n</body>');
-  }
-  return out.replace(re, fileName + '?v=' + v);
-}
-
-function inlineUpgradeRefreshScript(version) {
-  const v = version || FALLBACK_VERSION;
-  return '<script id="kntt-inline-upgrade-refresh">\n' +
+function directModalRefreshScript() {
+  return '<script id="kntt-direct-modal-refresh-v3127">\n' +
     '(function(){\n' +
-    '  if(window.__KNTT_INLINE_UPGRADE_REFRESH__) return;\n' +
-    '  window.__KNTT_INLINE_UPGRADE_REFRESH__=true;\n' +
-    '  window.KNTT_ACTIVE_VERSION="' + v + '";\n' +
-    '  function q(id){return document.getElementById(id);}\n' +
-    '  function num(v,f){v=Number(v);return Number.isFinite(v)?v:f;}\n' +
-    '  function modalOpen(){var m=q("umod");return !!m&&!m.classList.contains("hidden");}\n' +
-    '  function refreshUpgradeButton(){\n' +
-    '    try{\n' +
-    '      var btn=q("b-up"); if(!btn||!modalOpen()) return;\n' +
-    '      var u=(typeof State!=="undefined"&&State.ui&&State.ui.selUnit)?State.ui.selUnit:null; if(!u) return;\n' +
-    '      var maxLv=3; try{ if(typeof maxUnitLevel==="function") maxLv=maxUnitLevel(u.typeId); }catch(_){}\n' +
-    '      var cost=0; try{ if(typeof upgradeCost==="function") cost=upgradeCost(u); }catch(_){}\n' +
-    '      var gold=num((typeof State!=="undefined"?State.gold:0),0);\n' +
-    '      var lv=q("um-lv"); if(lv) lv.innerText=u.level;\n' +
-    '      var c=q("um-c"); if(c) c.innerText="🪙 "+cost+(u.level===3?" · Hoá Thần":"");\n' +
-    '      if(u.level>=maxLv){btn.style.display="none";return;}\n' +
-    '      var can=gold>=cost; btn.style.display="flex"; btn.style.pointerEvents="auto";\n' +
-    '      btn.className=can?"flex-1 rounded py-1 flex flex-col items-center border shadow-sm":"flex-1 rounded py-1 flex flex-col items-center cursor-not-allowed";\n' +
-    '      btn.style.opacity=can?"1":"0.45";\n' +
-    '      btn.style.filter=can?"brightness(1.22)":"brightness(0.72)";\n' +
-    '      btn.style.background=can?"linear-gradient(#38bdf8,#1d4ed8)":"#334155";\n' +
-    '      btn.style.borderColor=can?"#60a5fa":"#475569";\n' +
-    '      btn.style.boxShadow=can?"0 0 16px rgba(56,189,248,.55), inset 0 1px 0 rgba(255,255,255,.18)":"none";\n' +
-    '      btn.dataset.canUpgrade=can?"1":"0";\n' +
-    '    }catch(e){}\n' +
-    '  }\n' +
-    '  function patchCore(){\n' +
-    '    try{\n' +
-    '      if(typeof UI!=="undefined"&&UI&&!UI.__knttInlineUpgradePatched){\n' +
-    '        UI.__knttInlineUpgradePatched=true;\n' +
-    '        if(UI.openUnitModal){var oldOpen=UI.openUnitModal.bind(UI);UI.openUnitModal=function(){var r=oldOpen.apply(UI,arguments);setTimeout(refreshUpgradeButton,0);setTimeout(refreshUpgradeButton,120);return r;};}\n' +
-    '        if(UI.updateDisplay){var oldUpd=UI.updateDisplay.bind(UI);UI.updateDisplay=function(){var r=oldUpd.apply(UI,arguments);refreshUpgradeButton();return r;};}\n' +
+    '  if(window.__KNTT_DIRECT_MODAL_REFRESH_V3127__) return;\n' +
+    '  window.__KNTT_DIRECT_MODAL_REFRESH_V3127__ = true;\n' +
+    '  function q(id){ return document.getElementById(id); }\n' +
+    '  function modalOpen(){ var m=q("umod"); return !!m && !m.classList.contains("hidden"); }\n' +
+    '  function selectedUnit(){ try { return (typeof State!=="undefined" && State.ui) ? State.ui.selUnit : null; } catch(e){ return null; } }\n' +
+    '  function goldNow(){ try { var g = Number(State.gold); return Number.isFinite(g) ? g : 0; } catch(e){ return 0; } }\n' +
+    '  function maxLevel(u){ try { if(typeof maxUnitLevel==="function") return maxUnitLevel(u.typeId); } catch(e){} return 3; }\n' +
+    '  function upCost(u){ try { if(typeof upgradeCost==="function") { var c=Number(upgradeCost(u)); if(Number.isFinite(c)) return c; } } catch(e){} return Infinity; }\n' +
+    '  function setText(id, value){ var el=q(id); if(el) el.innerText=value; }\n' +
+    '  function refreshUnitModal(){\n' +
+    '    try {\n' +
+    '      if(!modalOpen()) return;\n' +
+    '      var u = selectedUnit(); if(!u) return;\n' +
+    '      var btn = q("b-up"); if(!btn) return;\n' +
+    '      setText("um-lv", u.level);\n' +
+    '      var desc = q("um-desc");\n' +
+    '      if(desc && u.db){\n' +
+    '        var canGod = false; try { canGod = typeof hasGodForm==="function" && hasGodForm(u.typeId); } catch(e){}\n' +
+    '        desc.innerText = u.level >= 4 ? "HOÁ THẦN: chỉ số tăng mạnh, kỹ năng tối thượng được cường hoá." : (canGod ? (u.db.lv3Desc + " · Đủ kỹ năng: có thể Hoá Thần cấp 4.") : u.db.lv3Desc);\n' +
+    '        if(u.level >= 2) desc.classList.remove("hidden"); else desc.classList.add("hidden");\n' +
     '      }\n' +
-    '    }catch(e){}\n' +
+    '      var maxLv = maxLevel(u);\n' +
+    '      if(u.level >= maxLv){ btn.style.display="none"; return; }\n' +
+    '      var cost = upCost(u);\n' +
+    '      var gold = goldNow();\n' +
+    '      setText("um-c", "🪙 " + cost + (u.level === 3 ? " · Hoá Thần" : ""));\n' +
+    '      var sell = q("um-s");\n' +
+    '      if(sell && u.db){ var invested = Number(u.knttInvestedGold); var val = Number.isFinite(invested) ? Math.floor(invested * 0.5) : Math.floor(u.db.cost * Math.pow(1.5, u.level - 1) * 0.5); sell.innerText = "🪙 " + val; }\n' +
+    '      var can = gold >= cost;\n' +
+    '      btn.removeAttribute("style");\n' +
+    '      btn.style.display = "flex";\n' +
+    '      btn.style.pointerEvents = "auto";\n' +
+    '      btn.style.opacity = can ? "1" : "0.45";\n' +
+    '      btn.style.filter = can ? "brightness(1.25)" : "brightness(0.72)";\n' +
+    '      btn.style.background = can ? "linear-gradient(#38bdf8,#1d4ed8)" : "#334155";\n' +
+    '      btn.style.borderColor = can ? "#60a5fa" : "#475569";\n' +
+    '      btn.style.boxShadow = can ? "0 0 18px rgba(56,189,248,.6), inset 0 1px 0 rgba(255,255,255,.18)" : "none";\n' +
+    '      btn.className = can ? "flex-1 rounded py-1 flex flex-col items-center border shadow-sm" : "flex-1 rounded py-1 flex flex-col items-center cursor-not-allowed";\n' +
+    '      btn.dataset.canUpgrade = can ? "1" : "0";\n' +
+    '    } catch(e){}\n' +
     '  }\n' +
-    '  setInterval(refreshUpgradeButton,120);\n' +
-    '  setInterval(patchCore,500);\n' +
-    '  patchCore(); setTimeout(patchCore,300); setTimeout(patchCore,1200);\n' +
-    '  setTimeout(refreshUpgradeButton,100); setTimeout(refreshUpgradeButton,500); setTimeout(refreshUpgradeButton,1200);\n' +
+    '  function patchUI(){\n' +
+    '    try {\n' +
+    '      if(typeof UI === "undefined" || !UI || UI.__knttDirectModalRefresh3127) return;\n' +
+    '      UI.__knttDirectModalRefresh3127 = true;\n' +
+    '      if(UI.updateDisplay){ var oldUpdate = UI.updateDisplay.bind(UI); UI.updateDisplay = function(){ var r = oldUpdate.apply(UI, arguments); refreshUnitModal(); return r; }; }\n' +
+    '      if(UI.openUnitModal){ var oldOpen = UI.openUnitModal.bind(UI); UI.openUnitModal = function(){ var r = oldOpen.apply(UI, arguments); setTimeout(refreshUnitModal, 0); setTimeout(refreshUnitModal, 80); setTimeout(refreshUnitModal, 180); return r; }; }\n' +
+    '    } catch(e){}\n' +
+    '  }\n' +
+    '  window.KNTT_refreshUnitModal = refreshUnitModal;\n' +
+    '  setInterval(function(){ patchUI(); refreshUnitModal(); }, 100);\n' +
+    '  document.addEventListener("visibilitychange", function(){ if(!document.hidden){ patchUI(); refreshUnitModal(); } });\n' +
+    '  patchUI(); setTimeout(patchUI, 300); setTimeout(patchUI, 1200); setTimeout(refreshUnitModal, 300); setTimeout(refreshUnitModal, 1200);\n' +
     '})();\n' +
     '</script>';
 }
 
-function patchInlineUpgradeRefresh(out, version) {
-  if (out.includes('kntt-inline-upgrade-refresh')) return out;
-  return out.replace('</body>', inlineUpgradeRefreshScript(version) + '\n</body>');
-}
+function patchIndexText(text) {
+  let out = text;
+  out = out.replace(/const\s+GAME_VERSION\s*=\s*['"][^'"]+['"];/, "const GAME_VERSION = '" + SW_BUILD + "';");
+  out = out.replace(/<span\s+id=["']ver-num["'][^>]*>[^<]*<\/span>/g, '<span id="ver-num">' + SW_BUILD + '</span>');
+  out = out.replace(/<span\s+id=["']ver-num-2["'][^>]*>[^<]*<\/span>/g, '<span id="ver-num-2">' + SW_BUILD + '</span>');
+  out = out.replace(/Phiên bản\s*3(?:\.[0-9]+)+\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản ' + SW_BUILD + ' · Kiểm tra cập nhật');
 
-function patchUpgradeModalCore(out) {
-  if (!out.includes('refreshUnitModal() {')) {
-    const refreshMethod = [
-      '    refreshUnitModal() {',
-      "        let u = State.ui.selUnit, modal = document.getElementById('umod');",
-      "        if (!u || !modal || modal.classList.contains('hidden')) return;",
-      "        document.getElementById('um-lv').innerText = u.level;",
-      "        let sDesc = document.getElementById('um-desc');",
-      "        if (sDesc) { sDesc.innerText = u.level >= 4 ? 'HOÁ THẦN: chỉ số tăng mạnh, kỹ năng tối thượng được cường hoá.' : (hasGodForm(u.typeId) ? `${u.db.lv3Desc} · Đủ kỹ năng: có thể Hoá Thần cấp 4.` : u.db.lv3Desc); if (u.level >= 2) sDesc.classList.remove('hidden'); else sDesc.classList.add('hidden'); }",
-      "        let btnUp = document.getElementById('b-up');",
-      "        let maxLv = maxUnitLevel(u.typeId);",
-      "        if (u.level >= maxLv) { btnUp.style.display = 'none'; }",
-      "        else { btnUp.removeAttribute('style'); btnUp.style.display = 'flex'; let cost = upgradeCost(u); document.getElementById('um-c').innerText = `🪙 ${cost}${u.level === 3 ? ' · Hoá Thần' : ''}`; btnUp.className = State.gold >= cost ? 'flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm' : 'flex-1 bg-slate-700 rounded py-1 flex flex-col items-center opacity-50 cursor-not-allowed'; }",
-      "        document.getElementById('um-s').innerText = `🪙 ${Math.floor(u.db.cost * Math.pow(1.5, u.level - 1) * 0.5)}`;",
-      '    },'
-    ].join('\n');
-    out = out.replace('    openUnitModal(u, x, y) {', refreshMethod + '\n    openUnitModal(u, x, y) {');
+  out = patchScriptTag(out, 'v311-runtime.js');
+  out = patchScriptTag(out, 'v311-profile.js');
+  out = patchScriptTag(out, 'version-sync.js');
+  out = patchScriptTag(out, 'v312-polish.js');
+
+  if (!out.includes('kntt-direct-modal-refresh-v3127')) {
+    out = out.replace('</body>', directModalRefreshScript() + '\n</body>');
   }
-
-  out = out.replace(
-    "        let badge = document.getElementById('tp-bdg'); if (State.tp > 0) { badge.classList.remove('hidden'); badge.innerText = State.tp; } else badge.classList.add('hidden');\n    },",
-    "        let badge = document.getElementById('tp-bdg'); if (State.tp > 0) { badge.classList.remove('hidden'); badge.innerText = State.tp; } else badge.classList.add('hidden');\n        this.refreshUnitModal();\n    },"
-  );
-
-  out = out.replace(
-    "        modal.classList.remove('hidden');\n    },",
-    "        modal.classList.remove('hidden'); this.refreshUnitModal();\n    },"
-  );
-
   return out;
 }
 
-function patchIndexText(text, version) {
-  let out = text;
-  const v = version || FALLBACK_VERSION;
-
-  out = out.replace(/const\s+GAME_VERSION\s*=\s*['"][^'"]+['"];/, "const GAME_VERSION = '" + v + "';");
-  out = out.replace(/<span\s+id=["']ver-num["'][^>]*>[^<]*<\/span>/g, '<span id="ver-num">' + v + '</span>');
-  out = out.replace(/<span\s+id=["']ver-num-2["'][^>]*>[^<]*<\/span>/g, '<span id="ver-num-2">' + v + '</span>');
-  out = out.replace(/Phiên bản\s*3(?:\.[0-9]+)+\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản ' + v + ' · Kiểm tra cập nhật');
-  out = out.replace(/Phiên bản\s*<span\s+id=["']ver-num-2["'][^>]*>[^<]*<\/span>\s*·\s*Kiểm tra cập nhật/g, 'Phiên bản <span id="ver-num-2">' + v + '</span> · Kiểm tra cập nhật');
-
-  out = patchUpgradeModalCore(out);
-  out = patchScript(out, 'v311-runtime.js', v);
-  out = patchScript(out, 'v311-profile.js', v);
-  out = patchScript(out, 'version-sync.js', v);
-  out = patchScript(out, 'v312-polish.js', v);
-  out = patchInlineUpgradeRefresh(out, v);
-
-  return out;
+function patchRuntimeText(text) {
+  return text.replace(/const\s+GAME_VER\s*=\s*['"][^'"]+['"];/, "const GAME_VER = '" + SW_BUILD + "';");
 }
 
-function patchRuntimeText(text, version) {
-  const v = version || FALLBACK_VERSION;
-  let out = text;
-
-  // Lỗi cũ: v311-runtime.js tự ép dòng dưới Xuất quân về phiên bản hardcode.
-  out = out.replace(/const\s+GAME_VER\s*=\s*['"][^'"]+['"];/, "const GAME_VER = '" + v + "';");
-  out = out.replace(/window\.GAME_VERSION\s*=\s*GAME_VER;/g, 'window.GAME_VERSION = GAME_VER;');
-
-  return out;
+function patchProfileText(text) {
+  return text.replace(/const\s+GAME_VER\s*=\s*['"][^'"]+['"];/, "const GAME_VER = '" + SW_BUILD + "';");
 }
 
-async function fetchPatchedIndex(req) {
-  const info = await readVersionInfo({ force: true });
-  const version = info.version || FALLBACK_VERSION;
-  const res = await fetch(req || './index.html', { cache: 'no-store' });
+async function fetchTextNoStore(req) {
+  const res = await fetch(req, { cache: 'no-store' });
   const text = await res.text();
-  return new Response(patchIndexText(text, version), {
-    status: res.status,
-    statusText: res.statusText,
+  return { res, text };
+}
+
+async function patchedIndexResponse(req) {
+  const got = await fetchTextNoStore(req || './index.html');
+  return new Response(patchIndexText(got.text), {
+    status: got.res.status,
+    statusText: got.res.statusText,
     headers: {
       'Content-Type': 'text/html; charset=UTF-8',
       'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
@@ -223,14 +154,11 @@ async function fetchPatchedIndex(req) {
   });
 }
 
-async function fetchPatchedRuntime(req) {
-  const info = await readVersionInfo({ force: true });
-  const version = info.version || FALLBACK_VERSION;
-  const res = await fetch(req, { cache: 'no-store' });
-  const text = await res.text();
-  return new Response(patchRuntimeText(text, version), {
-    status: res.status,
-    statusText: res.statusText,
+async function patchedJsResponse(req, patcher) {
+  const got = await fetchTextNoStore(req);
+  return new Response(patcher(got.text), {
+    status: got.res.status,
+    statusText: got.res.statusText,
     headers: {
       'Content-Type': 'application/javascript; charset=UTF-8',
       'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
@@ -238,62 +166,47 @@ async function fetchPatchedRuntime(req) {
   });
 }
 
-async function putPatchedIndex(cache) {
-  try {
-    const patched = await fetchPatchedIndex('./index.html');
-    await cache.put('./index.html', patched.clone());
-    await cache.put('./', patched.clone());
-  } catch (_) {}
-}
-
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
-    const info = await readVersionInfo({ force: true });
-    const cache = await caches.open(cacheName(info.version));
-
+    const cache = await caches.open(cacheName(SW_BUILD));
     await Promise.all(CORE_STATIC.map(async (url) => {
       try {
-        const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(info.version), { cache: 'no-store' });
+        const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(SW_BUILD), { cache: 'no-store' });
         if (res && (res.status === 200 || res.type === 'opaque')) await cache.put(url, res.clone());
       } catch (_) {}
     }));
-
-    await putPatchedIndex(cache);
+    try {
+      const patched = await patchedIndexResponse('./index.html');
+      await cache.put('./index.html', patched.clone());
+      await cache.put('./', patched.clone());
+    } catch (_) {}
     await Promise.all(EXTRA.map(async (url) => {
       try {
         const res = await fetch(url, { mode: 'no-cors' });
         await cache.put(url, res);
       } catch (_) {}
     }));
-
     await self.skipWaiting();
   })());
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
-    const info = await readVersionInfo({ force: true });
-    const keep = cacheName(info.version);
     const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== keep).map((k) => caches.delete(k)));
+    await Promise.all(keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== cacheName(SW_BUILD)).map((k) => caches.delete(k)));
     await self.clients.claim();
-
     const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const client of clientsList) {
-      client.postMessage({ type: 'KNTT_SW_READY', version: info.version || FALLBACK_VERSION });
-    }
+    for (const client of clientsList) client.postMessage({ type: 'KNTT_SW_READY', version: SW_BUILD });
   })());
 });
 
 self.addEventListener('message', (e) => {
   const type = e && e.data && e.data.type;
-  if (type === 'REFRESH_VERSION') resetVersionMemory();
   if (type === 'SKIP_WAITING') self.skipWaiting();
-  if (type === 'CLEAR_KNTT_CACHE') {
-    resetVersionMemory();
+  if (type === 'CLEAR_KNTT_CACHE' || type === 'REFRESH_VERSION') {
     e.waitUntil((async () => {
       const keys = await caches.keys();
-      await Promise.all(keys.map((k) => caches.delete(k)));
+      await Promise.all(keys.filter((k) => k.startsWith(CACHE_PREFIX)).map((k) => caches.delete(k)));
     })());
   }
 });
@@ -302,48 +215,22 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  const cacheKey = cacheName(SW_BUILD);
 
   if (url.pathname.endsWith('/version.json')) {
-    e.respondWith((async () => {
-      try {
-        const res = await fetch(req, { cache: 'no-store' });
-        if (res && res.ok) {
-          res.clone().json().then((data) => {
-            cachedVersionInfo = normalizeVersionInfo(data);
-            cachedVersionAt = Date.now();
-          }).catch(() => {});
-        }
-        return res;
-      } catch (_) {
-        const info = await readVersionInfo({ force: true });
-        return new Response(JSON.stringify(info), { headers: { 'Content-Type': 'application/json' } });
-      }
-    })());
-    return;
-  }
-
-  if (url.pathname.endsWith('/v311-runtime.js')) {
-    e.respondWith((async () => {
-      const info = await readVersionInfo({ force: true });
-      const cache = await caches.open(cacheName(info.version));
-      try {
-        const patched = await fetchPatchedRuntime(req);
-        await cache.put(req, patched.clone());
-        return patched;
-      } catch (_) {
-        return (await cache.match(req, { ignoreSearch: true })) || Response.error();
-      }
-    })());
+    e.respondWith(fetch(req, { cache: 'no-store' }).catch(async () => {
+      const info = await readVersionInfo();
+      return new Response(JSON.stringify(info), { headers: { 'Content-Type': 'application/json' } });
+    }));
     return;
   }
 
   const isIndex = req.mode === 'navigate' || url.pathname.endsWith('/index.html') || url.pathname.endsWith('/meo-phap-su-game/');
   if (isIndex) {
     e.respondWith((async () => {
-      const info = await readVersionInfo({ force: true });
-      const cache = await caches.open(cacheName(info.version));
+      const cache = await caches.open(cacheKey);
       try {
-        const patched = await fetchPatchedIndex(req);
+        const patched = await patchedIndexResponse(req);
         await cache.put('./index.html', patched.clone());
         await cache.put('./', patched.clone());
         return patched;
@@ -354,20 +241,32 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  e.respondWith((async () => {
-    const info = await readVersionInfo();
-    const cache = await caches.open(cacheName(info.version));
-    const cached = await cache.match(req, { ignoreSearch: false });
-    if (cached) return cached;
+  if (url.pathname.endsWith('/v311-runtime.js')) {
+    e.respondWith((async () => {
+      const cache = await caches.open(cacheKey);
+      try { const patched = await patchedJsResponse(req, patchRuntimeText); await cache.put(req, patched.clone()); return patched; }
+      catch (_) { return (await cache.match(req, { ignoreSearch: true })) || Response.error(); }
+    })());
+    return;
+  }
 
+  if (url.pathname.endsWith('/v311-profile.js')) {
+    e.respondWith((async () => {
+      const cache = await caches.open(cacheKey);
+      try { const patched = await patchedJsResponse(req, patchProfileText); await cache.put(req, patched.clone()); return patched; }
+      catch (_) { return (await cache.match(req, { ignoreSearch: true })) || Response.error(); }
+    })());
+    return;
+  }
+
+  e.respondWith((async () => {
+    const cache = await caches.open(cacheKey);
     try {
-      const res = await fetch(req);
+      const res = await fetch(req, { cache: 'no-store' });
       if (res && (res.status === 200 || res.type === 'opaque')) cache.put(req, res.clone()).catch(() => {});
       return res;
-    } catch (err) {
-      const fallback = await cache.match(req, { ignoreSearch: true });
-      if (fallback) return fallback;
-      throw err;
+    } catch (_) {
+      return (await cache.match(req, { ignoreSearch: true })) || Response.error();
     }
   })());
 });
