@@ -261,7 +261,7 @@
         <div id="hud">
             <div class="hud-side">
                 <div class="chip" style="color:var(--red)">❤️ <span class="tf" id="ui-hp" style="font-weight:800">100</span></div>
-                <div class="chip" style="color:var(--gold)" id="ui-g-c">🪙 <span class="tf" id="ui-g" style="font-weight:800">250</span></div>
+                <div class="chip" style="color:var(--gold)" id="ui-g-c">🪙 <span class="tf" id="ui-g" style="font-weight:800">280</span></div>
             </div>
             <div class="hud-mid">
                 <div style="display:flex;align-items:center;gap:8px">
@@ -500,7 +500,7 @@ const CFG = {
     colors: {
         econ: '#eab308', melee: '#3b82f6', ranged: '#22c55e',
         gunner: '#f97316', laser: '#06b6d4', ice: '#60a5fa',
-        poison: '#8b5cf6', support: '#f472b6', enemy: '#ef4444',
+        poison: '#8b5cf6', support: '#f472b6', nature: '#84cc16', wind: '#38bdf8', enemy: '#ef4444',
         grid: '#0b1220', grid2: '#0d1526', baseArea: 'rgba(59,130,246,0.06)', baseLine: '#3b82f6'
     }
 };
@@ -523,13 +523,21 @@ const WAVE_THEMES = {
     armor: { tag: 'GIÁP DÀY',  tids: [1,1,1,3,0],     hint: 'GIÁP DÀY (Orc): cần THẦN SÉT — đòn thường bị kháng mạnh' },
     fast:  { tag: 'TỐC ĐỘ',    tids: [2,2,2,5,0],     hint: 'TỐC ĐỘ (Sói/Sát Thủ): cần BĂNG THẦN làm chậm + Độc/Sét trị Sát Thủ né' },
     mixed: { tag: 'HỖN HỢP',   tids: [0,1,2,3,4,5],   hint: 'HỖN HỢP: cần KẾT HỢP đủ loại tướng' },
+    root:  { tag: 'THẠCH MỘC', tids: [7,7,1,3,0],     hint: 'THẠCH MỘC: CỔ MỘC neo chân và xuyên giáp đá tốt nhất' },
+    spirit:{ tag: 'HỒN MA',    tids: [8,8,5,2,4],     hint: 'HỒN MA: PHONG LINH đẩy lùi, Cổ Mộc giữ chân, Sét kết liễu' },
+    apex:  { tag: 'HỖN MANG',  tids: [1,2,3,4,5,7,8], hint: 'HỖN MANG: phải dùng đủ khắc chế và Hoá Thần đúng tướng' },
     boss:  { tag: 'TRÙM',      tids: [0,1,2,3],       hint: '⚠️ TRÙM: kháng mọi loại — phải KẾT HỢP nhiều tướng' },
 };
 function waveTheme(w){ if (w <= 3) return 'intro'; if (w % 5 === 0) return 'boss'; return ['swarm','armor','fast','mixed'][(w - 4) % 4]; }
+function stageWaveTheme(st, w) {
+    if (st && st.boss && w >= st.waves) return st.bossTheme || 'boss';
+    if (st && st.themes && st.themes.length) return st.themes[(w - 1) % st.themes.length];
+    return waveTheme(w);
+}
 
 // ===== CAMPAIGN: ĐI MÀN =====
 // Giá MỞ KHOÁ tướng bằng Tinh Thạch (0 = mở sẵn từ đầu). Khắc tinh khoá sau cổng buộc người chơi cày & mua.
-const HERO_COST = { miner: 0, knight: 0, archer: 0, gunner: 40, ice: 55, poison: 70, mage: 90, priest: 75 };
+const HERO_COST = { miner: 0, knight: 0, archer: 0, gunner: 40, ice: 55, poison: 70, mage: 90, priest: 75, druid: 120, wind: 135 };
 // Mỗi màn: waves = số đợt phải qua; mul = hệ số máu quái (ĐỘ KHÓ THEO MÀN, không theo kỹ năng);
 // themes = chủ đề từng đợt (lặp); rec = tướng khắc tinh nên có; reward = Tinh Thạch thưởng lần đầu.
 const STAGES = [
@@ -539,14 +547,22 @@ const STAGES = [
     { n: 'Hẻm Núi',         map: 1, waves: 8,  mul: 1.85, themes: ['fast', 'swarm'],         rec: 'ice',   reward: 45 },
     { n: 'Lò Dung Nham',    map: 1, waves: 9,  mul: 2.2,  themes: ['armor', 'swarm'],        rec: 'mage',  reward: 55 },
     { n: 'Đỉnh Lửa ⚔TRÙM',  map: 1, waves: 9,  mul: 2.6,  themes: ['mixed'], boss: true,     rec: 'mage',  reward: 80 },
-    { n: 'Cổng Ngục',       map: 2, waves: 10, mul: 3.1,  themes: ['armor', 'fast'],         rec: 'mage',  reward: 60 },
-    { n: 'Hành Lang Xương', map: 2, waves: 10, mul: 3.7,  themes: ['mixed', 'armor'],        rec: 'poison',reward: 65 },
-    { n: 'Hầm Sâu',         map: 2, waves: 11, mul: 4.4,  themes: ['fast', 'mixed'],         rec: 'poison',reward: 70 },
-    { n: 'Ngai Hắc Ám ⚔TRÙM',map: 2, waves: 11, mul: 5.2, themes: ['mixed'], boss: true,                  reward: 110 },
-    { n: 'Vực Thẳm I',      map: 2, waves: 12, mul: 6.2,  themes: ['mixed'],                              reward: 90 },
-    { n: 'Vực Thẳm II ⚔TRÙM',map: 1, waves: 12, mul: 7.6, themes: ['mixed'], boss: true,                  reward: 150 },
+    { n: 'Cổng Ngục',       map: 2, waves: 10, mul: 3.5,  themes: ['armor', 'fast'],         rec: 'mage',  reward: 60 },
+    { n: 'Hành Lang Xương', map: 2, waves: 10, mul: 4.6,  themes: ['mixed', 'armor'],        rec: 'poison',reward: 65 },
+    { n: 'Hầm Sâu',         map: 2, waves: 11, mul: 5.7,  themes: ['fast', 'mixed'],         rec: 'poison',reward: 70 },
+    { n: 'Ngai Hắc Ám ⚔TRÙM',map: 2, waves: 11, mul: 6.3, themes: ['mixed'], boss: true,                  reward: 110 },
+    { n: 'Vực Thẳm I',      map: 2, waves: 12, mul: 8.1,  themes: ['mixed'],                              reward: 90 },
+    { n: 'Vực Thẳm II ⚔TRÙM',map: 1, waves: 12, mul: 10.2, themes: ['mixed'], boss: true,                 reward: 150 },
+    { n: 'Rừng Cổ Thụ',     map: 0, waves: 12, mul: 11.5, themes: ['root', 'mixed'],       rec: 'druid', reward: 120 },
+    { n: 'Đền Gió Lộng',    map: 0, waves: 13, mul: 7.8,  themes: ['spirit', 'fast'],      rec: 'wind',  reward: 130 },
+    { n: 'Cấm Thành Xương', map: 2, waves: 13, mul: 13.2, themes: ['root', 'spirit', 'mixed'], rec: 'druid', reward: 140 },
+    { n: 'Thiên Môn ⚔TRÙM', map: 1, waves: 14, mul: 15.8, themes: ['apex'], boss: true, bossTheme: 'apex', rec: 'wind', reward: 220 },
 ];
 function isUnlocked(typeId) { return HERO_COST[typeId] === 0 || (Storage.data.unlocked && Storage.data.unlocked.includes(typeId)); }
+function hasGodForm(typeId) { return ((State.unitSkills && State.unitSkills[typeId]) || 0) >= 3; }
+function maxUnitLevel(typeId) { return hasGodForm(typeId) ? 4 : 3; }
+function isGodUnit(u) { return u && u.level >= 4; }
+function upgradeCost(u) { return Math.floor(u.db.cost * Math.pow(1.8, u.level) * (u.level >= 3 ? 1.15 : 1)); }
 // SỨC MẠNH META từ Nội Tại -> quái mạnh lên TƯƠNG ỨNG. Max Nội Tại = đi XA hơn, KHÔNG phải dễ hơn.
 function metaPow(){ const t = State.talents; return 1 + 0.10 * t.d + 0.06 * t.s + 0.06 * t.c; }   // max ≈ ×2.9
 // Giá mua tướng KẾ TIẾP = base × buyRamp^(số con CÙNG LOẠI đang có). Bỏ cap, mỗi con thêm đắt hơn.
@@ -565,7 +581,9 @@ const UNITS_DB = {
     poison:  { icon: '☠️', type: 'pulse', dtype: 'pois', cost: 120, hp: 250, dmg: 10, range: 2.6, aspd: 0.8, color: CFG.colors.poison, name: "Tháp Độc", lv3Desc: "Vòng độc rộng + làm chậm — khắc Sát Thủ né & bóc khiên." },
     mage:    { icon: '⚡', type: 'laser', dtype: 'magic', cost: 180, hp: 120, dmg: 40, range: 12.0, aspd: 1.6, color: CFG.colors.laser, name: "Thần Sét", lv3Desc: "Sét Tím nảy chuỗi — khắc Orc giáp & Triệu Hồi, bắn mọi hàng." },
     ice:     { icon: '❄️', type: 'lob', dtype: 'frost', pSpeed: 350, splash: 1.2, cost: 160, hp: 120, dmg: 35, range: 6.0, aspd: 2.0, color: CFG.colors.ice, name: "Băng Thần", lv3Desc: "Bão Tuyết nổ rộng + đóng băng — khắc Sói siêu nhanh." },
-    priest:  { icon: '🕊️', type: 'support', cost: 150, hp: 250, dmg: 30, range: 3.0, aspd: 2.0, color: CFG.colors.support, name: "Thánh Sứ", lv3Desc: "Hào quang: Buff +15% Dmg & Tốc độ đánh cho lính kề bên." }
+    priest:  { icon: '🕊️', type: 'support', cost: 150, hp: 250, dmg: 30, range: 3.0, aspd: 2.0, color: CFG.colors.support, name: "Thánh Sứ", lv3Desc: "Hào quang: Buff +15% Dmg & Tốc độ đánh cho lính kề bên." },
+    druid:   { icon: '🌿', type: 'pulse', dtype: 'nature', cost: 170, hp: 260, dmg: 16, range: 3.0, aspd: 1.1, color: CFG.colors.nature, name: "Cổ Mộc", lv3Desc: "Rễ Cổ Thụ trói chân quái đá và làm chậm nhóm đông." },
+    wind:    { icon: '🌀', type: 'linear', dtype: 'wind', pSpeed: 840, cost: 155, hp: 140, dmg: 28, range: 8.0, aspd: 0.85, color: CFG.colors.wind, name: "Phong Linh", lv3Desc: "Luồng gió xuyên hàng, đẩy lùi Hồn Ma và quái nhanh." }
 };
 
 const ENEMIES_DB = [
@@ -576,7 +594,9 @@ const ENEMIES_DB = [
     { kind: 'skel',     icon: '💀', hp: 150, spd: 16, dmg: 20, aspd: 1.5, gold: 30, xp: 40, size: 0.8,  shieldHits: 3, resist: { frost: 0.7 } },                   // khiên -> đòn NHANH (Xạ Thủ/Độc)
     { kind: 'summoner', icon: '🧙', hp: 140, spd: 15, dmg: 5,  aspd: 2.0, gold: 25, xp: 35, size: 0.7,  summons: true, resist: { phys: 0.5, magic: 1.5 } },        // triệu hồi -> THẦN SÉT diệt nhanh
     { kind: 'assassin', icon: '🥷', hp: 120, spd: 60, dmg: 25, aspd: 1.0, gold: 28, xp: 35, size: 0.6,  isJumping: true, evade: 0.55, resist: { phys: 0.45, pois: 1.5, magic: 1.2 } },  // né+nhảy -> ĐỘC/SÉT
-    { kind: 'boss',     icon: '👿', hp: 5200,spd: 11, dmg: 70, aspd: 2.0, gold: 300,xp: 600, size: 1.5, isBoss: true, resist: { phys: 0.5, magic: 0.8, frost: 0.8, pois: 0.8 } }       // cần KẾT HỢP nhiều loại
+    { kind: 'boss',     icon: '👿', hp: 5200,spd: 11, dmg: 70, aspd: 2.0, gold: 300,xp: 600, size: 1.5, isBoss: true, resist: { phys: 0.5, magic: 0.8, frost: 0.8, pois: 0.8 } },      // cần KẾT HỢP nhiều loại
+    { kind: 'golem',    icon: '🗿', hp: 920, spd: 12, dmg: 34, aspd: 1.8, gold: 38, xp: 70, size: 1.05, isHeavy: true, shieldHits: 2, resist: { phys: 0.35, magic: 0.75, frost: 0.55, pois: 0.75, nature: 1.7, wind: 0.9 } }, // giáp đá -> CỔ MỘC
+    { kind: 'wraith',   icon: '👻', hp: 190, spd: 48, dmg: 20, aspd: 1.1, gold: 32, xp: 60, size: 0.7, evade: 0.35, resist: { phys: 0.35, magic: 0.65, frost: 0.9, pois: 0.8, nature: 1.2, wind: 1.6 } } // hồn ma -> PHONG LINH
 ];
 
 const TALENTS_DB = {
@@ -612,6 +632,12 @@ const UNIT_SKILLS = {
     priest: [ { n:'Phúc Lành',  d:'+30% hồi máu',                  cost:2, dmg:.3 },
               { n:'Ban Phúc',   d:'+25% tầm hỗ trợ',               cost:4, range:.25 },
               { n:'Thánh Quang',d:'Hào quang buff từ cấp 1',       cost:7, earlyAura:true } ],
+    druid:  [ { n:'Nhựa Sống',  d:'+20% sát thương tự nhiên',       cost:2, dmg:.2 },
+              { n:'Tán Rộng',   d:'+25% bán kính rễ',              cost:4, range:.25 },
+              { n:'Rễ Thiêng',  d:'Trói chân từ cấp 1',            cost:7, earlyRoot:true } ],
+    wind:   [ { n:'Gió Nhanh',  d:'+15% tốc đánh',                 cost:2, aspd:.15 },
+              { n:'Lốc Xoáy',   d:'+20% sát thương',               cost:4, dmg:.2 },
+              { n:'Cuồng Phong',d:'Đẩy lùi từ cấp 1',              cost:7, earlyGust:true } ],
 };
 // Cộng dồn hiệu ứng các bậc đã mở của 1 tướng
 function unitSkillBonus(type){
@@ -624,6 +650,7 @@ function unitSkillBonus(type){
         if (t.earlyPierce) b.earlyPierce = true; if (t.earlyExplode) b.earlyExplode = true;
         if (t.earlyChain) b.earlyChain = true; if (t.earlyFreeze) b.earlyFreeze = true;
         if (t.earlySlow) b.earlySlow = true; if (t.earlyAura) b.earlyAura = true;
+        if (t.earlyRoot) b.earlyRoot = true; if (t.earlyGust) b.earlyGust = true;
     }
     return b;
 }
@@ -642,7 +669,9 @@ const UNIT_ART = {
     poison: { fur:'#ece4d6', robe:'#8b5cf6', accent:'#ddd6fe', evo:'#c084fc', hat:'wizard', weapon:'flask',  style:'flask' },
     mage:   { fur:'#f4ead6', robe:'#0891a6', accent:'#a5f3fc', evo:'#c084fc', hat:'wizard', weapon:'staff',  style:'staff' },
     ice:    { fur:'#f2f6fb', robe:'#3b82f6', accent:'#e0f2fe', evo:'#bae6fd', hat:'wizard', weapon:'wand',   style:'wand'  },
-    priest: { fur:'#f6efe6', robe:'#f472b6', accent:'#fbcfe8', evo:'#fcd34d', hat:'halo',   weapon:'cross',  style:'bless' }
+    priest: { fur:'#f6efe6', robe:'#f472b6', accent:'#fbcfe8', evo:'#fcd34d', hat:'halo',   weapon:'cross',  style:'bless' },
+    druid:  { fur:'#ede7d3', robe:'#4d7c0f', accent:'#bef264', evo:'#d9f99d', hat:'hood',   weapon:'staff',  style:'staff' },
+    wind:   { fur:'#f2f6fb', robe:'#0ea5e9', accent:'#bae6fd', evo:'#e0f2fe', hat:'band',   weapon:'wand',   style:'wand'  }
 };
 
 const CharArt = {
@@ -695,15 +724,15 @@ const CharArt = {
 
         const lv=u.level, evo=cfg.evo||cfg.accent;
         // robe sáng/đậm dần theo cấp -> nhìn là biết đã nâng cấp
-        const robe = lv>=3 ? C.mix(cfg.robe,'#ffffff',0.14) : (lv===2 ? C.mix(cfg.robe,'#ffffff',0.06) : cfg.robe);
+        const robe = lv>=4 ? C.mix(cfg.robe,'#ffffff',0.28) : (lv>=3 ? C.mix(cfg.robe,'#ffffff',0.14) : (lv===2 ? C.mix(cfg.robe,'#ffffff',0.06) : cfg.robe));
         const fur=cfg.fur, acc=cfg.accent, dark='#39394f', pink='#f4a9b8';
 
         // HÀO QUANG DƯỚI CHÂN theo cấp (cấp 2 nhẹ, cấp 3 mạnh & đập nhịp)
         if (lv>=2){
-            const ac = lv>=3 ? evo : acc, pulse = lv>=3 ? (0.5+Math.sin(t/260+ph)*0.5) : 1;
-            ctx.save(); ctx.globalAlpha=(lv>=3?0.28:0.16)*pulse;
-            C.e(ctx, 0, 24, 20, 6, ac);
-            if(lv>=3){ ctx.globalAlpha=0.5; ctx.strokeStyle=ac; ctx.lineWidth=1.5; ctx.beginPath(); ctx.ellipse(0,24,20,6,0,0,6.2832); ctx.stroke(); }
+            const ac = lv>=4 ? '#fef3c7' : (lv>=3 ? evo : acc), pulse = lv>=3 ? (0.5+Math.sin(t/260+ph)*0.5) : 1;
+            ctx.save(); ctx.globalAlpha=(lv>=4?0.42:(lv>=3?0.28:0.16))*pulse;
+            C.e(ctx, 0, 24, lv>=4 ? 26 : 20, lv>=4 ? 8 : 6, ac);
+            if(lv>=3){ ctx.globalAlpha=lv>=4?0.75:0.5; ctx.strokeStyle=ac; ctx.lineWidth=lv>=4?2.4:1.5; ctx.beginPath(); ctx.ellipse(0,24,lv>=4?26:20,lv>=4?8:6,0,0,6.2832); ctx.stroke(); }
             ctx.restore();
         }
 
@@ -762,7 +791,12 @@ const CharArt = {
         // mũ / vương miện
         C.drawHat(ctx, cfg, t, ph, acc, robe);
         // VƯƠNG MIỆN cấp 3 — dấu hiệu "tối thượng" nổi trên đỉnh đầu
-        if (lv>=3){
+        if (lv>=4){
+            const cy=-32+Math.sin(t/320+ph)*1.6;
+            ctx.fillStyle=C.col('#fef3c7');
+            ctx.beginPath(); ctx.moveTo(-9,cy+5); ctx.lineTo(-9,cy-2); ctx.lineTo(-5,cy+1); ctx.lineTo(0,cy-6); ctx.lineTo(5,cy+1); ctx.lineTo(9,cy-2); ctx.lineTo(9,cy+5); ctx.closePath(); ctx.fill();
+            C.e(ctx,0,cy-6,2,2,'#fff'); C.e(ctx,-7,cy-2,1.4,1.4,evo); C.e(ctx,7,cy-2,1.4,1.4,evo);
+        } else if (lv>=3){
             const cy=-30+Math.sin(t/400+ph)*1.2;
             ctx.fillStyle=C.col(evo);
             ctx.beginPath(); ctx.moveTo(-7,cy+4); ctx.lineTo(-7,cy-1); ctx.lineTo(-3.5,cy+2); ctx.lineTo(0,cy-3); ctx.lineTo(3.5,cy+2); ctx.lineTo(7,cy-1); ctx.lineTo(7,cy+4); ctx.closePath(); ctx.fill();
@@ -898,7 +932,8 @@ const CharArt = {
         // ĐỐM NĂNG LƯỢNG bay quanh quân cấp 3 (mọi loại) — dấu hiệu "tối thượng"
         if (lv>=3){
             ctx.globalAlpha=0.85;
-            for(let i=0;i<3;i++){ const a=t/420+ph+i*2.094; C.e(ctx, Math.cos(a)*17, -6+Math.sin(a)*9, 1.5,1.5, evo); }
+            const n = lv>=4 ? 5 : 3, rr = lv>=4 ? 22 : 17;
+            for(let i=0;i<n;i++){ const a=t/420+ph+i*(6.283/n); C.e(ctx, Math.cos(a)*rr, -6+Math.sin(a)*10, lv>=4?2:1.5,lv>=4?2:1.5, lv>=4?'#fef3c7':evo); }
             ctx.globalAlpha=1;
         }
     },
@@ -920,7 +955,7 @@ const CharArt = {
         ctx.scale(k*sz, k*sz);
         ctx.translate(-atk*3, -bob*0.25);
         const A={walk,atk,t,ph};
-        const f=({imp:C.eImp,orc:C.eOrc,wolf:C.eWolf,skel:C.eSkel,summoner:C.eSummoner,assassin:C.eAssassin,boss:C.eBoss})[db.kind] || C.eImp;
+        const f=({imp:C.eImp,orc:C.eOrc,wolf:C.eWolf,skel:C.eSkel,summoner:C.eSummoner,assassin:C.eAssassin,boss:C.eBoss,golem:C.eGolem,wraith:C.eWraith})[db.kind] || C.eImp;
         f.call(C, ctx, A);
         ctx.restore();
         this._f=0; this._slow=0;
@@ -1005,6 +1040,24 @@ const CharArt = {
         C.glow(ctx,-7,-8,3,eye); C.glow(ctx,1,-8,3,eye);
         ctx.fillStyle='#1c1917'; ctx.fillRect(-9,-3,12,3);
         C.tri(ctx,-8,0,-6,-3,-5,0,'#fff'); C.tri(ctx,0,0,2,-3,3,0,'#fff');                          // nanh
+    },
+    eGolem(ctx,{walk,atk}){
+        const C=this, stone='#78716c', dark='#44403c', moss='#84cc16', eye='#bef264', slam=atk*4;
+        C.e(ctx,0,12,16,13,C.col(stone)); C.e(ctx,-2,13,9,9,C.col(dark));
+        C.e(ctx,-1,-5,12,10,C.col(stone)); C.e(ctx,-7,-5,3,3,C.col(eye)); C.glow(ctx,-7,-5,2,eye);
+        C.limb(ctx,-12,4,-20,12-slam,7,C.col(dark)); C.e(ctx,-22,13-slam,6,6,C.col(stone));
+        C.limb(ctx,12,4,18,13,7,C.col(dark)); C.e(ctx,20,14,6,6,C.col(stone));
+        C.limb(ctx,-6,22,-8,29,7,C.col(dark)); C.limb(ctx,7,22,8,29,7,C.col(stone));
+        ctx.strokeStyle=C.col(moss); ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-10,1); ctx.lineTo(0,7); ctx.lineTo(9,2); ctx.stroke();
+    },
+    eWraith(ctx,{walk,atk,t,ph}){
+        const C=this, body='#475569', dark='#1e293b', eye='#67e8f9', veil=0.75+Math.sin(t/260+ph)*0.12;
+        ctx.globalAlpha=veil;
+        C.e(ctx,0,4,13,18,C.col(body));
+        ctx.fillStyle=C.col(body); ctx.beginPath(); ctx.moveTo(-12,8); ctx.quadraticCurveTo(-8,28,-2,18); ctx.quadraticCurveTo(2,30,7,17); ctx.quadraticCurveTo(12,25,12,8); ctx.closePath(); ctx.fill();
+        C.e(ctx,-5,-2,2.5,3,'#0f172a'); C.e(ctx,3,-2,2.5,3,'#0f172a'); C.glow(ctx,-5,-2,1.6,eye); C.glow(ctx,3,-2,1.6,eye);
+        C.limb(ctx,-9,6,-17-atk*4,9,3,C.col(dark)); C.limb(ctx,9,6,15,10,3,C.col(dark));
+        ctx.globalAlpha=1;
     }
 };
 
@@ -1037,13 +1090,14 @@ class Unit {
     }
 
     getStats() {
-        let lvM = Math.pow(1.4, this.level - 1);
+        const god = isGodUnit(this);
+        let lvM = Math.pow(1.4, this.level - 1) * (god ? 1.12 : 1);
         let sb = unitSkillBonus(this.typeId);     // kỹ năng vĩnh viễn của loại tướng này
         let dmgM = (1 + TALENTS_DB.d.effect(State.talents.d) + this.auraDmg) * sb.dmg;
         let spdM = (1 + TALENTS_DB.s.effect(State.talents.s) + this.auraSpd) * sb.aspd;
 
-        if (this.db.type === 'econ') return { hp: this.db.hp * lvM * sb.hp, inc: Math.floor(this.db.income * (this.level >= 3 ? 2 : lvM) * sb.income), cd: this.db.cd * sb.cdMul };
-        if (this.db.type === 'pulse') return { hp: this.db.hp * lvM * sb.hp, dmg: this.db.dmg * lvM * dmgM, rng: this.db.range * State.grid.size * (this.level >= 3 ? 1.3 : 1) * sb.range, aspd: this.db.aspd / spdM };
+        if (this.db.type === 'econ') return { hp: this.db.hp * lvM * sb.hp, inc: Math.floor(this.db.income * (god ? 3.25 : (this.level >= 3 ? 2 : lvM)) * sb.income), cd: this.db.cd * sb.cdMul * (god ? 0.78 : 1) };
+        if (this.db.type === 'pulse') return { hp: this.db.hp * lvM * sb.hp, dmg: this.db.dmg * lvM * dmgM, rng: this.db.range * State.grid.size * (god ? 1.55 : (this.level >= 3 ? 1.3 : 1)) * sb.range, aspd: this.db.aspd / spdM };
         return { hp: this.db.hp * lvM * sb.hp, dmg: this.db.dmg * lvM * dmgM, rng: this.db.range * State.grid.size * sb.range, aspd: this.db.aspd / spdM };
     }
 
@@ -1071,19 +1125,21 @@ class Unit {
             else if (this.db.type === 'pulse') {
                 this.atkCd = s.aspd; this.anim = 1.0;
                 Engine.spawnParticles(this.x, this.y, this.db.color, 15, 60, 3);
-                State.particles.push({ x: this.x, y: this.y, type: 'pulse', c: this.level >= 3 ? '#c084fc' : this.db.color, r: s.rng, l: 0.4 });
+                State.particles.push({ x: this.x, y: this.y, type: 'pulse', c: this.level >= 4 ? '#fef3c7' : (this.level >= 3 ? '#c084fc' : this.db.color), r: s.rng, l: 0.4 });
                 let hitAny = false;
                 State.enemies.forEach(e => {
                     if (getDist(this.x, this.y, e.x, e.y) <= s.rng) {
-                        e.takeDmg(s.dmg, 'pois', false); Engine.spawnText(e.x, e.y - 20, Math.floor(s.dmg), this.db.color, false); hitAny = true;
-                        if (this.level >= 3 || unitSkillBonus('poison').earlySlow) { e.slowTimer = 2.0; e.slowAmt = 0.5; }
+                        e.takeDmg(s.dmg, this.db.dtype || 'pois', false); Engine.spawnText(e.x, e.y - 20, Math.floor(s.dmg), this.db.color, false); hitAny = true;
+                        if (this.typeId === 'poison' && (this.level >= 3 || unitSkillBonus('poison').earlySlow)) { e.slowTimer = isGodUnit(this) ? 3.0 : 2.0; e.slowAmt = isGodUnit(this) ? 0.65 : 0.5; }
+                        if (this.typeId === 'druid' && (this.level >= 3 || unitSkillBonus('druid').earlyRoot)) { e.slowTimer = isGodUnit(this) ? 3.2 : 2.2; e.slowAmt = isGodUnit(this) ? 0.85 : 0.65; }
                     }
                 });
                 if (hitAny) Sound.play('pulse');
             }
             else if (this.db.type === 'support') {
                 if (this.level >= 3 || unitSkillBonus('priest').earlyAura) {
-                    State.units.forEach(u => { if (u !== this && Math.abs(u.col - this.col) + Math.abs(u.row - this.row) === 1) { u.auraDmg = 0.15; u.auraSpd = 0.15; } });
+                    const aura = isGodUnit(this) ? 0.25 : 0.15;
+                    State.units.forEach(u => { if (u !== this && Math.abs(u.col - this.col) + Math.abs(u.row - this.row) === 1) { u.auraDmg = aura; u.auraSpd = aura; } });
                 }
                 let tAlly = null, minHpP = 1.0;
                 for (let u of State.units) {
@@ -1116,7 +1172,7 @@ class Unit {
                         t.takeDmg(fd, 'phys', false);
                         Engine.spawnText(t.x, t.y - 20, Math.floor(fd), '#fff', isCrit);
                         Sound.play('hit');
-                        let bonusFrac = (this.level >= 3 ? 0.3 : 0) + unitSkillBonus('knight').reflect;   // phản đòn cấp 3 + kỹ năng Khiên Gai
+                        let bonusFrac = (this.level >= 4 ? 0.55 : (this.level >= 3 ? 0.3 : 0)) + unitSkillBonus('knight').reflect;   // phản đòn cấp 3 + kỹ năng Khiên Gai
                         if (bonusFrac > 0) {
                             t.takeDmg(fd * bonusFrac, 'phys', false);
                             Engine.spawnParticles(this.x + 20, this.y, '#93c5fd', 10, 50, 3);
@@ -1126,19 +1182,20 @@ class Unit {
                         State.particles.push({ x: this.x + 15, y: this.y, type: 'slash', l: 0.2 });
                     }
                     else if (this.db.type === 'laser') {
-                        let c = this.level >= 3 ? '#c084fc' : this.db.color;
+                        let c = this.level >= 4 ? '#fef3c7' : (this.level >= 3 ? '#c084fc' : this.db.color);
                         t.takeDmg(fd, 'magic', false); Engine.spawnText(t.x, t.y - 20, Math.floor(fd), c, isCrit);
                         State.beams.push({ x1: this.x, y1: this.y, x2: t.x, y2: t.y, c: c, l: 0.15 });
                         State.particles.push({ x: t.x, y: t.y + 10, type: 'magic', c: c, l: 0.3 });
                         Sound.play('zap');
 
                         if (this.level >= 3 || unitSkillBonus('mage').earlyChain) {
-                            let chains = 2, curT = t, hitL = [t];
+                            let chains = isGodUnit(this) ? 3 : 2, curT = t, hitL = [t];
                             while (chains > 0) {
-                                let nT = null, nD = 150;
+                                let nT = null, nD = isGodUnit(this) ? 220 : 150;
                                 for (let e of State.enemies) { if (!hitL.includes(e) && getDist(curT.x, curT.y, e.x, e.y) < nD) { nD = getDist(curT.x, curT.y, e.x, e.y); nT = e; } }
                                 if (nT) {
-                                    nT.takeDmg(fd * 0.7, 'magic', false); Engine.spawnText(nT.x, nT.y - 20, Math.floor(fd * 0.7), c, false);
+                                    let cdmg = isGodUnit(this) ? 0.85 : 0.7;
+                                    nT.takeDmg(fd * cdmg, 'magic', false); Engine.spawnText(nT.x, nT.y - 20, Math.floor(fd * cdmg), c, false);
                                     State.beams.push({ x1: curT.x, y1: curT.y, x2: nT.x, y2: nT.y, c: c, l: 0.15 });
                                     State.particles.push({ x: nT.x, y: nT.y + 10, type: 'magic', c: c, l: 0.3 });
                                     curT = nT; hitL.push(nT); chains--;
@@ -1266,7 +1323,8 @@ class Enemy {
 class ProjLin {
     constructor(x, y, ty, d, typeId, db, lv, cr) {
         this.x = x; this.y = ty; this.d = d; this.typeId = typeId; this.db = db; this.lv = lv; this.cr = cr;
-        this.p = (this.typeId === 'archer' && (lv >= 3 || unitSkillBonus('archer').earlyPierce));   // xuyên thấu (cấp 3 hoặc kỹ năng Xuyên Sớm)
+        this.p = (this.typeId === 'archer' && (lv >= 3 || unitSkillBonus('archer').earlyPierce))
+              || (this.typeId === 'wind' && (lv >= 3 || unitSkillBonus('wind').earlyGust));   // xuyên thấu/gió lốc khi mở kỹ năng chữ ký
         this.expl = (this.typeId === 'gunner' && (lv >= 3 || unitSkillBonus('gunner').earlyExplode)); // nổ chùm (cấp 3 hoặc Nổ Sớm)
         this.hl = new Set(); this.a = true;
     }
@@ -1274,27 +1332,32 @@ class ProjLin {
         this.x += this.db.pSpeed * dt;
         if (this.x > (State.designW || 1000) + 100) { this.a = false; return; }
 
-        if (this.p) Engine.spawnParticles(this.x, this.y, '#34d399', 1, 10, 2);
+        if (this.p) Engine.spawnParticles(this.x, this.y, this.typeId === 'wind' ? this.db.color : '#34d399', 1, 10, 2);
 
         for (let e of State.enemies) {
             if (!this.hl.has(e) && Math.abs(e.y - this.y) < (e.rowSpan || 1) * State.grid.size * 0.5 + 6 && e.x > this.x - 20 && e.x < this.x + 20) {
                 if (this.expl) {
                     Engine.spawnParticles(this.x, this.y, '#ef4444', 15, 60, 3);
                     State.shake += 4; Sound.play('boom');
-                    let rd = State.grid.size * 1.5 * (1 + unitSkillBonus('gunner').splash);   // bán kính nổ + kỹ năng Thuốc Nổ
-                    State.enemies.forEach(en => { if (getDist(this.x, this.y, en.x, en.y) < rd) en.takeDmg(this.d, 'phys', false); });   // nổ chùm: không bị né
+                    let rd = State.grid.size * 1.5 * (1 + unitSkillBonus('gunner').splash) * (this.lv >= 4 ? 1.2 : 1);   // bán kính nổ + kỹ năng Thuốc Nổ
+                    State.enemies.forEach(en => { if (getDist(this.x, this.y, en.x, en.y) < rd) en.takeDmg(this.d, this.db.dtype || 'phys', false); });   // nổ chùm: không bị né
                     this.a = false; break;
                 } else {
-                    e.takeDmg(this.d, 'phys', true);   // đạn thường (phys) -> có thể bị NÉ
+                    e.takeDmg(this.d, this.db.dtype || 'phys', true);   // đạn thường -> có thể bị NÉ
                     Engine.spawnText(e.x, e.y - 20, Math.floor(this.d), '#fff', this.cr);
-                    Engine.spawnParticles(e.x, e.y, this.p ? '#34d399' : this.db.color, 4, 30, 2);
+                    Engine.spawnParticles(e.x, e.y, this.p ? (this.typeId === 'wind' ? this.db.color : '#34d399') : this.db.color, 4, 30, 2);
+                    if (this.typeId === 'wind' && (this.lv >= 3 || unitSkillBonus('wind').earlyGust)) {
+                        e.kb = Math.max(e.kb || 0, this.lv >= 4 ? 34 : 18);
+                        e.slowTimer = Math.max(e.slowTimer || 0, this.lv >= 4 ? 1.8 : 1.0);
+                        e.slowAmt = Math.max(e.slowAmt || 0, this.lv >= 4 ? 0.45 : 0.25);
+                    }
                 }
                 if (this.p) this.hl.add(e); else { this.a = false; break; }
             }
         }
     }
     draw(ctx) {
-        let col = this.p ? '#34d399' : (this.expl ? '#ef4444' : this.db.color);
+        let col = this.p ? (this.typeId === 'wind' ? this.db.color : '#34d399') : (this.expl ? '#ef4444' : this.db.color);
         ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = this.p ? 12 : 8;
         ctx.fillStyle = col;
         ctx.fillRect(this.p ? this.x - 20 : this.x - 10, this.y - 2, this.p ? 30 : 20, 4);
@@ -1313,8 +1376,9 @@ class ProjLob {
         if (this.typeId === 'ice' && this.lv >= 3) Engine.spawnParticles(this.x, this.y - this.ar, '#e0f2fe', 1, 15, 2);
 
         if (dl < 10) {
+            let isDivineIce = this.typeId === 'ice' && this.lv >= 4;
             let isMaxIce = (this.typeId === 'ice' && (this.lv >= 3 || unitSkillBonus('ice').earlyFreeze));   // Đóng Băng (cấp 3 hoặc kỹ năng)
-            let rd = this.db.splash * State.grid.size * (isMaxIce ? 2.0 : 1);
+            let rd = this.db.splash * State.grid.size * (isDivineIce ? 2.45 : (isMaxIce ? 2.0 : 1));
             let pCol = isMaxIce ? '#e0f2fe' : this.db.color;
 
             Engine.spawnParticles(this.x, this.y, pCol, 25, 100, 4);
@@ -1323,10 +1387,10 @@ class ProjLob {
             State.enemies.forEach(e => {
                 if (getDist(this.x, this.y, e.x, e.y) <= rd) {
                     let before = e.hp;
-                    e.takeDmg(this.d, 'frost', false);                 // nổ băng AoE: không bị né
+                    e.takeDmg(this.d, this.db.dtype || 'frost', false);                 // nổ AoE: không bị né
                     if (e.hp < before) {                               // chỉ làm chậm nếu thực sự trúng
                         Engine.spawnText(e.x, e.y - 20, Math.floor(this.d), pCol, this.cr);
-                        if (this.typeId === 'ice') { e.slowTimer = isMaxIce ? 3.5 : 1.5; e.slowAmt = Math.min(0.9, (isMaxIce ? 0.8 : 0.4) + unitSkillBonus('ice').slow); }
+                        if (this.typeId === 'ice') { e.slowTimer = isDivineIce ? 4.5 : (isMaxIce ? 3.5 : 1.5); e.slowAmt = Math.min(0.9, (isDivineIce ? 0.88 : (isMaxIce ? 0.8 : 0.4)) + unitSkillBonus('ice').slow); }
                     }
                 }
             });
@@ -1459,12 +1523,12 @@ const Engine = {
         // NHỊP ĐỘ trong màn: đợt đầu ÍT & ra CHẬM (thư thả) -> đợt cuối màn ĐÔNG & dồn dập
         let count = Math.round(4 + w * 1.5 + w * w * 0.12); State.spawn.total = count;
         let interval = Math.max(0.45, 1.9 - w * 0.09);
-        // đợt cuối của màn boss = TRÙM; chủ đề lấy theo danh sách của màn (lặp)
-        let theme = (st.boss && w >= st.waves) ? 'boss' : st.themes[(w - 1) % st.themes.length];
+        // đợt cuối của màn boss có thể dùng bossTheme riêng; các đợt khác lấy theo danh sách của màn (lặp)
+        let theme = stageWaveTheme(st, w);
         let pool = WAVE_THEMES[theme].tids;
         for (let i = 0; i < count; i++) {
             let tid = pool[Math.floor(Math.random() * pool.length)];
-            if (i === count - 1 && theme === 'boss') tid = 6;
+            if (i === count - 1 && st.boss && w >= st.waves) tid = 6;
             State.spawn.queue.push({ d: i * interval, db: ENEMIES_DB[tid], m: hm });
         }
     },
@@ -1485,10 +1549,10 @@ const Engine = {
             });
 
             if (State.spawn.isPrep) {
-                State.spawn.timer -= dt; let _th = (State.stage.boss && State.wave >= State.stage.waves) ? 'boss' : State.stage.themes[(State.wave - 1) % State.stage.themes.length]; document.getElementById('w-stat').innerText = `CHUẨN BỊ · ${WAVE_THEMES[_th].tag} · Đợt ${State.wave}/${State.stage.waves}: ${Math.ceil(State.spawn.timer)}s`; document.getElementById('w-bar').style.width = '0%';
+                State.spawn.timer -= dt; let _th = stageWaveTheme(State.stage, State.wave); document.getElementById('w-stat').innerText = `CHUẨN BỊ · ${WAVE_THEMES[_th].tag} · Đợt ${State.wave}/${State.stage.waves}: ${Math.ceil(State.spawn.timer)}s`; document.getElementById('w-bar').style.width = '0%';
                 if (State.spawn.timer <= 0) {
                     State.spawn.isPrep = false; document.getElementById('w-stat').innerText = "ĐANG PHÒNG THỦ";
-                    document.getElementById('call').style.display = 'none'; UI.showMessage(WAVE_THEMES[waveTheme(State.wave)].hint, waveTheme(State.wave) === 'boss'); Sound.play('wave'); this.buildWave();
+                    document.getElementById('call').style.display = 'none'; UI.showMessage(WAVE_THEMES[_th].hint, _th === 'boss' || _th === 'apex'); Sound.play('wave'); this.buildWave();
                 }
             } else {
                 let prg = State.spawn.total > 0 ? 1 - ((State.spawn.queue.length + State.enemies.length) / State.spawn.total) : 0;
@@ -1668,7 +1732,7 @@ const Engine = {
         ents.forEach(e => {
             ctx.save(); ctx.translate(e.x, e.y);
             if (e instanceof Unit) {
-                if (e.db.type === 'support' && e.level >= 3) { ctx.fillStyle = `rgba(244,114,182,${0.1 + Math.sin(t / 100) * 0.05})`; ctx.fillRect(-g.size * 1.5, -g.size * 0.5, g.size * 3, g.size); ctx.fillRect(-g.size * 0.5, -g.size * 1.5, g.size, g.size * 3); }
+                if (e.db.type === 'support' && e.level >= 3) { ctx.fillStyle = e.level >= 4 ? `rgba(254,243,199,${0.14 + Math.sin(t / 100) * 0.07})` : `rgba(244,114,182,${0.1 + Math.sin(t / 100) * 0.05})`; ctx.fillRect(-g.size * 1.5, -g.size * 0.5, g.size * 3, g.size); ctx.fillRect(-g.size * 0.5, -g.size * 1.5, g.size, g.size * 3); }
                 if (State.ui.selUnit === e) { ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.arc(0, 0, g.size * 0.4, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.arc(0, 0, e.getStats().rng, 0, Math.PI * 2); ctx.stroke(); }
 
                 State.particles.forEach(p => {
@@ -1684,7 +1748,7 @@ const Engine = {
                 if (e.db.type !== 'pulse') {
                     this.bar(ctx, 0, g.size * 0.36, g.size * 0.5, 3, e.dHp / e.maxHp, '#fff'); this.bar(ctx, 0, g.size * 0.36, g.size * 0.5, 3, e.hp / e.maxHp, '#4ade80', false);
                     ctx.fillStyle = '#fbbf24';
-                    for (let i = 0; i < e.level; i++) { ctx.beginPath(); ctx.arc((i - (e.level - 1) / 2) * g.size * 0.12, g.size * 0.44, g.size * 0.03, 0, Math.PI * 2); ctx.fill(); }
+                    for (let i = 0; i < e.level; i++) { ctx.fillStyle = e.level >= 4 && i === 3 ? '#fef3c7' : '#fbbf24'; ctx.beginPath(); ctx.arc((i - (e.level - 1) / 2) * g.size * 0.12, g.size * 0.44, g.size * 0.03, 0, Math.PI * 2); ctx.fill(); }
                 }
             } else {
                 CharArt.drawEnemy(ctx, e, t, g.size);
@@ -1768,7 +1832,7 @@ const UI = {
         document.getElementById('b-shop').onclick = () => { Sound.play('click'); this.openShop(); };
         document.getElementById('b-cls-h').onclick = () => { Sound.play('click'); document.getElementById('hmod').classList.add('hidden'); };
         document.getElementById('call').onclick = () => { if (State.spawn.isPrep && State.spawn.timer > 0) { let bonus = Math.floor(State.spawn.timer * 4); State.gold += bonus; State.spawn.timer = 0; Sound.play('coin'); Engine.spawnText(State.ui.goldUiX, State.ui.goldUiY + 30, `+${bonus} Nóng!`, '#fde047', true); } };
-        document.getElementById('b-up').onclick = () => { if (performance.now() - (State.ui.modalAt || 0) < 300) return; let u = State.ui.selUnit; if (!u) return; let c = Math.floor(u.db.cost * Math.pow(1.8, u.level)); if (State.gold >= c && u.level < 3) { State.gold -= c; u.level++; u.hp = u.getStats().hp; Sound.play('upgrade'); vibe(20); Engine.spawnText(u.x, u.y - 20, 'LÊN CẤP', '#fbbf24', true); Engine.spawnParticles(u.x, u.y, '#fbbf24', 20, 70, 4); this.closeUnitModal(); this.updateDisplay(); } };
+        document.getElementById('b-up').onclick = () => { if (performance.now() - (State.ui.modalAt || 0) < 300) return; let u = State.ui.selUnit; if (!u) return; let c = upgradeCost(u), maxLv = maxUnitLevel(u.typeId); if (State.gold >= c && u.level < maxLv) { State.gold -= c; u.level++; u.hp = u.getStats().hp; Sound.play('upgrade'); vibe(u.level >= 4 ? [0,35,25,70] : 20); Engine.spawnText(u.x, u.y - 20, u.level >= 4 ? 'HOÁ THẦN' : 'LÊN CẤP', u.level >= 4 ? '#fef3c7' : '#fbbf24', true); Engine.spawnParticles(u.x, u.y, u.level >= 4 ? '#fef3c7' : '#fbbf24', u.level >= 4 ? 36 : 20, u.level >= 4 ? 110 : 70, 4); this.closeUnitModal(); this.updateDisplay(); } };
         document.getElementById('b-sell').onclick = () => { if (performance.now() - (State.ui.modalAt || 0) < 300) return; let u = State.ui.selUnit; if (!u) return; let val = Math.floor(u.db.cost * Math.pow(1.5, u.level - 1) * 0.5); State.gold += val; State.units = State.units.filter(i => i !== u); Sound.play('click'); Engine.spawnText(u.x, u.y, `+${val}`, '#fde047', false); Engine.spawnParticles(u.x, u.y, '#94a3b8', 10, 40); this.closeUnitModal(); this.updateDisplay(); };
 
         // Controls cluster
@@ -1844,11 +1908,12 @@ const UI = {
     openUnitModal(u, x, y) {
         State.ui.selUnit = u; let modal = document.getElementById('umod');
         document.getElementById('um-ic').innerText = u.db.icon; document.getElementById('um-n').innerText = u.db.name; document.getElementById('um-lv').innerText = u.level;
-        let sDesc = document.getElementById('um-desc'); sDesc.innerText = u.db.lv3Desc;
+        let sDesc = document.getElementById('um-desc'); sDesc.innerText = u.level >= 4 ? 'HOÁ THẦN: chỉ số tăng mạnh, kỹ năng tối thượng được cường hoá.' : (hasGodForm(u.typeId) ? `${u.db.lv3Desc} · Đủ kỹ năng: có thể Hoá Thần cấp 4.` : u.db.lv3Desc);
         if (u.level >= 3) { sDesc.classList.remove('hidden'); } else if (u.level === 2) { sDesc.classList.remove('hidden'); } else sDesc.classList.add('hidden');
         let btnUp = document.getElementById('b-up');
-        if (u.level >= 3) btnUp.style.display = 'none';
-        else { btnUp.style.display = 'flex'; let cost = Math.floor(u.db.cost * Math.pow(1.8, u.level)); document.getElementById('um-c').innerText = `🪙 ${cost}`; btnUp.className = State.gold >= cost ? 'flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm' : 'flex-1 bg-slate-700 rounded py-1 flex flex-col items-center opacity-50 cursor-not-allowed'; }
+        let maxLv = maxUnitLevel(u.typeId);
+        if (u.level >= maxLv) btnUp.style.display = 'none';
+        else { btnUp.style.display = 'flex'; let cost = upgradeCost(u); document.getElementById('um-c').innerText = `🪙 ${cost}${u.level === 3 ? ' · Hoá Thần' : ''}`; btnUp.className = State.gold >= cost ? 'flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm' : 'flex-1 bg-slate-700 rounded py-1 flex flex-col items-center opacity-50 cursor-not-allowed'; }
         document.getElementById('um-s').innerText = `🪙 ${Math.floor(u.db.cost * Math.pow(1.5, u.level - 1) * 0.5)}`;
         State.ui.modalAt = performance.now();      // chống "ghost click" ngay sau khi mở
         modal.classList.remove('hidden');
@@ -1874,7 +1939,7 @@ const UI = {
             Object.keys(UNIT_SKILLS).forEach(k => {
                 let u = UNITS_DB[k], tiers = UNIT_SKILLS[k], lv = State.unitSkills[k] || 0, next = tiers[lv], canUp = next && State.tp >= next.cost;
                 let pills = tiers.map((tr, i) => `<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:${i < lv ? u.color : 'rgba(255,255,255,.08)'};color:${i < lv ? '#0b1220' : 'var(--dim)'};font-weight:800">${i < lv ? '✓' : i + 1}</span>`).join(' ');
-                let info = next ? `Bậc ${lv + 1}: <b style="color:${u.color}">${next.n}</b> — ${next.d}` : `<span style="color:${u.color}">✓ Đã mở toàn bộ kỹ năng</span>`;
+                let info = next ? `Bậc ${lv + 1}: <b style="color:${u.color}">${next.n}</b> — ${next.d}${lv === 2 ? ' · Mở Hoá Thần cấp 4' : ''}` : `<span style="color:${u.color}">✓ Đã mở toàn bộ kỹ năng · Có thể Hoá Thần cấp 4 trong trận</span>`;
                 let d = document.createElement('div'); d.className = 't-row';
                 d.innerHTML = `<div style="display:flex;align-items:center;gap:12px;min-width:0"><div style="font-size:26px;flex:0 0 auto">${u.icon}</div><div style="min-width:0"><div style="font-size:13px;font-weight:800;color:${u.color}">${u.name} &nbsp;${pills}</div><div class="sub" style="font-size:10px;margin-top:2px">${info}</div></div></div>` + (next ? `<button class="btn ${canUp ? 'btn--indigo' : 'btn--ghost'}" style="min-width:52px;height:40px;flex:0 0 auto;padding:0 8px;font-size:12px;font-weight:800${canUp ? '' : ';opacity:.5;pointer-events:none'}">${next.cost} SP</button>` : '');
                 if (canUp) { d.querySelector('button').onclick = () => { State.tp -= next.cost; State.unitSkills[k] = lv + 1; Sound.play('upgrade'); Storage.sync(); this.updateDisplay(); this.refreshStart(); this.openTalents(); }; } container.appendChild(d);
@@ -2019,7 +2084,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============ PHIÊN BẢN & TỰ CẬP NHẬT ============
-const GAME_VERSION = '3.0.0';
+const GAME_VERSION = '3.8.0';
 let _updChecking = false;
 
 function setVerLabels() {

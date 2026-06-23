@@ -1,1 +1,1 @@
-{ "version": "3.5.0", "build": "2026-06-22", "notes": "Tối ưu hiệu năng mobile: giới hạn độ phân giải render canvas, thêm chế độ giảm hiệu ứng tự động khi FPS thấp/đông quân, giới hạn particle/text/coin/beam để giảm giật." }
+{ "version": "3.8.0", "build": "2026-06-23", "notes": "Mở rộng campaign lên 16 màn: thêm Cổ Mộc, Phong Linh, Golem, Hồn Ma, chủ đề Thạch Mộc/Hồn Ma/Hỗn Mang và cơ chế Hoá Thần cấp 4 khi tướng đã mở đủ 3 bậc kỹ năng." }

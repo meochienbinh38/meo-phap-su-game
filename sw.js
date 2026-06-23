@@ -1,6 +1,6 @@
 /* Service Worker - Kỷ Nguyên Thủ Thành PWA */
-const CACHE = 'kntt-v35-performance';
-const SERVED_GAME_VERSION = '3.5.0';
+const CACHE = 'kntt-v38-godform';
+const SERVED_GAME_VERSION = '3.8.0';
 
 const CORE = [
   './',
@@ -229,7 +229,7 @@ const PERF_PATCH_SCRIPT = `
   window.__KNTT_PERF_V35__ = true;
 
   const PERF = window.KNTT_PERF = {
-    version: '3.5.0',
+    version: '3.8.0',
     fps: 60,
     low: false,
     particleHigh: 150,
@@ -319,7 +319,11 @@ const PERF_PATCH_SCRIPT = `
 
 function patchIndexText(text) {
   let out = text
-    .replace("const GAME_VERSION = '3.0.0';", `const GAME_VERSION = '${SERVED_GAME_VERSION}';`)
+    .replace(/const GAME_VERSION = '[^']+';/, `const GAME_VERSION = '${SERVED_GAME_VERSION}';`)
+    .replace(
+      "const cont = document.getElementById('canv-cont'); const dpr = window.devicePixelRatio || 1;",
+      "const cont = document.getElementById('canv-cont'); const dpr = Math.min(window.devicePixelRatio || 1, 1.35);"
+    )
     .replace(
       "const cont = document.getElementById('canv-cont'); const dpr = window.devicePixelRatio || 1;",
       "const cont = document.getElementById('canv-cont'); const dpr = Math.min(window.devicePixelRatio || 1, 1.35);"

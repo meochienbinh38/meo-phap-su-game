@@ -3,7 +3,7 @@
 > File này ghi lại **làm tới đâu, làm gì, ở đâu** để bất kỳ ai (hoặc AI) tiếp nhận
 > sau này đều biết tình trạng dự án. **Cập nhật file này mỗi khi làm xong một việc.**
 
-Cập nhật lần cuối: **2026-06-22**
+Cập nhật lần cuối: **2026-06-23**
 
 ---
 
@@ -200,21 +200,21 @@ Sửa lỗi: Trùm to chiếm 2 ô nhưng chỉ 1 hàng bắn được, và "đi
 ### j) HỆ KỸ NĂNG 2 BẢNG: Nội Tại chung + Kỹ năng từng tướng (XONG 2026-06-22)
 Màn "Nội Tại Vĩnh Viễn" giờ có **2 tab** (`openTalents`, biến `UI._talTab`):
 - **🌐 CHUNG**: 4 talent toàn cục cũ (`TALENTS_DB`: Vũ Khí/Cuồng Nộ/Gia Cố/Chí Mạng).
-- **🐱 TỪNG TƯỚNG**: 8 tướng × **3 bậc kỹ năng** (`UNIT_SKILLS`), dồn đủ SP mở khoá từng bậc.
+- **🐱 TỪNG TƯỚNG**: 10 tướng × **3 bậc kỹ năng** (`UNIT_SKILLS`), dồn đủ SP mở khoá từng bậc.
   Bậc 1-2 cộng số (dmg/máu/tốc/tầm/thu nhập/nổ...), **bậc 3 = kỹ năng "chữ ký"** mở đặc tính cấp 3 ngay từ cấp 1
-  (Xuyên Sớm/Nổ Sớm/Sét Chẻ/Đóng Băng/Độc Tố/Thánh Quang) hoặc buff mạnh (Khiên Gai phản đòn, Khẩn Trương -25% cd đào).
+  (Xuyên Sớm/Nổ Sớm/Sét Chẻ/Đóng Băng/Độc Tố/Thánh Quang/Rễ Thiêng/Cuồng Phong) hoặc buff mạnh (Khiên Gai phản đòn, Khẩn Trương -25% cd đào).
+  Từ v3.8, đủ 3 bậc kỹ năng cũng mở **Hoá Thần cấp 4** cho tướng đó trong trận.
 - Hiệu ứng gom trong `unitSkillBonus(type)` → áp ở `getStats()` + các nhánh combat (ProjLin pierce/expl/splash,
   ProjLob freeze/slow, laser chain, pulse slow, support aura, melee reflect). Lưu ở `State.unitSkills` (Storage).
 - **SP**: vẫn từ lên cấp (`gainXp` +1 SP/cấp, vĩnh viễn). Bậc kỹ năng giá 2/4/7 SP.
-- **Độ khó scale theo CẢ kỹ năng**: `diffScale() = metaPow() × (1 + 0.02 × tổng_bậc_kỹ_năng)` (max ×~4.3).
-  Dùng thay `metaPow()` ở buildWave + rò rỉ thành. → Cày kỹ năng = đi xa hơn, KHÔNG dễ hơn.
+- Ghi chú lịch sử: `diffScale()` từng dùng để scale độ khó theo kỹ năng. Từ campaign đi màn, độ khó dùng `STAGES[].mul`; kỹ năng là sức mạnh người chơi và có thể mở Hoá Thần.
 
 **Sim (đã thêm hồ sơ `godlike` = max hết):** spam<kết-hợp ở mọi mức; kết hợp: mới ~13, cày max ~28 đợt.
 > Núm chỉnh: `0.02` (độ khó/bậc kỹ năng) trong `diffScale`, và giá SP từng bậc trong `UNIT_SKILLS`.
 
 ### k) CHUYỂN SANG CAMPAIGN ĐI MÀN (Phần A — XONG 2026-06-22)
 Đổi từ "thủ thành vô tận" sang **game đi màn + cày Tinh Thạch + mở khoá tướng**.
-- **STAGES[]** (12 màn): mỗi màn có `waves` (số đợt phải qua), `mul` (hệ số máu quái — ĐỘ KHÓ THEO MÀN,
+- **STAGES[]** (16 màn): mỗi màn có `waves` (số đợt phải qua), `mul` (hệ số máu quái — ĐỘ KHÓ THEO MÀN,
   KHÔNG theo kỹ năng nữa), `themes` (chủ đề từng đợt), `rec` (tướng khắc tinh nên có), `reward` (Tinh Thạch),
   `boss`. Thắng đợt cuối → `Control.stageWin()` → +Tinh Thạch (lần đầu nhiều, chơi lại 30% để cày) + mở màn sau.
 - **Tinh Thạch** (`Storage.data.gems`) = tiền vĩnh viễn từ thưởng màn. **Cửa Hàng Tướng** (`UI.openShop`, modal `#hmod`)
@@ -224,19 +224,95 @@ Màn "Nội Tại Vĩnh Viễn" giờ có **2 tab** (`openTalents`, biến `UI._
 - **Màn hình chính** = chọn màn (`UI.renderStages` vào `#maps`) + ô Tinh Thạch + nút Cửa Hàng. `Control.start(idx)` chơi màn.
 - **Độ khó KHÔNG còn theo kỹ năng**: bỏ `diffScale()` khỏi `buildWave`/rò rỉ; dùng `State.stage.mul`.
   Kỹ năng/Nội Tại vẫn tăng sức mạnh người chơi → cày lại màn cũ dễ (farm). `metaPow/diffScale` còn định nghĩa nhưng không dùng cho độ khó.
-> ⚠️ **Phần B (chưa làm):** thêm TƯỚNG MỚI + QUÁI MỚI (art + kỹ năng), cổng khắc chế bằng quái mới, thêm màn;
-> và **cập nhật `tools/balance-sim.js` sang chế độ campaign** (hiện sim còn theo endless cũ → cần playtest tay cho cân bằng màn).
+> ✅ **Phần B đã làm ở v3.8:** thêm Cổ Mộc/Phong Linh, Golem/Hồn Ma, 4 màn mới, chủ đề Thạch Mộc/Hồn Ma/Hỗn Mang và Hoá Thần cấp 4.
+
+### l) CÂN BẰNG CAMPAIGN TOÀN GAME v3.6 (XONG 2026-06-23)
+Mục tiêu: đầu game vẫn học được, giữa game có cổng khắc chế rõ, nửa sau không bị "dễ thở" sau khi người chơi
+đã tích SP/nội tại/kỹ năng tướng.
+
+**Sửa công cụ đo (`tools/balance-sim.js`):**
+- Nâng sim lên **v3.6**, mô phỏng thêm SP vĩnh viễn: XP trong mỗi màn → lên cấp → +SP, rồi tự nâng Nội Tại/kỹ năng tướng theo thứ tự hợp lý.
+- Mô phỏng các bonus quan trọng: talent damage/speed/HP/crit kỳ vọng, kỹ năng tướng bậc 1-2, early chain/freeze/slow/explode/pierce.
+- Sửa AI mua hero: nếu màn cần tướng khắc tinh mà chưa đủ Tinh Thạch thì **giữ tiền**, không mua tướng phụ làm chậm unlock.
+- Sửa priest trong sim: ưu tiên hồi máu đồng minh trong tầm thay vì bị ràng buộc phải có mục tiêu địch.
+
+**Sửa số trong game (`STAGES[].mul`) — chỉ tăng nửa sau để không phá nhịp mở đầu:**
+| Màn | Cũ | Mới | Ý đồ |
+|---|---:|---:|---|
+| 7 Cổng Ngục | 3.1 | **3.5** | cổng armor/fast đầu hầm ngục phải căng |
+| 8 Hành Lang Xương | 3.7 | **4.6** | hỗn hợp + giáp không còn nhẹ |
+| 9 Hầm Sâu | 4.4 | **5.7** | ép dùng slow/độc/sét thay vì spam phys |
+| 10 Ngai Hắc Ám | 5.2 | **6.3** | boss giữa-cuối campaign là mốc kiểm tra build |
+| 11 Vực Thẳm I | 6.2 | **8.1** | màn áp lực trước chung kết |
+| 12 Vực Thẳm II | 7.6 | **10.2** | boss cuối vẫn qua được nhưng không nhạt |
+
+**Kết quả `node tools/balance-sim.js` sau cân bằng:**
+| Màn | KQ | HP còn | Farm |
+|---:|---|---:|---:|
+| 1 | PASS | 124 | 0 |
+| 2 | PASS | 237 | 0 |
+| 3 | PASS | 122 | 0 |
+| 4 | PASS | 145 | 0 |
+| 5 | PASS | **47** | 0 |
+| 6 | PASS | **67** | 0 |
+| 7 | PASS | **23** | 0 |
+| 8 | PASS | 300 | 0 |
+| 9 | PASS | 337 | 0 |
+| 10 | PASS | **84** | 0 |
+| 11 | PASS | 302 | 0 |
+| 12 | PASS | 325 | 0 |
+
+Đọc kết quả: màn 5/6/7/10 là các "đỉnh căng"; màn 8/9/11 là nhịp hồi phục, mở hero/kỹ năng và chuẩn bị cho boss.
+Sim vẫn lạc quan hơn người chơi thật (đặt quân/nhắm/đạn bay hoàn hảo), nên chưa tăng tiếp khi chưa playtest tay.
+
+### m) MỞ RỘNG TƯỚNG/QUÁI/MÀN + HOÁ THẦN v3.8 (XONG 2026-06-23)
+Mục tiêu: thêm một cụm nội dung mới sau Vực Thẳm II và tạo đích SP rõ ràng cho từng tướng.
+
+**Nội dung mới trong game:**
+- Thêm tướng **Cổ Mộc** (`druid`, sát thương `nature`, pulse): khắc Golem/đám đông chậm, bậc 3 Rễ Thiêng mở trói chân từ cấp 1.
+- Thêm tướng **Phong Linh** (`wind`, sát thương `wind`, linear): khắc Hồn Ma/quái nhanh, bậc 3 Cuồng Phong mở xuyên hàng + đẩy lùi từ cấp 1.
+- Thêm quái **Golem** (`golem`): máu cao, khiên, kháng phys/magic/frost/pois, yếu `nature`.
+- Thêm quái **Hồn Ma** (`wraith`): nhanh, né đạn, kháng phys/magic, yếu `wind`; máu đã hạ xuống 190 để không thành tường quá sớm.
+- Thêm chủ đề đợt **THẠCH MỘC**, **HỒN MA**, **HỖN MANG** (`WAVE_THEMES.root/spirit/apex`).
+- Thêm 4 màn: 13 Rừng Cổ Thụ, 14 Đền Gió Lộng, 15 Cấm Thành Xương, 16 Thiên Môn ⚔TRÙM.
+
+**Hoá Thần cấp 4:**
+- Điều kiện: `State.unitSkills[type] >= 3` → `maxUnitLevel(type) = 4`.
+- Nâng từ cấp 3 lên cấp 4 tốn `upgradeCost()` cao hơn (`×1.15` ở bậc này) và hiện nhãn **Hoá Thần** trong modal.
+- Cấp 4 tăng hệ số chỉ số thêm `×1.12` sau mũ `1.4^(level-1)`, đồng thời cường hoá kỹ năng đặc trưng:
+  - Mỏ Vàng: thu nhập mạnh hơn, đào nhanh hơn.
+  - Giáp Sĩ: phản đòn 55%.
+  - Thần Sét: nảy 3 mục tiêu, chuỗi xa hơn, sát thương chuỗi 85%.
+  - Băng Thần: vùng bão lớn hơn, slow mạnh hơn.
+  - Tháp Độc/Cổ Mộc: vùng rộng hơn, slow/trói mạnh hơn.
+  - Thánh Sứ: hào quang 25%.
+  - Phong Linh: đẩy lùi/slow mạnh hơn, xuyên nhiều mục tiêu trên hàng.
+
+**Cân bằng v3.8 theo sim:**
+| Màn | `mul` | KQ sim | HP còn | Farm |
+|---:|---:|---|---:|---:|
+| 13 Rừng Cổ Thụ | 11.5 | PASS | 311 | 1 |
+| 14 Đền Gió Lộng | 7.8 | PASS | 255 | 3 |
+| 15 Cấm Thành Xương | 13.2 | PASS | 291 | 0 |
+| 16 Thiên Môn | 15.8 | PASS | 278 | 0 |
+
+Lý do màn 14 có `mul` thấp hơn màn 13: Hồn Ma đã có tốc độ + né + kháng nhiều hệ, nên độ khó đến từ áp lực đường chạy chứ không phải máu dày.
 
 ## 5. PHIÊN BẢN / CACHE (nhớ bump khi sửa)
 Khi sửa code muốn người chơi nhận bản mới, **đổi 3 chỗ**:
 1. `sw.js` → `const CACHE = 'kntt-vXX-...'` (tăng số).
 2. `index.html` → `const GAME_VERSION = 'X.Y.Z'`.
 3. `version.json` → cùng version + ghi `notes`.
-- Hiện tại: **CACHE `kntt-v30-campaign`**, **GAME_VERSION `3.0.0`**.
+- Hiện tại: **CACHE `kntt-v38-godform`**, **GAME_VERSION `3.8.0`**, `version.json` **3.8.0**.
 
 ## 6. 📋 VIỆC NÊN LÀM TIẾP (TODO)
-- [ ] Sink vàng cuối game (đợt ~17+ bàn đầy thì dư vàng): vd bán/đổi, lính tinh nhuệ giá cao, hoặc nâng cấp cấp 4.
-- [ ] **Playtest thật** hệ khắc chế: đợt GIÁP DÀY/TỐC ĐỘ đầu tiên (đợt ~6-9) có dễ mua kịp Thần Sét/Băng không?
+- [ ] **Playtest thật v3.8 trên mobile**: đặc biệt màn 13-16; ghi HP còn, tướng dùng, thời điểm mở Hoá Thần và thời điểm thiếu vàng.
+- [ ] Nếu màn 14 vẫn cần quá nhiều farm với người thật: hạ `mul` 7.8 → 7.2 hoặc giảm tỷ lệ Hồn Ma trong `WAVE_THEMES.spirit`.
+- [ ] Nếu Thiên Môn quá nhẹ sau playtest: tăng `mul` 15.8 thêm 5% trước, không đổi đồng thời quái/tướng.
+- [ ] Nếu màn 7/10 quá gắt với người thật: hạ `mul` màn đó khoảng 5-8% trước, không đổi nhiều biến cùng lúc.
+- [ ] Nếu màn 8/9/11 quá nhẹ sau playtest: tăng `mul` từng màn khoảng 5%, nhưng tránh tạo farm sớm vì farm sinh thêm SP.
+- [ ] Sink vàng cuối game nếu bàn đầy & full nâng cấp vẫn dư: vd bán/đổi, lính tinh nhuệ giá cao, hoặc nâng cấp cấp 4.
+- [ ] **Playtest thật** hệ khắc chế: GIÁP DÀY/TỐC ĐỘ có khiến người chơi hiểu cần Thần Sét/Băng/Độc không?
       Nếu wall người mới → nới resist (vd orc phys 0.45→0.55) hoặc dời chủ đề khó ra sau.
 - [ ] Cân nhắc hiện bảng "khắc tinh" nhỏ trong cửa hàng (icon loại sát thương từng tướng) để người mới học nhanh.
 - [ ] Số damage nổi hiện đang là trước-kháng; có thể đổi sang sau-kháng để phản hồi rõ hơn.
