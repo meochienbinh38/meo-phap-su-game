@@ -1,1 +1,1 @@
-{ "version": "3.11.6", "build": "2026-06-23", "notes": "Thêm Hồ sơ nhân vật: tên, avatar, nút Hồ sơ, tạo hồ sơ mới từ màn 1, chuyển nhiều hồ sơ với tiến trình lưu riêng." }
+{ "version": "3.11.7", "build": "2026-06-23", "notes": "Sửa cơ chế cập nhật PWA trên điện thoại: ép service worker đọc version.json mới, xoá cache cũ và reload bằng URL cache-bust khi bấm Cập nhật." }
