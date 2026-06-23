@@ -2,7 +2,7 @@
  * Version source of truth: version.json
  */
 const VERSION_URL = './version.json';
-const FALLBACK_VERSION = '3.12.0';
+const FALLBACK_VERSION = '3.12.3';
 const CACHE_PREFIX = 'kntt-cache-';
 const VERSION_TTL_MS = 30 * 1000;
 
@@ -93,6 +93,58 @@ function patchScript(out, fileName, version) {
   return out.replace(re, fileName + '?v=' + v);
 }
 
+function inlineUpgradeRefreshScript(version) {
+  const v = version || FALLBACK_VERSION;
+  return '<script id="kntt-inline-upgrade-refresh">\n' +
+    '(function(){\n' +
+    '  if(window.__KNTT_INLINE_UPGRADE_REFRESH__) return;\n' +
+    '  window.__KNTT_INLINE_UPGRADE_REFRESH__=true;\n' +
+    '  window.KNTT_ACTIVE_VERSION="' + v + '";\n' +
+    '  function q(id){return document.getElementById(id);}\n' +
+    '  function num(v,f){v=Number(v);return Number.isFinite(v)?v:f;}\n' +
+    '  function modalOpen(){var m=q("umod");return !!m&&!m.classList.contains("hidden");}\n' +
+    '  function refreshUpgradeButton(){\n' +
+    '    try{\n' +
+    '      var btn=q("b-up"); if(!btn||!modalOpen()) return;\n' +
+    '      var u=(typeof State!=="undefined"&&State.ui&&State.ui.selUnit)?State.ui.selUnit:null; if(!u) return;\n' +
+    '      var maxLv=3; try{ if(typeof maxUnitLevel==="function") maxLv=maxUnitLevel(u.typeId); }catch(_){}\n' +
+    '      var cost=0; try{ if(typeof upgradeCost==="function") cost=upgradeCost(u); }catch(_){}\n' +
+    '      var gold=num((typeof State!=="undefined"?State.gold:0),0);\n' +
+    '      var lv=q("um-lv"); if(lv) lv.innerText=u.level;\n' +
+    '      var c=q("um-c"); if(c) c.innerText="🪙 "+cost+(u.level===3?" · Hoá Thần":"");\n' +
+    '      if(u.level>=maxLv){btn.style.display="none";return;}\n' +
+    '      var can=gold>=cost; btn.style.display="flex"; btn.style.pointerEvents="auto";\n' +
+    '      btn.className=can?"flex-1 rounded py-1 flex flex-col items-center border shadow-sm":"flex-1 rounded py-1 flex flex-col items-center cursor-not-allowed";\n' +
+    '      btn.style.opacity=can?"1":"0.45";\n' +
+    '      btn.style.filter=can?"brightness(1.22)":"brightness(0.72)";\n' +
+    '      btn.style.background=can?"linear-gradient(#38bdf8,#1d4ed8)":"#334155";\n' +
+    '      btn.style.borderColor=can?"#60a5fa":"#475569";\n' +
+    '      btn.style.boxShadow=can?"0 0 16px rgba(56,189,248,.55), inset 0 1px 0 rgba(255,255,255,.18)":"none";\n' +
+    '      btn.dataset.canUpgrade=can?"1":"0";\n' +
+    '    }catch(e){}\n' +
+    '  }\n' +
+    '  function patchCore(){\n' +
+    '    try{\n' +
+    '      if(typeof UI!=="undefined"&&UI&&!UI.__knttInlineUpgradePatched){\n' +
+    '        UI.__knttInlineUpgradePatched=true;\n' +
+    '        if(UI.openUnitModal){var oldOpen=UI.openUnitModal.bind(UI);UI.openUnitModal=function(){var r=oldOpen.apply(UI,arguments);setTimeout(refreshUpgradeButton,0);setTimeout(refreshUpgradeButton,120);return r;};}\n' +
+    '        if(UI.updateDisplay){var oldUpd=UI.updateDisplay.bind(UI);UI.updateDisplay=function(){var r=oldUpd.apply(UI,arguments);refreshUpgradeButton();return r;};}\n' +
+    '      }\n' +
+    '    }catch(e){}\n' +
+    '  }\n' +
+    '  setInterval(refreshUpgradeButton,120);\n' +
+    '  setInterval(patchCore,500);\n' +
+    '  patchCore(); setTimeout(patchCore,300); setTimeout(patchCore,1200);\n' +
+    '  setTimeout(refreshUpgradeButton,100); setTimeout(refreshUpgradeButton,500); setTimeout(refreshUpgradeButton,1200);\n' +
+    '})();\n' +
+    '</script>';
+}
+
+function patchInlineUpgradeRefresh(out, version) {
+  if (out.includes('kntt-inline-upgrade-refresh')) return out;
+  return out.replace('</body>', inlineUpgradeRefreshScript(version) + '\n</body>');
+}
+
 function patchIndexText(text, version) {
   let out = text;
   const v = version || FALLBACK_VERSION;
@@ -107,6 +159,7 @@ function patchIndexText(text, version) {
   out = patchScript(out, 'v311-profile.js', v);
   out = patchScript(out, 'version-sync.js', v);
   out = patchScript(out, 'v312-polish.js', v);
+  out = patchInlineUpgradeRefresh(out, v);
 
   return out;
 }
