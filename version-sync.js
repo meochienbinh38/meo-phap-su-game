@@ -6,7 +6,7 @@
   'use strict';
 
   const VERSION_URL = './version.json';
-  const FALLBACK_VERSION = '3.11.8';
+  const FALLBACK_VERSION = '3.12.6';
   let updateStarted = false;
 
   function qs(id) { return document.getElementById(id); }
@@ -176,17 +176,15 @@
   async function checkUpdateFromSingleSource(manual) {
     const info = await readVersionInfo(1200);
     const latest = info.version || FALLBACK_VERSION;
-    const bundled = getBundledAppVersion();
+    const bundled = window.KNTT_BUNDLED_VERSION || getBundledAppVersion();
 
-    // Quan trọng: nhãn UI luôn theo version.json, không theo GAME_VERSION cũ trong index.html.
+    // Nhãn hiển thị luôn theo version.json, nhưng vẫn giữ bundled để biết app có cần cập nhật thật không.
     setUpdateBarVersion(latest);
     setVisibleVersion(latest);
     window.KNTT_ACTIVE_VERSION = latest;
 
     if (latest !== bundled) {
-      // Nếu người dùng bấm thủ công mà chỉ lệch số hiển thị, không ép báo cập nhật liên tục.
-      // Nút cập nhật chỉ cần hiện khi app tự phát hiện thật sự đang có bản mới qua version.json.
-      if (!manual) showUpdateBar(latest);
+      showUpdateBar(latest);
       return;
     }
 
@@ -218,7 +216,7 @@
     const info = await readVersionInfo(1200);
     const latest = info.version || FALLBACK_VERSION;
 
-    // Sửa lỗi chính: vừa mở app là nhãn phiên bản phải theo version.json.
+    // Số phiên bản hiển thị theo version.json, nhưng nếu lệch bundled thì phải hiện thanh cập nhật.
     window.KNTT_ACTIVE_VERSION = latest;
     setUpdateBarVersion(latest);
     setVisibleVersion(latest);
@@ -233,6 +231,8 @@
         checkUpdateFromSingleSource(true);
       };
     });
+
+    if (latest !== bundled) showUpdateBar(latest);
 
     window.KNTT_hardUpdate = hardUpdate;
     window.KNTT_checkUpdate = checkUpdateFromSingleSource;
