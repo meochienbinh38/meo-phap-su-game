@@ -1,6 +1,6 @@
 /* Service Worker - Kỷ Nguyên Thủ Thành PWA */
-const CACHE = 'kntt-v391-profile-progression-fix';
-const SERVED_GAME_VERSION = '3.9.1';
+const CACHE = 'kntt-v392-profile-ui-reset';
+const SERVED_GAME_VERSION = '3.9.2';
 
 const CORE = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-maskable.png'];
 const EXTRA = [
@@ -9,11 +9,11 @@ const EXTRA = [
 ];
 
 const ALL_PATCH_SCRIPT = `
-/* kntt-v391: profile + persistent level/exp + economy + speed + upgrade button */
+/* kntt-v392: fix modal layering + account reset + profile/progression */
 (function(){
-  if (window.__KNTT_PATCH_V391__) return;
+  if (window.__KNTT_PATCH_V392__) return;
   if (typeof Storage === 'undefined' || typeof State === 'undefined' || typeof Engine === 'undefined' || typeof UI === 'undefined' || typeof Control === 'undefined') return;
-  window.__KNTT_PATCH_V391__ = true;
+  window.__KNTT_PATCH_V392__ = true;
 
   const AVATARS = ['🐱','🧙','🛡️','🏹','⚡','❄️','🌿','🌪️','👑','🐯','🦊','🐲'];
   let selectedAvatar = null;
@@ -33,9 +33,24 @@ const ALL_PATCH_SCRIPT = `
     return Math.floor(120 + Math.pow(level, 1.62) * 82 + level * 18);
   }
 
+  function defaultProgress(profile) {
+    return {
+      talents: { d: 0, s: 0, h: 0, c: 0 },
+      unitSkills: {},
+      tp: 0,
+      best: [0, 0, 0],
+      sfx: (typeof Sound === 'undefined') ? true : Sound.sfxOn !== false,
+      music: (typeof Sound === 'undefined') ? false : !!Sound.musicOn,
+      gems: 0,
+      stageProg: 0,
+      unlocked: [],
+      profile: profile || { name: 'Tân Thủ', avatar: '🐱', level: 1, xp: 0, totalXp: 0, createdAt: new Date().toISOString(), configured: true }
+    };
+  }
+
   function ensureProfile() {
     const old = (Storage.data && Storage.data.profile) || readStoredProfile() || {};
-    const p = Object.assign({ name: 'Tân Thủ', avatar: '🐱', level: 1, xp: 0, totalXp: 0, createdAt: new Date().toISOString() }, old);
+    const p = Object.assign({ name: 'Tân Thủ', avatar: '🐱', level: 1, xp: 0, totalXp: 0, createdAt: new Date().toISOString(), configured: false }, old);
     p.name = String(p.name || 'Tân Thủ').trim().slice(0, 18) || 'Tân Thủ';
     p.avatar = AVATARS.includes(p.avatar) ? p.avatar : '🐱';
     p.level = Math.max(1, Math.floor(Number(p.level) || 1));
@@ -53,6 +68,17 @@ const ALL_PATCH_SCRIPT = `
     State.maxXp = xpNeed(p.level);
   }
 
+  function syncStateProgressFromStorage() {
+    State.talents = Object.assign({ d: 0, s: 0, h: 0, c: 0 }, Storage.data.talents || {});
+    State.unitSkills = Object.assign({}, Storage.data.unitSkills || {});
+    State.tp = Storage.data.tp || 0;
+    if (typeof Sound !== 'undefined') {
+      Sound.sfxOn = Storage.data.sfx !== false;
+      Sound.musicOn = !!Storage.data.music;
+    }
+    syncStateFromProfile();
+  }
+
   function directSync() {
     try {
       if (State.talents) Storage.data.talents = Object.assign({}, State.talents);
@@ -62,6 +88,41 @@ const ALL_PATCH_SCRIPT = `
       ensureProfile();
       localStorage.setItem(Storage.key, JSON.stringify(Storage.data));
     } catch (_) {}
+  }
+
+  function resetProgressWithProfile(profile) {
+    const p = Object.assign({ name: 'Tân Thủ', avatar: '🐱' }, profile || {});
+    const freshProfile = {
+      name: String(p.name || 'Tân Thủ').trim().slice(0, 18) || 'Tân Thủ',
+      avatar: AVATARS.includes(p.avatar) ? p.avatar : '🐱',
+      level: 1,
+      xp: 0,
+      totalXp: 0,
+      createdAt: new Date().toISOString(),
+      configured: true
+    };
+    Storage.data = defaultProgress(freshProfile);
+    syncStateProgressFromStorage();
+    State.running = false;
+    State.paused = false;
+    State.gold = 0;
+    State.units = [];
+    State.enemies = [];
+    State.projs = [];
+    State.eProjs = [];
+    State.particles = [];
+    State.floatTexts = [];
+    State.beams = [];
+    State.flyingCoins = [];
+    try {
+      document.getElementById('pmod').classList.remove('show');
+      document.getElementById('g-stat').classList.add('hidden');
+      document.getElementById('start').classList.remove('hidden');
+      document.getElementById('b-start').innerText = 'XUẤT QUÂN';
+    } catch (_) {}
+    directSync();
+    try { UI.refreshStart(); UI.updateDisplay(); } catch (_) {}
+    renderProfileCard();
   }
 
   const _load = Storage.load && Storage.load.bind(Storage);
@@ -143,10 +204,24 @@ const ALL_PATCH_SCRIPT = `
   }
 
   function injectProfileCss() {
-    if (document.getElementById('profile-v391-css')) return;
+    if (document.getElementById('profile-v392-css')) return;
     const st = document.createElement('style');
-    st.id = 'profile-v391-css';
-    st.textContent = '#profile-card{background:linear-gradient(180deg,rgba(15,23,42,.95),rgba(2,6,23,.95));border:1px solid rgba(148,163,184,.25);border-radius:12px;padding:9px;margin-bottom:8px;box-shadow:0 8px 20px rgba(0,0,0,.35)}#profile-card .p-row{display:flex;align-items:center;gap:8px}#profile-card .p-av{width:38px;height:38px;border-radius:12px;background:#111827;border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:24px}#profile-card .p-name{font-weight:900;color:#fff;font-size:13px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#profile-card .p-sub{font-size:9px;color:#94a3b8;margin-top:2px}#profile-card .p-xp{height:6px;border-radius:999px;background:#111827;overflow:hidden;margin-top:7px;border:1px solid rgba(255,255,255,.08)}#profile-card .p-xp>div{height:100%;background:linear-gradient(90deg,#38bdf8,#a78bfa);width:0%}#profile-card .p-btn{margin-top:7px;width:100%;height:24px;border-radius:8px;border:1px solid rgba(56,189,248,.45);background:rgba(14,165,233,.14);color:#bae6fd;font-size:10px;font-weight:900}#prof-modal{position:fixed;inset:0;z-index:140;background:rgba(2,6,23,.86);display:none;align-items:center;justify-content:center;padding:12px}#prof-modal.show{display:flex}#prof-box{width:min(420px,94vw);background:#0f172a;border:1px solid #334155;border-radius:16px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.75)}#prof-name-input{width:100%;background:#020617;border:1px solid #334155;border-radius:10px;color:#fff;padding:10px;font-weight:800;outline:none}#prof-avatars{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:12px 0}#prof-avatars button{height:42px;border-radius:10px;background:#020617;border:1px solid #334155;font-size:24px}#prof-avatars button.sel{border-color:#38bdf8;box-shadow:0 0 14px rgba(56,189,248,.4);background:#0c4a6e}.prof-actions{display:flex;gap:8px}.prof-actions button{flex:1;border-radius:10px;padding:10px;font-weight:900}.prof-save{background:#2563eb;color:#fff;border:1px solid #60a5fa}.prof-close{background:#1e293b;color:#cbd5e1;border:1px solid #475569}';
+    st.id = 'profile-v392-css';
+    st.textContent =
+      '#hmod,#tmod{position:absolute!important;inset:0!important;z-index:130!important;background:rgba(4,8,18,.92)!important;backdrop-filter:blur(5px)!important;align-items:center!important;justify-content:center!important;padding:10px!important}' +
+      '#hmod:not(.hidden),#tmod:not(.hidden){display:flex!important}' +
+      '#hmod .ov-card,#tmod .ov-card{max-height:88%!important;overflow:hidden!important}' +
+      '#hmod #h-cont,#tmod #t-cont{min-height:0!important;overflow-y:auto!important}' +
+      '.s-col-side{justify-content:flex-start!important;gap:6px!important;overflow:hidden!important;padding:8px!important}' +
+      '#profile-card{background:linear-gradient(180deg,rgba(15,23,42,.95),rgba(2,6,23,.95));border:1px solid rgba(148,163,184,.25);border-radius:10px;padding:6px;margin-bottom:4px;box-shadow:0 5px 14px rgba(0,0,0,.3);flex:0 0 auto}' +
+      '#profile-card .p-row{display:flex;align-items:center;gap:6px}#profile-card .p-av{width:30px;height:30px;border-radius:9px;background:#111827;border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:20px}' +
+      '#profile-card .p-name{font-weight:900;color:#fff;font-size:11px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#profile-card .p-sub{font-size:8px;color:#94a3b8;margin-top:1px}' +
+      '#profile-card .p-xp{height:5px;border-radius:999px;background:#111827;overflow:hidden;margin-top:5px;border:1px solid rgba(255,255,255,.08)}#profile-card .p-xp>div{height:100%;background:linear-gradient(90deg,#38bdf8,#a78bfa);width:0%}' +
+      '#profile-card .p-btn{margin-top:5px;width:100%;height:20px;border-radius:7px;border:1px solid rgba(56,189,248,.45);background:rgba(14,165,233,.14);color:#bae6fd;font-size:9px;font-weight:900}' +
+      '#prof-modal{position:fixed;inset:0;z-index:140;background:rgba(2,6,23,.86);display:none;align-items:center;justify-content:center;padding:12px}#prof-modal.show{display:flex}' +
+      '#prof-box{width:min(420px,94vw);background:#0f172a;border:1px solid #334155;border-radius:16px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.75)}#prof-name-input{width:100%;background:#020617;border:1px solid #334155;border-radius:10px;color:#fff;padding:10px;font-weight:800;outline:none}' +
+      '#prof-avatars{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:12px 0}#prof-avatars button{height:42px;border-radius:10px;background:#020617;border:1px solid #334155;font-size:24px}#prof-avatars button.sel{border-color:#38bdf8;box-shadow:0 0 14px rgba(56,189,248,.4);background:#0c4a6e}' +
+      '.prof-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.prof-actions button{border-radius:10px;padding:10px;font-weight:900}.prof-save{background:#2563eb;color:#fff;border:1px solid #60a5fa}.prof-close{background:#1e293b;color:#cbd5e1;border:1px solid #475569}.prof-reset{grid-column:1/3;background:#7f1d1d;color:#fecaca;border:1px solid #fca5a5}';
     document.head.appendChild(st);
   }
 
@@ -158,7 +233,7 @@ const ALL_PATCH_SCRIPT = `
     if (!card && side && startBtn) {
       card = document.createElement('div');
       card.id = 'profile-card';
-      card.innerHTML = '<div class="p-row"><div class="p-av" id="prof-av">🐱</div><div style="min-width:0;flex:1"><div class="p-name" id="prof-name">Tân Thủ</div><div class="p-sub"><span id="prof-lv">Lv.1</span> · <span id="prof-xptxt">0/0 EXP</span></div></div></div><div class="p-xp"><div id="prof-xpbar"></div></div><button class="p-btn" id="b-profile">👤 Hồ sơ nhân vật</button>';
+      card.innerHTML = '<div class="p-row"><div class="p-av" id="prof-av">🐱</div><div style="min-width:0;flex:1"><div class="p-name" id="prof-name">Tân Thủ</div><div class="p-sub"><span id="prof-lv">Lv.1</span> · <span id="prof-xptxt">0/0 EXP</span></div></div></div><div class="p-xp"><div id="prof-xpbar"></div></div><button class="p-btn" id="b-profile">👤 Hồ sơ</button>';
       side.insertBefore(card, startBtn);
       card.querySelector('#b-profile').onclick = openProfileModal;
       card.querySelector('#prof-av').onclick = openProfileModal;
@@ -167,10 +242,11 @@ const ALL_PATCH_SCRIPT = `
     if (!modal) {
       modal = document.createElement('div');
       modal.id = 'prof-modal';
-      modal.innerHTML = '<div id="prof-box"><h2 class="title title--grad" style="font-size:24px;text-align:center;margin-bottom:8px">Hồ sơ nhân vật</h2><p class="muted" style="text-align:center;font-size:11px;margin-bottom:12px">Tên và avatar được lưu trên máy này.</p><input id="prof-name-input" maxlength="18" placeholder="Tên nhân vật"><div id="prof-avatars"></div><div class="prof-actions"><button class="prof-close" id="prof-cancel">Đóng</button><button class="prof-save" id="prof-save">Lưu hồ sơ</button></div></div>';
+      modal.innerHTML = '<div id="prof-box"><h2 class="title title--grad" style="font-size:24px;text-align:center;margin-bottom:8px">Hồ sơ nhân vật</h2><p class="muted" style="text-align:center;font-size:11px;margin-bottom:12px">Tạo hồ sơ mới sẽ reset tiến trình để chơi lại từ đầu.</p><input id="prof-name-input" maxlength="18" placeholder="Tên nhân vật"><div id="prof-avatars"></div><div class="prof-actions"><button class="prof-close" id="prof-cancel">Đóng</button><button class="prof-save" id="prof-save">Lưu</button><button class="prof-reset" id="prof-reset">Tạo hồ sơ mới / Chơi lại từ đầu</button></div></div>';
       document.body.appendChild(modal);
       modal.querySelector('#prof-cancel').onclick = function(){ modal.classList.remove('show'); };
       modal.querySelector('#prof-save').onclick = saveProfileModal;
+      modal.querySelector('#prof-reset').onclick = resetFromProfileModal;
       const grid = modal.querySelector('#prof-avatars');
       AVATARS.forEach(function(a){ const b = document.createElement('button'); b.textContent = a; b.onclick = function(){ selectedAvatar = a; renderAvatarChoices(); }; grid.appendChild(b); });
     }
@@ -180,6 +256,15 @@ const ALL_PATCH_SCRIPT = `
     const grid = document.getElementById('prof-avatars');
     if (!grid) return;
     Array.from(grid.children).forEach(function(b){ b.classList.toggle('sel', b.textContent === selectedAvatar); });
+  }
+
+  function readModalProfile() {
+    const cur = ensureProfile();
+    const input = document.getElementById('prof-name-input');
+    return {
+      name: String((input && input.value) || cur.name || 'Tân Thủ').trim().slice(0, 18) || 'Tân Thủ',
+      avatar: AVATARS.includes(selectedAvatar) ? selectedAvatar : cur.avatar
+    };
   }
 
   function openProfileModal() {
@@ -195,15 +280,24 @@ const ALL_PATCH_SCRIPT = `
 
   function saveProfileModal() {
     const p = ensureProfile();
-    const input = document.getElementById('prof-name-input');
-    p.name = String((input && input.value) || p.name || 'Tân Thủ').trim().slice(0, 18) || 'Tân Thủ';
-    p.avatar = AVATARS.includes(selectedAvatar) ? selectedAvatar : p.avatar;
+    const next = readModalProfile();
+    p.name = next.name;
+    p.avatar = next.avatar;
+    p.configured = true;
     Storage.data.profile = p;
     directSync();
     renderProfileCard();
     const modal = document.getElementById('prof-modal');
     if (modal) modal.classList.remove('show');
     try { UI.showMessage('ĐÃ LƯU HỒ SƠ'); Sound.play('upgrade'); } catch (_) {}
+  }
+
+  function resetFromProfileModal() {
+    const next = readModalProfile();
+    resetProgressWithProfile(next);
+    const modal = document.getElementById('prof-modal');
+    if (modal) modal.classList.remove('show');
+    try { UI.showMessage('ĐÃ TẠO HỒ SƠ MỚI'); Sound.play('upgrade'); } catch (_) {}
   }
 
   function renderProfileCard() {
@@ -227,7 +321,7 @@ const ALL_PATCH_SCRIPT = `
   const _draw = Engine.draw && Engine.draw.bind(Engine);
   if (_draw) Engine.draw = function() { refreshUpgradeButton(); return _draw(); };
 
-  window.KNTTProfile = { ensure: ensureProfile, open: openProfileModal, render: renderProfileCard, xpNeed: xpNeed };
+  window.KNTTProfile = { ensure: ensureProfile, open: openProfileModal, render: renderProfileCard, xpNeed: xpNeed, reset: resetProgressWithProfile };
   setTimeout(function(){ ensureProfile(); syncStateFromProfile(); renderProfileCard(); }, 0);
 })();
 `;
@@ -276,7 +370,7 @@ function patchIndexText(text) {
       "UI.showMessage(WAVE_THEMES[_th].hint, _th === 'boss'); Sound.play('wave'); this.buildWave();"
     );
 
-  if (!out.includes('__KNTT_PATCH_V391__')) out = out.replace('// ============ BOOT ============', `${ALL_PATCH_SCRIPT}\n// ============ BOOT ============`);
+  if (!out.includes('__KNTT_PATCH_V392__')) out = out.replace('// ============ BOOT ============', `${ALL_PATCH_SCRIPT}\n// ============ BOOT ============`);
   return out;
 }
 
