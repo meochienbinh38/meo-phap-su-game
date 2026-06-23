@@ -1,1 +1,1 @@
-{ "version": "3.12.0", "build": "2026-06-23", "notes": "Batch hoàn thiện 1: thêm v312-polish.js, chống ghi đè version từ runtime và sửa logic bán quân theo tổng vàng đã đầu tư." }
+{ "version": "3.12.1", "build": "2026-06-23", "notes": "Sửa nút Nâng cấp trong modal tướng: đủ vàng thì tự sáng ngay khi vàng thay đổi, không cần ấn lại tướng." }
