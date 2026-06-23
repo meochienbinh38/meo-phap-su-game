@@ -7,7 +7,7 @@
   if (window.__KNTT_V312_POLISH__) return;
   window.__KNTT_V312_POLISH__ = true;
 
-  const FALLBACK_VERSION = '3.12.1';
+  const FALLBACK_VERSION = '3.12.2';
   const VERSION_URL = './version.json';
 
   function q(id) { return document.getElementById(id); }
@@ -113,10 +113,34 @@
     try { return typeof upgradeCost === 'function' ? upgradeCost(unit) : 0; } catch (_) { return 0; }
   }
 
+  function isUnitModalOpen() {
+    const modal = q('umod');
+    return !!modal && !modal.classList.contains('hidden');
+  }
+
+  function applyUpgradeButtonVisual(btn, canUpgrade) {
+    if (!btn) return;
+    btn.className = canUpgrade
+      ? 'flex-1 rounded py-1 flex flex-col items-center border shadow-sm'
+      : 'flex-1 rounded py-1 flex flex-col items-center cursor-not-allowed';
+    btn.style.display = 'flex';
+    btn.style.opacity = canUpgrade ? '1' : '0.45';
+    btn.style.filter = canUpgrade ? 'brightness(1.18)' : 'brightness(0.72)';
+    btn.style.pointerEvents = 'auto';
+    btn.style.borderColor = canUpgrade ? '#60a5fa' : '#475569';
+    btn.style.background = canUpgrade
+      ? 'linear-gradient(#38bdf8, #1d4ed8)'
+      : '#334155';
+    btn.style.boxShadow = canUpgrade
+      ? '0 0 16px rgba(56,189,248,.45), inset 0 1px 0 rgba(255,255,255,.18)'
+      : 'none';
+    btn.dataset.canUpgrade = canUpgrade ? '1' : '0';
+  }
+
   function refreshUnitModalAffordance() {
     try {
       const unit = selectedUnit();
-      if (!unit) return;
+      if (!unit || !isUnitModalOpen()) return;
 
       const up = q('b-up');
       const sell = q('um-s');
@@ -135,14 +159,15 @@
       }
 
       const cost = upgradeCostOf(unit);
-      up.style.display = 'flex';
       if (costLabel) costLabel.innerText = '🪙 ' + cost + (unit.level === 3 ? ' · Hoá Thần' : '');
-
-      const canUpgrade = gold >= cost;
-      up.className = canUpgrade
-        ? 'flex-1 bg-gradient-to-b from-blue-500 to-blue-700 hover:from-blue-400 rounded py-1 flex flex-col items-center border border-blue-400 shadow-sm'
-        : 'flex-1 bg-slate-700 rounded py-1 flex flex-col items-center opacity-50 cursor-not-allowed';
+      applyUpgradeButtonVisual(up, gold >= cost);
     } catch (_) {}
+  }
+
+  function startModalWatcher() {
+    if (window.__KNTT_UPGRADE_MODAL_WATCHER__) return;
+    window.__KNTT_UPGRADE_MODAL_WATCHER__ = true;
+    setInterval(refreshUnitModalAffordance, 200);
   }
 
   function patchControlStart() {
@@ -155,6 +180,7 @@
       C.start = function (...args) {
         const result = originalStart(...args);
         wrapUnitsPush();
+        startModalWatcher();
         return result;
       };
     } catch (_) {}
@@ -168,8 +194,9 @@
       UI.openUnitModal = function (unit, x, y) {
         ensureUnitInvestment(unit);
         const result = originalOpen(unit, x, y);
-        refreshUnitModalAffordance();
         patchModalButtons();
+        refreshUnitModalAffordance();
+        startModalWatcher();
         return result;
       };
     } catch (_) {}
@@ -256,6 +283,7 @@
     patchUiUpdateDisplay();
     patchModalButtons();
     patchUpdateButtonCheck();
+    startModalWatcher();
     refreshUnitModalAffordance();
   }
 
