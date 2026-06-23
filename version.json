@@ -1,1 +1,1 @@
-{ "version": "3.12.8", "build": "2026-06-23", "notes": "Sửa lỗi Cửa Hàng Tướng và Nội Tại bị màn hình chính lấp: modal được đưa lên lớp cao hơn và hiển thị đúng trên mobile/PWA." }
+{ "version": "3.12.9", "build": "2026-06-23", "notes": "Thêm bảng thông báo thưởng cuối trận: thắng màn sẽ hiện bảng thưởng trước, bấm Thoát về menu mới quay ra menu chính." }
