@@ -1,1 +1,1 @@
-{ "version": "3.12.2", "build": "2026-06-23", "notes": "Sửa nút Nâng cấp tự sáng khi đủ vàng." }
+{ "version": "3.12.3", "build": "2026-06-23", "notes": "Sửa trực tiếp nút Nâng cấp bằng script inline trong HTML do service worker trả về." }
