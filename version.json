@@ -1,1 +1,1 @@
-{ "version": "3.10.0", "build": "2026-06-23", "notes": "Thiết kế lại nền tảng UI: chuẩn hóa modal Nội tại/Cửa hàng theo header cố định, tab cố định, content cuộn; thu gọn hồ sơ và màn chọn màn; giữ tốc độ 0.9x; giữ cơ chế cấp/EXP/kim cương và reset hồ sơ." }
+{ "version": "3.10.1", "build": "2026-06-23", "notes": "Sửa màn hình chính fit một màn hình: bỏ cuộn toàn trang ở menu, thu gọn header/logo, cố định nút Xuất Quân/Cửa hàng/Nội tại; chỉ danh sách màn được cuộn riêng." }
