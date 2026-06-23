@@ -1,6 +1,6 @@
 /* Service Worker - Kỷ Nguyên Thủ Thành PWA */
-const CACHE = 'kntt-v311-elements-step2';
-const SERVED_GAME_VERSION = '3.11.1';
+const CACHE = 'kntt-v311-elements-step3';
+const SERVED_GAME_VERSION = '3.11.2';
 
 const CORE = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-maskable.png'];
 const EXTRA = [
@@ -9,11 +9,11 @@ const EXTRA = [
 ];
 
 const V311_ELEMENT_PATCH = `
-/* kntt-v311-step2: five-element upgrade + real combat effects */
+/* kntt-v311-step3: elemental combat effects + first god skills */
 (function(){
-  if (window.__KNTT_V311_ELEMENTS_STEP2__) return;
+  if (window.__KNTT_V311_ELEMENTS_STEP3__) return;
   if (typeof Storage === 'undefined' || typeof State === 'undefined' || typeof UI === 'undefined' || typeof UNITS_DB === 'undefined' || typeof UNIT_SKILLS === 'undefined') return;
-  window.__KNTT_V311_ELEMENTS_STEP2__ = true;
+  window.__KNTT_V311_ELEMENTS_STEP3__ = true;
 
   const ELEMENT_COST = [30, 80, 180, 320, 500];
   const ELEMENTS = {
@@ -56,13 +56,13 @@ const V311_ELEMENT_PATCH = `
   window.KNTT_critDmg = function(unit){ const type = unit && unit.typeId; return 2 + elPower(type, 'metal') * 0.08; };
   window.KNTT_splashMul = function(proj){ const type = proj && proj.typeId; return type === 'gunner' ? 1 + elPower(type, 'fire') * 0.12 : 1; };
 
-  if (UNITS_DB.archer) UNITS_DB.archer.lv3Desc = 'Xuyên Tâm: đạn xuyên, bóc khiên; hợp hệ Kim để crit/xuyên giáp.';
-  if (UNITS_DB.gunner) UNITS_DB.gunner.lv3Desc = 'Đạn Nổ Chùm: nổ diện rộng; hợp hệ Hỏa để tăng vùng nổ/cháy lan.';
-  if (UNITS_DB.poison) UNITS_DB.poison.lv3Desc = 'Dịch Độc: độc vùng, trị né; hợp hệ Mộc để độc lan/ăn mòn.';
-  if (UNITS_DB.mage) UNITS_DB.mage.lv3Desc = 'Sét Chẻ: sét nảy chuỗi; hợp hệ Kim để crit và phán quyết giáp/boss.';
-  if (UNITS_DB.ice) UNITS_DB.ice.lv3Desc = 'Đóng Băng: nổ băng, slow sâu; hợp hệ Thủy để khống chế.';
-  if (UNITS_DB.druid) UNITS_DB.druid.lv3Desc = 'Rễ Thiêng: trói đất, khắc golem; hợp hệ Mộc.';
-  if (UNITS_DB.wind) UNITS_DB.wind.lv3Desc = 'Cuồng Phong: xuyên hàng, đẩy lùi; hợp hệ Thủy.';
+  if (UNITS_DB.archer) UNITS_DB.archer.lv3Desc = 'Thần Tiễn: xuyên hàng, crit, bóc khiên; hệ Kim mở xuyên giáp/kết liễu.';
+  if (UNITS_DB.gunner) UNITS_DB.gunner.lv3Desc = 'Thiên Pháo: nổ diện rộng, cháy lan; hệ Hỏa tăng nổ phụ.';
+  if (UNITS_DB.poison) UNITS_DB.poison.lv3Desc = 'Dịch Thần: độc vùng, ăn mòn, lan dịch; hệ Mộc là mạnh nhất.';
+  if (UNITS_DB.mage) UNITS_DB.mage.lv3Desc = 'Thiên Lôi: sét chuỗi, phán quyết giáp/boss; hệ Kim tăng crit/phá giáp.';
+  if (UNITS_DB.ice) UNITS_DB.ice.lv3Desc = 'Cực Hàn: nổ băng, slow sâu, đông cứng ngắn; hệ Thủy khống chế mạnh.';
+  if (UNITS_DB.druid) UNITS_DB.druid.lv3Desc = 'Thần Lâm: rễ trói đất, khắc golem; hệ Mộc tăng độc thiên nhiên.';
+  if (UNITS_DB.wind) UNITS_DB.wind.lv3Desc = 'Thiên Phong: xuyên hàng, đẩy/gom quái, lộ hồn ma; hệ Thủy tăng kiểm soát.';
 
   const _unitSkillBonus = window.unitSkillBonus || unitSkillBonus;
   window.unitSkillBonus = function(type){
@@ -76,23 +76,68 @@ const V311_ELEMENT_PATCH = `
     return b;
   };
 
-  function markText(e, txt, col){ try { if (Math.random() < 0.18) Engine.spawnText(e.x, e.y - 34, txt, col, false); } catch(_) {} }
-  function addDot(e, key, dur, dps, color){ if (!e || e.hp <= 0) return; e[key] = Math.max(e[key] || 0, dur); e[key + 'Dps'] = Math.max(e[key + 'Dps'] || 0, dps); try { if (Math.random() < 0.18) Engine.spawnParticles(e.x, e.y, color, 4, 28, 2); } catch(_) {} }
+  const godPulse = {};
+  function bump(type, key, mod){ const k = type + ':' + key; godPulse[k] = (godPulse[k] || 0) + 1; return godPulse[k] % mod === 0; }
+  function markText(e, txt, col){ try { if (Math.random() < 0.22) Engine.spawnText(e.x, e.y - 34, txt, col, false); } catch(_) {} }
+  function addDot(e, key, dur, dps, color){ if (!e || e.hp <= 0) return; e[key] = Math.max(e[key] || 0, dur); e[key + 'Dps'] = Math.max(e[key + 'Dps'] || 0, dps); try { if (Math.random() < 0.22) Engine.spawnParticles(e.x, e.y, color, 4, 28, 2); } catch(_) {} }
+  function near(e, rd, fn){ try { (State.enemies || []).forEach(function(en){ if (en && en.hp > 0 && getDist(e.x, e.y, en.x, en.y) <= rd) fn(en); }); } catch(_) {} }
+  function bonusDmg(e, amt, dtype, label, col){ if (!e || e.hp <= 0) return; e.takeDmg(amt, dtype || 'magic', false); try { Engine.spawnText(e.x, e.y - 22, Math.floor(amt), col || '#fff', true); if (label) markText(e, label, col || '#fff'); } catch(_) {} }
+
+  function godSkillHit(type, e, dmg, kind, p){
+    if (!hasGod(type) || !e || e.hp <= 0) return;
+    const gs = State.grid && State.grid.size ? State.grid.size : 64;
+    if (type === 'gunner' && (kind === 'expl' || kind === 'proj') && bump(type, 'divine-cannon', 3)) {
+      const rd = gs * (1.05 + p.fire * 0.12);
+      try { Engine.spawnText(e.x, e.y - 50, 'THIÊN PHÁO', '#fb923c', true); Engine.spawnParticles(e.x, e.y, '#fb923c', 30, 130, 5); State.shake += 8; Sound.play('boom'); } catch(_) {}
+      near(e, rd, function(en){ if (en !== e) bonusDmg(en, dmg * (0.28 + p.fire * 0.035), 'phys', null, '#fb923c'); addDot(en, '_knttBurn', 3.0, dmg * (0.025 + p.fire * 0.008), '#fb923c'); });
+    }
+    if (type === 'archer' && (kind === 'proj' || kind === 'melee') && bump(type, 'god-arrow', 4)) {
+      if (e.shield > 0) e.shield = 0;
+      bonusDmg(e, dmg * (0.38 + p.metal * 0.045), 'phys', 'THẦN TIỄN', '#facc15');
+      if (e.maxHp && e.hp > 0 && e.hp / e.maxHp < Math.min(0.18, 0.08 + p.metal * 0.012)) { e.hp = 0; markText(e, 'KẾT LIỄU', '#facc15'); }
+    }
+    if (type === 'mage' && (kind === 'magic' || kind === 'chain') && bump(type, 'judgement', 3)) {
+      e._knttVuln = Math.max(e._knttVuln || 0, 3.2);
+      e._knttVulnAmt = Math.max(e._knttVulnAmt || 0, 0.10 + p.metal * 0.025);
+      bonusDmg(e, dmg * (0.24 + p.metal * 0.035), 'magic', 'PHÁN QUYẾT', '#facc15');
+    }
+    if (type === 'ice' && (kind === 'lob' || kind === 'proj') && bump(type, 'frost-field', 2)) {
+      try { Engine.spawnText(e.x, e.y - 46, 'CỰC HÀN', '#38bdf8', true); Engine.spawnParticles(e.x, e.y, '#e0f2fe', 24, 90, 4); } catch(_) {}
+      near(e, gs * (1.0 + p.water * 0.10), function(en){ en.slowTimer = Math.max(en.slowTimer || 0, 2.2 + p.water * 0.22); en.slowAmt = Math.max(en.slowAmt || 0, Math.min(0.9, 0.38 + p.water * 0.045)); if (Math.random() < Math.min(0.22, 0.06 + p.water * 0.02)) { en.slowTimer = Math.max(en.slowTimer || 0, 3.2); markText(en, 'ĐÓNG BĂNG', '#38bdf8'); } });
+    }
+    if (type === 'poison' && bump(type, 'plague-spread', 4)) {
+      try { Engine.spawnText(e.x, e.y - 46, 'DỊCH THẦN', '#22c55e', true); } catch(_) {}
+      near(e, gs * (0.9 + p.wood * 0.08), function(en){ addDot(en, '_knttPoison', 4.0, dmg * (0.03 + p.wood * 0.008), '#22c55e'); });
+    }
+    if (type === 'druid' && bump(type, 'root-grove', 3)) {
+      try { Engine.spawnText(e.x, e.y - 46, 'RỄ THẦN', '#22c55e', true); } catch(_) {}
+      near(e, gs * (1.0 + p.wood * 0.08), function(en){ en.slowTimer = Math.max(en.slowTimer || 0, 2.4); en.slowAmt = Math.max(en.slowAmt || 0, 0.65); addDot(en, '_knttPoison', 3.0, dmg * (0.018 + p.wood * 0.006), '#22c55e'); });
+    }
+    if (type === 'wind' && bump(type, 'divine-wind', 3)) {
+      try { Engine.spawnText(e.x, e.y - 46, 'THIÊN PHONG', '#38bdf8', true); } catch(_) {}
+      near(e, gs * (1.05 + p.water * 0.08), function(en){ en.kb = Math.max(en.kb || 0, 34 + p.water * 4); en.slowTimer = Math.max(en.slowTimer || 0, 2.0); en.slowAmt = Math.max(en.slowAmt || 0, 0.42 + p.water * 0.035); });
+    }
+    if (type === 'knight' && bump(type, 'divine-shield-hit', 5)) {
+      e.slowTimer = Math.max(e.slowTimer || 0, 1.2); e.slowAmt = Math.max(e.slowAmt || 0, 0.35); bonusDmg(e, dmg * (0.22 + p.earth * 0.025), 'phys', 'THẦN THUẪN', '#d4d4d4');
+    }
+  }
+
   window.KNTT_onTypeHit = function(type, e, dmg, kind){
     if (!type || !e || e.hp <= 0) return;
-    const metal = elPower(type, 'metal'), wood = elPower(type, 'wood'), water = elPower(type, 'water'), fire = elPower(type, 'fire');
-    if (metal > 0) {
-      if (e.shield > 0 && (type === 'archer' || type === 'mage' || metal >= 2) && Math.random() < Math.min(0.55, 0.12 + metal * 0.06)) { e.shield = Math.max(0, e.shield - 1); markText(e, 'BÓC KHIÊN', '#facc15'); }
-      if ((type === 'mage' || type === 'archer') && Math.random() < Math.min(0.35, metal * 0.045)) { e._knttVuln = Math.max(e._knttVuln || 0, 2.4); e._knttVulnAmt = Math.max(e._knttVulnAmt || 0, 0.06 + metal * 0.025); markText(e, 'PHÁ GIÁP', '#facc15'); }
+    const p = { metal:elPower(type,'metal'), wood:elPower(type,'wood'), water:elPower(type,'water'), fire:elPower(type,'fire'), earth:elPower(type,'earth') };
+    if (p.metal > 0) {
+      if (e.shield > 0 && (type === 'archer' || type === 'mage' || p.metal >= 2) && Math.random() < Math.min(0.55, 0.12 + p.metal * 0.06)) { e.shield = Math.max(0, e.shield - 1); markText(e, 'BÓC KHIÊN', '#facc15'); }
+      if ((type === 'mage' || type === 'archer') && Math.random() < Math.min(0.35, p.metal * 0.045)) { e._knttVuln = Math.max(e._knttVuln || 0, 2.4); e._knttVulnAmt = Math.max(e._knttVulnAmt || 0, 0.06 + p.metal * 0.025); markText(e, 'PHÁ GIÁP', '#facc15'); }
     }
-    if (fire > 0) { const m = type === 'gunner' ? 1.7 : 1; addDot(e, '_knttBurn', 2.2 + fire * 0.18, dmg * (0.018 + fire * 0.006) * m, '#fb923c'); if (type === 'gunner') markText(e, 'CHÁY', '#fb923c'); }
-    if (wood > 0) { const m = (type === 'poison' || type === 'druid') ? 1.8 : 1; addDot(e, '_knttPoison', 3.2 + wood * 0.2, dmg * (0.014 + wood * 0.006) * m, '#22c55e'); if (type === 'poison' || type === 'druid') markText(e, 'ĐỘC', '#22c55e'); }
-    if (water > 0) { const m = (type === 'ice' || type === 'wind') ? 1.45 : 1; e.slowTimer = Math.max(e.slowTimer || 0, 1.1 + water * 0.18); e.slowAmt = Math.max(e.slowAmt || 0, Math.min(0.82, (0.07 + water * 0.035) * m)); if (type === 'ice' || type === 'wind') markText(e, 'LÀM CHẬM', '#38bdf8'); }
+    if (p.fire > 0) { const m = type === 'gunner' ? 1.7 : 1; addDot(e, '_knttBurn', 2.2 + p.fire * 0.18, dmg * (0.018 + p.fire * 0.006) * m, '#fb923c'); if (type === 'gunner') markText(e, 'CHÁY', '#fb923c'); }
+    if (p.wood > 0) { const m = (type === 'poison' || type === 'druid') ? 1.8 : 1; addDot(e, '_knttPoison', 3.2 + p.wood * 0.2, dmg * (0.014 + p.wood * 0.006) * m, '#22c55e'); if (type === 'poison' || type === 'druid') markText(e, 'ĐỘC', '#22c55e'); }
+    if (p.water > 0) { const m = (type === 'ice' || type === 'wind') ? 1.45 : 1; e.slowTimer = Math.max(e.slowTimer || 0, 1.1 + p.water * 0.18); e.slowAmt = Math.max(e.slowAmt || 0, Math.min(0.82, (0.07 + p.water * 0.035) * m)); if (type === 'ice' || type === 'wind') markText(e, 'LÀM CHẬM', '#38bdf8'); }
+    godSkillHit(type, e, dmg, kind, p);
   };
   window.KNTT_onUnitHit = function(u, e, dmg, kind){ window.KNTT_onTypeHit(u && u.typeId, e, dmg, kind); };
 
-  if (typeof Enemy !== 'undefined' && Enemy.prototype && !Enemy.prototype.__knttElemStep2) {
-    Enemy.prototype.__knttElemStep2 = true;
+  if (typeof Enemy !== 'undefined' && Enemy.prototype && !Enemy.prototype.__knttElemStep3) {
+    Enemy.prototype.__knttElemStep3 = true;
     const _take = Enemy.prototype.takeDmg;
     Enemy.prototype.takeDmg = function(amt, dtype, proj){ if (this._knttVuln > 0) amt *= (1 + Math.min(0.35, this._knttVulnAmt || 0)); return _take.call(this, amt, dtype, proj); };
     const _upd = Enemy.prototype.update;
@@ -103,8 +148,8 @@ const V311_ELEMENT_PATCH = `
       return _upd.call(this, dt);
     };
   }
-  if (typeof Unit !== 'undefined' && Unit.prototype && !Unit.prototype.__knttElemStep2) {
-    Unit.prototype.__knttElemStep2 = true;
+  if (typeof Unit !== 'undefined' && Unit.prototype && !Unit.prototype.__knttElemStep3) {
+    Unit.prototype.__knttElemStep3 = true;
     const _utake = Unit.prototype.takeDamage;
     Unit.prototype.takeDamage = function(amt){
       const earth = elPower(this.typeId, 'earth');
@@ -133,7 +178,7 @@ const V311_ELEMENT_PATCH = `
     const box = document.createElement('div'); box.id = 'elmod';
     box.style.cssText = 'position:fixed;inset:0;z-index:160;background:rgba(2,6,23,.88);display:flex;align-items:center;justify-content:center;padding:10px;backdrop-filter:blur(5px)';
     const shell = document.createElement('div'); shell.style.cssText='width:min(880px,94vw);height:min(430px,88vh);background:#0f172a;border:1px solid #334155;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.75);display:flex;flex-direction:column;overflow:hidden';
-    shell.innerHTML = '<div style="height:44px;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid #334155;gap:8px"><b style="font-family:Oswald,sans-serif;letter-spacing:.12em;color:#fff">☯️ LUYỆN HỆ NGŨ HÀNH</b><span style="margin-left:auto;color:#facc15;font-weight:900">💎 '+(Storage.data.gems||0)+'</span><button id="el-x" style="width:34px;height:30px;border-radius:9px;background:#1e293b;color:#cbd5e1;border:1px solid #475569;font-weight:900">×</button></div><div id="el-list" style="overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px"></div><div style="height:26px;font-size:10px;color:#94a3b8;text-align:center;border-top:1px solid #334155;padding-top:5px">Bước 2: hệ đã có hiệu ứng thật trong chiến đấu — cháy, độc, slow, bóc khiên, phá giáp, thổ khiên.</div>';
+    shell.innerHTML = '<div style="height:44px;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid #334155;gap:8px"><b style="font-family:Oswald,sans-serif;letter-spacing:.12em;color:#fff">☯️ LUYỆN HỆ NGŨ HÀNH</b><span style="margin-left:auto;color:#facc15;font-weight:900">💎 '+(Storage.data.gems||0)+'</span><button id="el-x" style="width:34px;height:30px;border-radius:9px;background:#1e293b;color:#cbd5e1;border:1px solid #475569;font-weight:900">×</button></div><div id="el-list" style="overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px"></div><div style="height:26px;font-size:10px;color:#94a3b8;text-align:center;border-top:1px solid #334155;padding-top:5px">Bước 3: Hóa Thần đã có chiêu riêng — Thiên Pháo, Thần Tiễn, Thiên Lôi, Cực Hàn, Dịch Thần, Rễ Thần, Thiên Phong.</div>';
     box.appendChild(shell); document.body.appendChild(box); document.getElementById('el-x').onclick=function(){ box.remove(); };
     const list = document.getElementById('el-list');
     Object.keys(UNITS_DB).forEach(function(type){
@@ -170,7 +215,7 @@ function patchIndexText(text) {
     .replace("e.takeDmg(this.d, this.db.dtype || 'phys', true);   // đạn thường -> có thể bị NÉ", "e.takeDmg(this.d, this.db.dtype || 'phys', true); if(window.KNTT_onTypeHit) window.KNTT_onTypeHit(this.typeId,e,this.d,'proj');   // đạn thường -> có thể bị NÉ")
     .replace("let rd = State.grid.size * 1.5 * (1 + unitSkillBonus('gunner').splash) * (this.lv >= 4 ? 1.2 : 1);", "let rd = State.grid.size * 1.5 * (1 + unitSkillBonus('gunner').splash) * (this.lv >= 4 ? 1.2 : 1) * (window.KNTT_splashMul ? window.KNTT_splashMul(this) : 1);")
     .replace("UI.showMessage(WAVE_THEMES[waveTheme(State.wave)].hint, waveTheme(State.wave) === 'boss'); Sound.play('wave'); this.buildWave();", "let _th = waveTheme(State.wave); UI.showMessage(WAVE_THEMES[_th].hint, _th === 'boss'); Sound.play('wave'); this.buildWave();");
-  if (!out.includes('__KNTT_V311_ELEMENTS_STEP2__')) out = out.replace('// ============ BOOT ============', `${V311_ELEMENT_PATCH}\n// ============ BOOT ============`);
+  if (!out.includes('__KNTT_V311_ELEMENTS_STEP3__')) out = out.replace('// ============ BOOT ============', `${V311_ELEMENT_PATCH}\n// ============ BOOT ============`);
   return out;
 }
 
