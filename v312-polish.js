@@ -102,12 +102,36 @@
     return !!modal && !modal.classList.contains('hidden');
   }
 
+  function selectedUnit() {
+    try { return State && State.ui ? State.ui.selUnit : null; } catch (_) { return null; }
+  }
+
+  function currentGold() {
+    try {
+      const g = Number(State && State.gold);
+      if (Number.isFinite(g)) return g;
+    } catch (_) {}
+    const goldEl = q('ui-g');
+    return goldEl ? num(goldEl.innerText || goldEl.textContent, 0) : 0;
+  }
+
+  function currentUpgradeCost(unit) {
+    try {
+      if (unit && typeof upgradeCost === 'function') {
+        const c = Number(upgradeCost(unit));
+        if (Number.isFinite(c) && c > 0) return c;
+      }
+    } catch (_) {}
+    const costEl = q('um-c');
+    return costEl ? num(costEl.innerText || costEl.textContent, NaN) : NaN;
+  }
+
   function setUpgradeVisual(canUpgrade) {
     const btn = q('b-up');
     if (!btn || !modalOpen()) return;
 
     btn.style.display = 'flex';
-    btn.style.pointerEvents = 'auto';
+    btn.style.pointerEvents = canUpgrade ? 'auto' : 'auto';
     btn.style.opacity = canUpgrade ? '1' : '0.45';
     btn.style.filter = canUpgrade ? 'brightness(1.25)' : 'brightness(0.72)';
     btn.style.background = canUpgrade ? 'linear-gradient(#38bdf8,#1d4ed8)' : '#334155';
@@ -123,12 +147,11 @@
   function refreshUpgradeButtonByDom() {
     try {
       const btn = q('b-up');
-      const goldEl = q('ui-g');
-      const costEl = q('um-c');
-      if (!btn || !goldEl || !costEl || !modalOpen()) return;
+      if (!btn || !modalOpen()) return;
 
-      const cost = num(costEl.innerText || costEl.textContent, NaN);
-      const gold = num(goldEl.innerText || goldEl.textContent, 0);
+      const unit = selectedUnit();
+      const cost = currentUpgradeCost(unit);
+      const gold = currentGold();
       if (!Number.isFinite(cost) || cost <= 0) return;
 
       setUpgradeVisual(gold >= cost);
@@ -137,7 +160,7 @@
 
   function refreshSellLabel() {
     try {
-      const unit = State && State.ui ? State.ui.selUnit : null;
+      const unit = selectedUnit();
       const sell = q('um-s');
       if (unit && sell) sell.innerText = '🪙 ' + refundValue(unit);
     } catch (_) {}
@@ -150,7 +173,7 @@
         up.__knttInvestmentPatched = true;
         const oldUp = up.onclick;
         up.onclick = function (...args) {
-          const unit = State && State.ui ? State.ui.selUnit : null;
+          const unit = selectedUnit();
           const beforeLevel = unit ? unit.level : 0;
           const cost = unit && typeof upgradeCost === 'function' ? upgradeCost(unit) : 0;
           const goldBefore = State ? State.gold : 0;
@@ -168,7 +191,7 @@
         sell.__knttInvestmentPatched = true;
         sell.onclick = function () {
           if (performance.now() - ((State && State.ui && State.ui.modalAt) || 0) < 300) return;
-          const unit = State && State.ui ? State.ui.selUnit : null;
+          const unit = selectedUnit();
           if (!unit) return;
           const val = refundValue(unit);
           State.gold += val;
