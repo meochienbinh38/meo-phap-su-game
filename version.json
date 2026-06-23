@@ -1,1 +1,1 @@
-{ "version": "3.11.3", "build": "2026-06-23", "notes": "Sửa hồi quy giao diện màn hình chính sau khi thêm Ngũ Hành: khôi phục fit một màn hình, cập nhật đúng số phiên bản hiển thị, giữ hiệu ứng hệ và Hóa Thần đã thêm." }
+{ "version": "3.11.4", "build": "2026-06-23", "notes": "Ổn định cập nhật: chuyển logic Ngũ Hành/Hóa Thần sang file runtime riêng v311-runtime.js, service worker nạp module cố định và sửa số phiên bản shell để tránh báo cập nhật lặp lại." }
