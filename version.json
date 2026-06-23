@@ -1,1 +1,1 @@
-{ "version": "3.9.1", "build": "2026-06-23", "notes": "Làm lại cơ chế cày: thêm hồ sơ nhân vật với tên/avatar, cấp và EXP lưu vĩnh viễn; cấp càng cao càng cần nhiều EXP; quái màn cao cho nhiều EXP hơn; qua ải lần đầu thưởng nhiều kim cương, cày lại chỉ còn 15%." }
+{ "version": "3.9.2", "build": "2026-06-23", "notes": "Sửa lỗi giao diện hồ sơ làm lấp Cửa hàng/Nội tại; thu gọn thẻ hồ sơ; thêm nút Tạo hồ sơ mới / Chơi lại từ đầu để reset tiến trình, kim cương, cấp, nội tại và tướng đã mở." }
