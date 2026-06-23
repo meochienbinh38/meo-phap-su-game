@@ -1,1 +1,1 @@
-{ "version": "3.11.7", "build": "2026-06-23", "notes": "Sửa cơ chế cập nhật PWA trên điện thoại: ép service worker đọc version.json mới, xoá cache cũ và reload bằng URL cache-bust khi bấm Cập nhật." }
+{ "version": "3.11.8", "build": "2026-06-23", "notes": "Tăng tín hiệu cập nhật PWA và sửa nút cập nhật cưỡng bức: không chờ service worker vô hạn, xoá cache rồi reload bằng URL chống cache." }
