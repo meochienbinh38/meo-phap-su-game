@@ -1,34 +1,40 @@
 /* KNTT Version Sync
- * version.json là nguồn sự thật duy nhất cho số phiên bản hiển thị.
- * GAME_VERSION trong index.html chỉ là hằng cũ, không dùng để ghi nhãn UI nữa.
+ * version.json là nguồn sự thật cho bản mới nhất.
+ * Nếu bản đang hiển thị đã bằng bản mới nhất thì phải ẩn thanh cập nhật.
  */
 (function () {
   'use strict';
 
   const VERSION_URL = './version.json';
-  const FALLBACK_VERSION = '3.12.6';
+  const FALLBACK_VERSION = '3.12.10';
   let updateStarted = false;
 
   function qs(id) { return document.getElementById(id); }
   function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+  function clean(v) { return String(v || '').trim().replace(/^v/i, ''); }
+  function sameVersion(a, b) { return !!clean(a) && !!clean(b) && clean(a) === clean(b); }
+
+  function getVisibleVersion() {
+    const label = qs('ver-num-2') || qs('ver-num');
+    const text = label && label.innerText ? label.innerText.trim() : '';
+    return text && text !== '—' ? clean(text) : '';
+  }
 
   function getBundledAppVersion() {
     try {
-      if (typeof GAME_VERSION !== 'undefined' && GAME_VERSION) return String(GAME_VERSION);
+      if (typeof GAME_VERSION !== 'undefined' && GAME_VERSION) return clean(GAME_VERSION);
     } catch (_) {}
 
-    const active = (window.KNTT_ACTIVE_VERSION || '').trim();
+    const active = clean(window.KNTT_BUNDLED_VERSION || window.KNTT_ACTIVE_VERSION || '');
     if (active) return active;
 
-    const label = qs('ver-num') || qs('ver-num-2');
-    const text = label && label.innerText ? label.innerText.trim() : '';
-    return text && text !== '—' ? text : FALLBACK_VERSION;
+    return getVisibleVersion() || FALLBACK_VERSION;
   }
 
   function getLatestVersionFromUi() {
     const inBar = qs('upd-ver');
     const text = inBar && inBar.innerText ? inBar.innerText.trim() : '';
-    return text && text !== '?' ? text : FALLBACK_VERSION;
+    return text && text !== '?' ? clean(text) : FALLBACK_VERSION;
   }
 
   async function readVersionInfo(timeoutMs) {
@@ -60,6 +66,22 @@
   function setVisibleVersion(version) {
     setTextIfExists('ver-num', version);
     setTextIfExists('ver-num-2', version);
+  }
+
+  function resetUpdateButton() {
+    const btn = qs('b-do-update');
+    if (btn) {
+      btn.style.display = '';
+      btn.disabled = false;
+      btn.innerText = 'Cập nhật';
+    }
+  }
+
+  function hideUpdateBar() {
+    const bar = qs('updbar');
+    if (!bar) return;
+    bar.classList.remove('show');
+    resetUpdateButton();
   }
 
   function showUpdateBar(version) {
@@ -158,9 +180,10 @@
     }
 
     const info = await readVersionInfo(700);
-    const latest = info.version || getLatestVersionFromUi() || FALLBACK_VERSION;
+    const latest = clean(info.version || getLatestVersionFromUi() || FALLBACK_VERSION);
     setUpdateBarVersion(latest);
     setVisibleVersion(latest);
+    window.KNTT_ACTIVE_VERSION = latest;
 
     const watchdog = setTimeout(() => navigateToFreshApp(latest), 2200);
 
@@ -173,53 +196,52 @@
     navigateToFreshApp(latest);
   }
 
-  async function checkUpdateFromSingleSource(manual) {
-    const info = await readVersionInfo(1200);
-    const latest = info.version || FALLBACK_VERSION;
-    const bundled = window.KNTT_BUNDLED_VERSION || getBundledAppVersion();
+  function showAlreadyLatest(latest) {
+    const bar = qs('updbar');
+    if (!bar) return;
+    const span = bar.querySelector('span');
+    const btn = bar.querySelector('#b-do-update');
+    if (span) span.innerHTML = 'Bạn đang dùng bản mới nhất ✓ (v' + latest + ')';
+    if (btn) btn.style.display = 'none';
+    bar.classList.add('show');
+    setTimeout(() => {
+      hideUpdateBar();
+      if (span) span.innerHTML = '✨ Đã có bản mới (v<span id="upd-ver">' + latest + '</span>)';
+      resetUpdateButton();
+    }, 2200);
+  }
 
-    // Nhãn hiển thị luôn theo version.json, nhưng vẫn giữ bundled để biết app có cần cập nhật thật không.
+  async function checkUpdateFromSingleSource(manual) {
+    const visibleBefore = getVisibleVersion();
+    const bundled = getBundledAppVersion();
+    const info = await readVersionInfo(1200);
+    const latest = clean(info.version || FALLBACK_VERSION);
+
     setUpdateBarVersion(latest);
     setVisibleVersion(latest);
     window.KNTT_ACTIVE_VERSION = latest;
 
-    if (latest !== bundled) {
+    const needsUpdate = !sameVersion(latest, bundled) && !sameVersion(latest, visibleBefore);
+    if (needsUpdate) {
       showUpdateBar(latest);
       return;
     }
 
-    if (manual) {
-      const bar = qs('updbar');
-      if (bar) {
-        const span = bar.querySelector('span');
-        const btn = bar.querySelector('#b-do-update');
-        if (span) span.innerHTML = 'Bạn đang dùng bản mới nhất ✓ (v' + latest + ')';
-        if (btn) btn.style.display = 'none';
-        bar.classList.add('show');
-        setTimeout(() => {
-          bar.classList.remove('show');
-          if (btn) {
-            btn.style.display = '';
-            btn.disabled = false;
-            btn.innerText = 'Cập nhật';
-          }
-          if (span) span.innerHTML = '✨ Đã có bản mới (v<span id="upd-ver">' + latest + '</span>)';
-        }, 2600);
-      }
-    }
+    hideUpdateBar();
+    if (manual) showAlreadyLatest(latest);
   }
 
   async function initVersionSync() {
+    const visibleBefore = getVisibleVersion();
     const bundled = getBundledAppVersion();
     window.KNTT_BUNDLED_VERSION = bundled;
 
     const info = await readVersionInfo(1200);
-    const latest = info.version || FALLBACK_VERSION;
+    const latest = clean(info.version || FALLBACK_VERSION);
 
-    // Số phiên bản hiển thị theo version.json, nhưng nếu lệch bundled thì phải hiện thanh cập nhật.
-    window.KNTT_ACTIVE_VERSION = latest;
     setUpdateBarVersion(latest);
     setVisibleVersion(latest);
+    window.KNTT_ACTIVE_VERSION = latest;
 
     const updateBtn = qs('b-do-update');
     if (updateBtn) updateBtn.onclick = hardUpdate;
@@ -232,7 +254,9 @@
       };
     });
 
-    if (latest !== bundled) showUpdateBar(latest);
+    const needsUpdate = !sameVersion(latest, bundled) && !sameVersion(latest, visibleBefore);
+    if (needsUpdate) showUpdateBar(latest);
+    else hideUpdateBar();
 
     window.KNTT_hardUpdate = hardUpdate;
     window.KNTT_checkUpdate = checkUpdateFromSingleSource;
